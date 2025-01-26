@@ -1,0 +1,46 @@
+%export day06
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+intmap == m_map int int
+
+step :: int -> intmap -> intmap
+step day fish
+    = fish3
+      where
+        day0  = day $mod 7
+        gen   = m_findWithDefault cmpint 0 day0 fish
+        f7    = m_findWithDefault cmpint 0 7    fish
+        f8    = m_findWithDefault cmpint 0 8    fish
+        fish1 = m_insertWith cmpint (+) day0 f7 fish
+        fish2 = m_insert cmpint 7 f8 fish1
+        fish3 = m_insert cmpint 8 gen fish2
+
+run :: int -> intmap -> intmap
+run n 
+    = go 0
+      where
+        go day fish
+          = fish,                         if day == n
+          = go (day + 1) (step day fish), otherwise
+
+readInput :: string -> io intmap
+readInput fn
+    = foldl addFish m_empty <$>. readIntList <$>. readFile fn
+      where
+        readIntList = map intval . split ','
+        addFish m n = m_insertWith cmpint (+) n 1 m
+
+day06 :: io ()
+day06
+    = readInput "../inputs/day06.txt" >>=. go
+      where
+        go fish
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . sum . m_elems . run 80  $ fish
+                part2 = (++) "part 2: " . showint . sum . m_elems . run 256 $ fish

@@ -1,0 +1,27 @@
+|| day10.m
+
+
+%export day10
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+|| list monad
+
+(>>=) :: [*] -> (* -> [**]) -> [**]
+xs >>= f = concatMap f xs
+
+(>=>) :: (* -> [**]) -> (** -> [***]) -> (* -> [***])
+f >=> g = go where go x = f x >>= g
+
+
+day10 :: io ()
+day10
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        input   = "1321131112"
+        rle  ys = showint (#ys) ++ [hd ys]
+        nth  n  = length $ iterate (group cmpchar >=> rle) input ! n
+        part1   = (++) "part 1: " . showint $ nth 40
+        part2   = (++) "part 1: " . showint $ nth 50

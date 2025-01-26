@@ -1,0 +1,73 @@
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import "intcode"
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+inBeam :: program -> num -> num -> bool
+inBeam prog row col
+    = in == 1
+      where
+        (_,  t1) = (jitGetAllOutput . jitContinue . (converse jitPutInput) row . jitReset) prog
+        (in, _)  = (jitGetOutput . jitContinue . (converse jitPutInput) col) t1
+
+stepState == (num, maybe (num, num))
+
+stepEdges :: program -> stepState -> stepState
+stepEdges prog (prev, edges)
+    = (row, Nothing),       if l' > limit
+    = (row, Just (l', r')), otherwise
+      where
+        row          = prev + 1
+        limit        = row * 2 + 1
+        (l, r)       = fromMaybe (0, 0) edges
+        l'           = scanEdge leftTest l
+        r'           = (scanEdge rightTest (max2 cmpint l' r)) - 1
+        leftTest  n  = n <= limit & ~ (inBeam prog row n)
+        rightTest n  = inBeam prog row n
+        scanEdge t n = (hd . dropWhile t) [n ..]                
+
+findEdges :: program -> num -> m_map num (maybe (num, num))
+findEdges prog rows
+    = (m_fromList cmpint . take rows . iterate (stepEdges prog)) (-1, Nothing)
+
+searchRectangle :: program -> num -> maybe (num, num)
+searchRectangle prog yMax
+    = sr 0 yMax Nothing
+      where
+        sr yMin yMax best
+            = best,             if finished
+            = sr y0 yMax best,  if delta < 0
+            = sr yMin y0 best', otherwise
+              where
+                finished           = yMax - yMin <= 1
+                best'              = Just (x0, y0), if isNothing best \/ y0 < yb
+                                   = best, otherwise
+                Just (_, yb)       = best
+                y0                 = (yMin + yMax) $div 2
+                y1                 = y0 + 99
+                (_, Just (_, x1))  = stepEdges prog (y0 - 1, estEdges y0)
+                (_, Just (x0, _))  = stepEdges prog (y1 - 1, estEdges y1)
+                delta              = (x1 - x0) - 99
+                estEdges n         = Just ((n * 14) $div 10, (n * 17) $div 10)
+
+day19 :: io ()
+day19
+    = readProgram "../inputs/day19.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                pt1Lim      = 50
+                edgeMap    = findEdges prog pt1Lim
+                inBeamPt1  = (sum . map (countBeam pt1Lim) . catMaybes . m_elems) edgeMap
+                Just(x, y) = searchRectangle prog 2000
+                part1      = "part 1: " ++ showint inBeamPt1
+                part2      = "part 2: " ++ showint (x + 10000 * y)
+
+        countBeam lim (l, r)
+            = 0,                               if l >= lim
+            = min2 cmpint r (lim - 1) - l + 1, otherwise

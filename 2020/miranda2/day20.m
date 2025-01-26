@@ -1,0 +1,273 @@
+|| day20.m
+
+
+%export day20
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe> (>>=)/mb_bind
+%import <mirandaExtensions>
+%import <set>
+
+(!!!) :: edgeMap -> edge -> [tile]
+m !!! x = fromJust (m_lookup cmpedge x m)
+
+|| Assume border edges are unique between any 2 tiles, so that a match on a border is unique
+|| center : has all 4 borders in common with other tiles
+|| edge   : has 3 borders in common with other tiles
+|| corner : has 2 borders in common with other tiles
+||
+|| there are 144 tiles, so we assume that the image is a 12x12 grid
+|| so there will be
+|| 4 corner tiles
+|| 40 edge tiles
+|| 100 (10 x 10) center tiles
+
+point == (int, int)
+
+addPoint :: point -> point -> point
+addPoint (r, c) (r', c') = (r + r', c + c')
+
+field == s_set point
+
+|| an edge is a bitwise representation of the edge of a tile
+edge  == int
+
+|| an orientation keeps the original edges as read in from the tile
+|| so that we can determine the correct rotate/flip operations to line it up
+|| with another tile
+orientation ::= Orientation edge edge edge edge
+
+o_top = Lens getf overf where getf (Orientation a b c d) = a; overf fn (Orientation a b c d) = Orientation (fn a) b c d
+o_rgt = Lens getf overf where getf (Orientation a b c d) = b; overf fn (Orientation a b c d) = Orientation a (fn b) c d
+o_bot = Lens getf overf where getf (Orientation a b c d) = c; overf fn (Orientation a b c d) = Orientation a b (fn c) d
+o_lft = Lens getf overf where getf (Orientation a b c d) = d; overf fn (Orientation a b c d) = Orientation a b c (fn d)
+
+tile ::= Tile int point (point -> point) field orientation [edge]
+
+t_tid       = Lens getf overf where getf (Tile a b c d e f) = a; overf fn (Tile a b c d e f) = Tile (fn a) b c d e f
+t_offset    = Lens getf overf where getf (Tile a b c d e f) = b; overf fn (Tile a b c d e f) = Tile a (fn b) c d e f
+t_transform = Lens getf overf where getf (Tile a b c d e f) = c; overf fn (Tile a b c d e f) = Tile a b (fn c) d e f
+t_field     = Lens getf overf where getf (Tile a b c d e f) = d; overf fn (Tile a b c d e f) = Tile a b c (fn d) e f
+t_orient    = Lens getf overf where getf (Tile a b c d e f) = e; overf fn (Tile a b c d e f) = Tile a b c d (fn e) f
+t_bids      = Lens getf overf where getf (Tile a b c d e f) = f; overf fn (Tile a b c d e f) = Tile a b c d e (fn f)
+
+|| Transformations on a tile: rotate clockwise, flip around horizontal or vertical axis
+|| modifies the ttransform to remap the tfield points correctly,
+|| modifies the torient values to the new orientation
+
+revEdge :: edge -> edge
+revEdge
+    = go tileSize 0
+      where
+        go 0  r _ = r
+        go ts r n = go (ts - 1) (r .<<. 1 + (n .&. 1)) (n .>>. 1)
+
+rotTile, flipTileH, flipTileV :: tile -> tile
+
+rotTile
+    = over t_transform rotT . over t_orient rotO
+      where
+        rotT trans    = doFlip . trans
+        rotO o        = Orientation (revEdge . view o_lft $ o) (view o_top o) (revEdge . view o_rgt $ o) (view o_bot o)
+        doFlip (r, c) = (c, maxField - r)
+
+flipTileH
+    = over t_transform flipT . over t_orient flipO
+      where
+        flipT trans   = doFlip . trans
+        flipO o       = Orientation (revEdge . view o_top $ o) (view o_lft o) (revEdge . view o_bot $ o) (view o_rgt o)
+        doFlip (r, c) = (r, maxField - c)
+
+flipTileV
+    = over t_transform flipT . over t_orient flipO
+      where
+        flipT trans   = doFlip . trans
+        flipO o       = Orientation (view o_bot o) (revEdge . view o_rgt $ o) (view o_top o) (revEdge . view o_lft $ o)
+        doFlip (r, c) = (maxField - r, c)
+
+
+|| edgeMap || Map from edges to tiles that have them in common
+
+edgeMap == m_map edge [tile]
+
+findCommonEdges :: [tile] -> edgeMap
+findCommonEdges
+    = foldl addtile m_empty
+      where
+        addtile m t
+            = foldl addEdge m (view t_bids t)
+              where
+                addEdge m e = m_insertWith cmpint (++) e [t] m
+
+commonEdgeCount :: edgeMap -> tile -> int
+commonEdgeCount m t = (subtract 4) . sum . map (length . (m !!!)) . view t_bids $ t
+
+standardize :: edge -> edge
+standardize e = min2 cmpint e (revEdge e)
+
+otherTileForEdge :: edgeMap -> tile -> edge -> maybe tile
+otherTileForEdge m t e
+    = go (m !!! e)
+      where
+        go [] = Nothing
+        go (x : xs)
+            = Just x, if view t_tid x ~= view t_tid t
+            = go xs,  otherwise
+
+orientMatch :: tile -> (tile -> tile) -> (tile -> edge) -> edge -> maybe tile
+orientMatch t xform getEdge matchEdge
+    = go t 0
+      where
+        go t' tries
+            = Nothing,                   if tries > 3
+            = Just t',                   if getEdge t' == matchEdge
+            = go (xform t') (tries + 1), otherwise
+    
+orientCorner :: edgeMap -> tile -> tile
+orientCorner m t
+    = t'
+      where
+        t'              = hd . dropWhile noMatchEdges . iterate rotTile $ t
+        noMatchEdges t  = noMatch (view o_rgt) t \/ noMatch (view o_bot) t
+        noMatch getEdge = (~= 2) . length . (m !!!) . standardize . getEdge . view t_orient
+
+findAndOrientRgt :: edgeMap -> tile -> maybe tile
+findAndOrientRgt m t
+    = otherTileForEdge m t stdEdge >>=
+      doRot                        >>=
+      doFlip                       >>=
+      (mb_pure . set t_offset (addPoint (view t_offset t) (0, fieldSize)))
+      where
+        edge     = view o_rgt . view t_orient $ t
+        stdEdge  = standardize edge
+        doRot t  = orientMatch t rotTile (standardize . view o_lft . view t_orient) stdEdge
+        doFlip t = orientMatch t flipTileV (view o_lft . view t_orient) edge
+
+findAndOrientBot :: edgeMap -> tile -> maybe tile
+findAndOrientBot m t
+    = otherTileForEdge m t stdEdge >>=
+      doRot                        >>=
+      doFlip                       >>=
+      (mb_pure . set t_offset (addPoint (view t_offset t) (fieldSize, 0)))
+      where
+        edge     = view o_bot . view t_orient $ t
+        stdEdge  = standardize edge
+        doRot t  = orientMatch t rotTile (standardize . view o_top . view t_orient) stdEdge
+        doFlip t = orientMatch t flipTileH (view o_top . view t_orient) edge
+
+placeTiles :: edgeMap -> tile -> [tile]
+placeTiles m edgetile
+    = row ++ rest
+      where
+        row       = placeTileRow m edgetile
+        edgetile' = findAndOrientBot m edgetile
+        rest      = case edgetile' of
+                      Nothing -> []
+                      Just t' -> placeTiles m t'
+
+placeTileRow :: edgeMap -> tile -> [tile]
+placeTileRow m t = catMaybes . takeWhile isJust . iterate (findAndOrientRgt m . fromJust) $ (Just t)
+
+
+|| operations on field
+
+makeField :: [tile] -> field
+makeField
+    = foldl addtile s_empty
+      where
+        addtile f t = s_union cmppoint f $ s_fmap cmppoint (xform t) (view t_field t)
+        xform t     = addPoint (view t_offset t) . (view t_transform t)
+
+matchField :: field -> [point] -> int
+matchField f xs
+    = 1, if all mem xs
+    = 0, otherwise
+      where
+        mem p = s_member cmppoint p f
+
+scanField :: field -> [point] -> int
+scanField f xs
+    = sum . map (matchField f) . map addp  $ [(r, c) | r, c <- [0 .. 100]]
+      where
+        addp p = map (addPoint p) xs
+
+scanMonsters :: field -> [point] -> int
+scanMonsters f xs
+    = hd . dropWhile (== 0) . map scanXformed $ [id, rot, flpH, flpV, rot . rot, rot . flpH, rot . flpV]
+      where
+        scanXformed xform = scanField f (map xform xs)
+        rot (r, c)        = (c, -r)
+        flpH (r, c)       = (r, -c)
+        flpV (r, c)       = (-r, c)
+
+|| Reading tiles
+
+addBit :: edge -> char -> edge
+addBit e c = e .<<. 1 + if' (c ==. '#') 1 0
+
+makeEdge :: string -> edge
+makeEdge = foldl addBit 0
+
+readTileFace :: [string] -> (s_set point, orientation)
+readTileFace [] = error "readTileFace []"
+readTileFace (t : xs)
+    = go s_empty 0 (makeEdge t, addBit 0 . last $ t, 0, addBit 0 . hd $ t) xs
+      where
+        go s row (t, r, _, l) [b] = (s, Orientation t (addBit r . last $ b) (makeEdge b) (addBit l . hd $ b))
+        go s row (t, r, b, l) (x : xs)
+            = go s' (row + 1) (t, addBit r (last x), b, addBit l (hd x)) xs
+              where
+                s'                = foldl addCh s $ enumerate field
+                field             = init . tl $ x
+                addCh s (col, ch) = if' (ch ==. '#') (s_insert cmppoint (row, col) s) s
+        go _ _   _            _   = error "unhandled readTileFace case"
+
+readTile :: [string] -> (tile, [string])
+readTile [] = error "readTile []"
+readTile (x : xs)
+    = (Tile tid (0, 0) id intr face (bids face), (drop (tileSize + 1) xs))
+      where
+        tid          = intval . init . dropWhile (not . digit) $ x
+        (intr, face) = readTileFace (take tileSize xs)
+        bids o       = map standardize $ [view o_top o, view o_rgt o, view o_bot o, view o_lft o]
+
+readTiles :: [string] -> [tile]
+readTiles [] = []
+readTiles xs
+    = t : readTiles xs'
+      where
+        (t, xs') = readTile xs
+
+|| puzzle constants
+tileSize, maxField :: int
+tileSize   = 10
+fieldSize  = tileSize - 2
+maxField   = fieldSize - 1
+
+monster :: [point]
+monster
+    = [(r, c) | (r, row) <- enumerate monsterTxt; (c, ch) <- enumerate row; ch ==. '#']
+      where
+        monsterTxt = [ "                  # "
+                     , "#    ##    ##    ###"
+                     , " #  #  #  #  #  #   "
+                     ]
+
+day20 :: io ()
+day20
+    = readFile "../inputs/day20.txt" >>=. go 
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                tiles        = readTiles . lines $ input
+                ceMap        = findCommonEdges tiles
+                corners      = filter ((== 2) . commonEdgeCount ceMap) tiles
+                ul           = orientCorner ceMap (hd corners)
+                tiles'       = placeTiles ceMap ul
+                field        = makeField tiles'
+                monsterCount = scanMonsters field monster
+                part1        = (++) "part 1: " . showint . product . map (view t_tid) $ corners
+                part2        = (++) "part 2: " . showint $ (s_size field - monsterCount * #monster)

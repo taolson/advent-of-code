@@ -1,0 +1,34 @@
+|| day15.m
+
+
+%export day15
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <stream>
+
+genStream :: int -> int -> stream int word#
+genStream (I# m#) (I# n#)
+    = Stream next n#
+      where
+        next n#
+            = case n# *# m# of
+                a# -> case a# $mod# 2147483647# of
+                        b# -> Yield (I# n#) b#
+
+match :: (int, int) -> bool
+match (a, b) = a .&. 0xffff == b .&. 0xffff
+
+multipleOf :: int -> int -> bool
+multipleOf m n = n $mod m == 0
+
+day15 :: io ()
+day15
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        genA  = genStream 16807 873
+        genB  = genStream 48271 583
+        genA' = filterS (multipleOf 4) genA
+        genB' = filterS (multipleOf 8) genB
+        part1 = (++) "part 1: " . showint . lengthS . filterS match . takeS 40000000 $ zip2S genA genB
+        part2 = (++) "part 2: " . showint . lengthS . filterS match . takeS 5000000  $ zip2S genA' genB'

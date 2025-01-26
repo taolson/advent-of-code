@@ -1,0 +1,52 @@
+|| day14.m
+
+
+%export day14
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <bag>
+%import <mirandaExtensions>
+
+
+reindeer == (string, int, int, int)
+
+dist :: int -> reindeer -> int
+dist t (n, s, b, r)
+    = (wi * b + min2 cmpint b fi) * s
+      where
+        dt = b + r      || repeating time interval
+        wi = t $div dt  || total intervals traveled
+        fi = t $mod dt  || fraction of an interval traveled
+
+maxDist :: int -> [reindeer] -> int
+maxDist t = max cmpint . map (dist t)
+
+maxLead :: int -> [reindeer] -> int
+maxLead t rs
+    = max cmpint . b_elems . b_fromList cmpint . map inLead $ [1 .. t]
+      where
+        inLead t' = fst . maxBy cmpint snd . enumerate . map (dist t') $ rs
+
+readReindeer :: string -> io [reindeer]
+readReindeer fn
+    = map (mkReindeer . words) <$>. lines <$>. readFile fn
+      where
+        perr = error "readReindeer: parse error"
+
+        mkReindeer (n : ws)
+            = go . map intval . filter (digit . hd) $ ws
+              where
+                go (s : b : r : _) = (n, s, b, r)
+                go _               = perr
+        mkReindeer _ = perr
+
+day14 :: io ()
+day14
+    = readReindeer "../inputs/day14.input" >>=. go
+      where
+        go rs
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                time  = 2503
+                part1 = (++) "part 1: " . showint . maxDist time $ rs
+                part2 = (++) "part 2: " . showint . maxLead time $ rs

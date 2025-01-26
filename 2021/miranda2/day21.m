@@ -1,0 +1,103 @@
+%export day21
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <state>
+
+
+playerSt == (int, int)          || position, score
+diceSt   == (int, int)          || die, rolls
+turnSt   == (diceSt, playerSt)
+gameSt   == (diceSt, [playerSt])
+
+|| determinisic die implementation for part 1
+
+roll :: diceSt -> (diceSt, int)
+roll (d, n) = ((d $mod 100 + 1, n + 1), d)
+
+turn :: diceSt -> playerSt -> (diceSt, playerSt)
+turn ds (pos, score)
+    = (ds', (pos', score'))
+      where
+        (ds', rolls) = mapAccumL roll' ds [1 .. 3]
+        pos'         = (pos + sum rolls - 1) $mod 10 + 1
+        score'       = score + pos'
+        roll' ds x   = roll ds
+
+|| play a single round until we find the first winning player
+round :: gameSt -> gameSt
+round (ds, (p : ps))
+    = (ds1, p' : ps), if isWin p'
+    = (ds2, p' : ps2), otherwise
+      where
+        (ds1, p')  = turn ds p
+        (ds2, ps2) = round (ds1, ps)
+        isWin p    = snd p >= 1000
+round st = st
+
+
+play :: int -> int -> gameSt
+play p1 p2
+    = (hd . dropWhile noWin . iterate round) initSt
+      where
+        initSt = ((1, 0), [(p1, 0), (p2, 0)])
+        noWin (ds, ps) = all ((< 1000) . snd) ps
+
+gameScore :: gameSt -> int
+gameScore (ds, ps) = min cmpint (map snd ps) * (snd ds)
+
+
+|| dirac die implementation for part 2
+
+addPair (a, b) (a', b') = (a + a', b + b')
+mulPair (a, b) c        = (a * c,  b * c)
+maxPair (a, b) = max2 cmpint a b
+
+board == (playerSt, playerSt, bool)     || player positions and scores, and who's turn it is
+
+memo  == m_map board (int, int)         || memoized map from diracSt to the (player1, player2) wins
+
+|| lenses to access board state
+b_p1   = lensTup3_0
+b_p2   = lensTup3_1
+b_turn = lensTup3_2
+
+|| list of (roll count, occurrences) for 3 dirac rolls
+diracRolls
+    = m_toList (foldl addRoll m_empty [a+b+c | a,b,c <- [1,2,3]])
+      where
+        addRoll m n = m_insertWith cmpint (+) n 1 m
+
+diracPlay :: board -> state memo (int, int)
+diracPlay bd cache
+    = (fromJust mwins, cache),           if isJust mwins
+    = (cwins, m_insert cmpboard bd cwins cache'), otherwise
+      where
+        mwins     = m_lookup cmpboard bd cache
+        turn1     = view b_turn bd
+        p         = b_p1, if turn1
+                  = b_p2, otherwise
+        (ps, sc)  = view p bd
+        singleWin = (1, 0), if turn1
+                  = (0, 1), otherwise
+        (cwins, cache')
+            = (foldl1 addPair wins, cache')
+              where
+                (wins, cache') = st_mapM move diracRolls cache
+                move (r, c) cache
+                    = (mulPair wins' c, cache')
+                      where
+                        ps'             = (ps + r - 1) $mod 10 + 1
+                        sc'             = sc + ps'
+                        (wins', cache') = (singleWin, cache), if sc' >= 21
+                                        = diracPlay ((over b_turn not . set p (ps', sc')) bd) cache, otherwise
+
+day21 :: io ()
+day21
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        part1  = (++) "part 1: " . showint . gameScore $ play 8 4
+        part2  = (++) "part 2: " . showint . maxPair . fst . diracPlay ((8, 0), (4, 0), True) $ m_empty

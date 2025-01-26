@@ -1,0 +1,156 @@
+|| day16.m
+
+
+%export day16
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt -p_digit
+%import <vector>
+
+v_findIndex :: (* -> bool) -> vector * -> maybe int
+v_findIndex p v
+    = foldr check Nothing [0 .. v_length v - 1]
+      where
+        check i k
+            = Just i, if p (v !! i)
+            = k,      otherwise
+
+registers == vector int
+operation == (int, int, int, int)
+
+sample ::= Sample registers operation registers || sampleRegs, sampleOp, sampleRefs
+
+instruction ::= Instruction string (operation -> registers -> int) (vector bool)        || instName, instEffect, instPossibleOpcodes
+
+effect          = Lens getf overf where getf (Instruction a b c) = b; overf fn (Instruction a b c) = Instruction a (fn b) c
+possibleOpcodes = Lens getf overf where getf (Instruction a b c) = c; overf fn (Instruction a b c) = Instruction a b (fn c)
+
+makeBinaryInstructions :: string -> (int -> int -> int) -> [instruction]
+makeBinaryInstructions name fn
+    = [ Instruction (name ++ "r") reg (v_rep 16 True)
+      , Instruction (name ++ "i") imm (v_rep 16 True)
+      ]
+      where
+        reg (_, a, b, _) r = fn (r !! a) (r !! b)
+        imm (_, a, b, _) r = fn (r !! a) b 
+
+makeCompareInstructions :: string -> (int -> int -> bool) -> [instruction]
+makeCompareInstructions name fn
+    = [ Instruction (name ++ "rr") rr (v_rep 16 True)
+      , Instruction (name ++ "ri") ri (v_rep 16 True)
+      , Instruction (name ++ "ir") ir (v_rep 16 True)
+      ]
+      where
+        rr (_, a, b, _) r = if' (fn (r !! a) (r !! b)) 1 0
+        ri (_, a, b, _) r = if' (fn (r !! a) b)        1 0
+        ir (_, a, b, _) r = if' (fn a        (r !! b)) 1 0
+
+makeSetInstructions :: [instruction]
+makeSetInstructions
+    = [ Instruction "setr" setr (v_rep 16 True)
+      , Instruction "seti" seti (v_rep 16 True)
+      ]
+      where
+        setr (_, a, b, _) r = r !! a
+        seti (_, a, b, _) r = a
+
+makeInstructionSet :: [instruction]
+makeInstructionSet
+    = (  makeBinaryInstructions "add" (+)
+      ++ makeBinaryInstructions "mul" (*)
+      ++ makeBinaryInstructions "ban" (.&.)
+      ++ makeBinaryInstructions "bor" (.|.)
+      ++ makeCompareInstructions "gt" (>)
+      ++ makeCompareInstructions "eq" (==)
+      ++ makeSetInstructions
+      )
+
+matchState == ([int], [instruction])
+
+matchInstructions :: [instruction] -> sample -> (int, [instruction])
+matchInstructions instructions (Sample before op after)
+    = go (0, []) instructions
+      where
+        (opcode, _, _, c) = op
+
+        go result [] = result
+        go (matches, updatedInsts) (inst : rest)
+            = go (matches + 1, inst : updatedInsts) rest,                                         if (after !! c) == view effect inst op before
+            = go (matches, over possibleOpcodes (// [(opcode, False)]) inst : updatedInsts) rest, otherwise
+        
+        go _ _ = undef  || added to remove compiler warning
+
+updateMatchState :: matchState -> sample -> matchState
+updateMatchState (prevMatches, prevUpdated) s
+    = (matches : prevMatches, updated)
+      where
+        (matches, updated) = matchInstructions prevUpdated s
+
+opMap == m_map int instruction
+
+determineOpcodes :: [instruction] -> opMap
+determineOpcodes
+    = go m_empty
+      where
+        go opMap [] = opMap
+        go opMap instructions
+            = go opMap' ambiguous'
+              where
+                (unique, ambiguous) = partition ((== 1) . v_length . v_filter id . view possibleOpcodes) instructions
+                opMap'              = foldl ins opMap unique
+                ambiguous'          = map removeMappedOpcodes ambiguous
+                ins m i             =  m_insert cmpint (fromJust . v_findIndex id . view possibleOpcodes $ i) i m
+
+                removeMappedOpcodes inst
+                    = over possibleOpcodes (remove (m_keys opMap')) inst
+                      where
+                        remove ks po  = foldl setFalse po ks
+                        setFalse po u = po // [(u, False)]
+
+execInst :: opMap -> registers -> operation -> registers
+execInst opMap registers inst
+    = registers // [(c, view effect (fromJust (m_lookup cmpint opcode opMap)) inst registers)]
+      where
+        (opcode, _, _, c) = inst
+
+p_digit :: parser int
+p_digit = p_posint <* p_spaces
+
+p_regs :: parser registers
+p_regs = v_fromList <$> (p_char '[' *> p_someSepBy (p_string ", ") p_posint <* p_char ']' <* p_spaces)
+
+p_op :: parser operation
+p_op = p_liftA4 mkOp p_digit p_digit p_digit p_digit
+       where
+         mkOp a b c d = (a, b, c, d)
+
+p_sample :: parser sample
+p_sample = p_liftA3 Sample (p_string "Before:" *> p_spaces *> p_regs) (p_spaces *> p_op <* p_spaces) (p_string "After:" *> p_spaces *> p_regs) <* p_spaces
+
+input == ([sample], [operation])
+
+p_input :: parser input
+p_input = p_liftA2 pair (p_some p_sample) (p_some p_op)
+
+readInput :: string -> io input
+readInput fn
+    = go <$>. parse p_input <$>. readFile fn
+      where
+        go (minp, ps) = fromMaybe (error (p_error ps)) minp
+
+day16 :: io ()
+day16
+    = readInput "../inputs/day16.input" >>=. go
+      where
+        go (samples, prog)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                (matches, updatedInsts) = foldl updateMatchState ([], makeInstructionSet) samples
+                opMap                   = determineOpcodes updatedInsts
+                progResults             = foldl (execInst opMap) (v_rep 4 0) $ prog
+                part1                   = (++) "part 1: " . showint . length . filter (>= 3) $ matches
+                part2                   = (++) "part 2: " . showint . (!! 0) $ progResults

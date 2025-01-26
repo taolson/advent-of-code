@@ -1,0 +1,170 @@
+|| day18.m
+
+
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <dequeue>
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (*>)/p_right (<|>)/p_alt
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+
+reg == int
+
+opr ::= Reg reg | Imm int
+
+instruction ::=
+    Set reg opr |
+    Add reg opr |
+    Mul reg opr |
+    Mod reg opr |
+    Jgz opr opr |
+    Snd reg     |
+    Rcv reg
+
+program   == vector instruction
+registers == mvector reg
+channel   == dequeue int
+
+cmpchannel = undef
+
+runState ::= Run | Halt | Wait
+
+processor == (runState, registers, channel, int, int, int)
+
+cmpprocessor  = undef
+showprocessor = undef
+
+|| lenses for processor
+p_rs    = lensTup6_0
+p_regs  = lensTup6_1
+p_chan  = lensTup6_2
+p_pc    = lensTup6_3
+p_other = lensTup6_4
+p_sends = lensTup6_5
+
+|| lift lenses into state
+st_view lns   proc = (view lns proc, proc)
+st_set  lns x proc = ((), set lns x proc)
+st_over lns f proc = ((), over lns f proc)
+
+running :: processor -> bool
+running p
+    = case view p_rs p of
+        Run -> True
+        _   -> False
+
+getReg :: reg -> state processor int
+getReg r proc = v_read (view p_regs proc) r proc
+
+getOpr :: opr -> state processor int
+getOpr (Imm n) = st_pure n
+getOpr (Reg r) = getReg r
+
+setReg :: reg -> int -> state processor ()
+setReg r n proc = v_write (view p_regs proc) r n proc
+
+exec :: instruction -> state processor (maybe (int, int))
+exec (Set d s) = (getOpr s >>= setReg d)           >> st_pure Nothing
+exec (Add d s) = st_bind2 (getReg d) (getOpr s) op >> st_pure Nothing where op a b = setReg d (a + b)
+exec (Mul d s) = st_bind2 (getReg d) (getOpr s) op >> st_pure Nothing where op a b = setReg d (a * b)
+exec (Mod d s) = st_bind2 (getReg d) (getOpr s) op >> st_pure Nothing where op a b = setReg d (a $mod b)
+
+exec (Jgz d s)
+    = st_bind2 (getOpr d) (getOpr s) jmp
+      where
+        jmp a b = st_over p_pc (+ b - 1) >>     || subtract 1, because we already incremented pc by default
+                  st_pure Nothing, if a > 0
+                = st_pure Nothing, otherwise
+
+exec (Snd s)
+    = st_bind2 (st_view p_other) (getReg s) go
+      where
+        go id x = st_over p_sends (+ 1) >>
+                  st_pure (Just (id, x))
+
+exec (Rcv d)
+    = st_view p_chan >>= go
+      where
+        go q
+            = st_set p_rs Wait          >>     || no data in channel; wait
+              st_over p_pc (subtract 1) >>     || decr pc to restart Rcv when woken
+              st_pure Nothing,    if dq_null q
+
+            = setReg d c       >>
+              st_set p_chan q' >>
+              st_pure Nothing,    otherwise
+              where
+               (c, q') = fromJust $ dq_viewL q
+
+step :: program -> state processor (maybe (int, int))
+step prog
+    = st_bind2 (st_view p_rs) (st_view p_pc) go
+      where
+        go Run pc
+            = st_set p_rs Halt   >> st_pure Nothing,   if pc < 0 \/ pc >= v_length prog
+            = st_over p_pc (+ 1) >> exec (prog !! pc), otherwise
+
+        go _ _ = st_pure Nothing
+
+run :: program -> [processor] -> [processor]
+run prog procs
+    = procs,                       if all (not . running) procs
+    = procs2 $seq run prog procs2, otherwise
+      where
+        (sends, procs1) = unzip2 . map (st_runState (step prog)) $ procs
+        procs2          = foldl doSend procs1 sends
+
+        start Halt = Halt
+        start _    = Run
+
+        doSend procs Nothing = procs
+        doSend procs (Just (id, n))
+            = converse (setAt id) procs . over p_rs start . over p_chan (dq_addR n) $ procs ! id
+
+p_instruction :: parser instruction
+p_instruction
+    = p_ro "set" Set <|>
+      p_ro "add" Add <|>
+      p_ro "mul" Mul <|>
+      p_ro "mod" Mod <|>
+      p_oo "jgz" Jgz <|>
+      p_r  "snd" Snd <|>
+      p_r  "rcv" Rcv
+      where
+        p_ro s op = p_liftA2 op (p_string s *> p_spaces *> p_reg) (p_spaces *> p_opr)
+        p_oo s op = p_liftA2 op (p_string s *> p_spaces *> p_opr) (p_spaces *> p_opr)
+        p_r  s op = op $p_fmap  (p_string s *> p_spaces *> p_reg)
+
+        p_reg = (subtract (code 'a') . code) $p_fmap p_letter
+        p_opr = (Reg $p_fmap p_reg) <|> (Imm $p_fmap p_int)
+        
+initProcs :: int -> [processor]
+initProcs n
+    = map init [0, 1]
+      where
+        init id
+            = (rsForId, v_unsafeThaw . (// [(code 'p' - code 'a', id)]) . v_rep 26 $ 0, dq_empty, 0, 1 - id, 0)
+              where
+                rsForId = Run,  if id < n
+                        = Halt, otherwise
+
+readProgram :: string -> io program
+readProgram fn
+    = go <$>. parse (p_someSepBy (p_char '\n') p_instruction) <$>. readFile fn
+      where
+        go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
+
+day18 :: io ()
+day18
+    = readProgram "../inputs/day18.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . fst . fromJust . dq_viewR . view p_chan . (! 1) . run prog . initProcs $ 1
+                part2 = (++) "part 2: " . showint . view p_sends . (! 1) . run prog . initProcs $ 2

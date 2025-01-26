@@ -1,0 +1,62 @@
+%export day09
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+point == (int, int)
+
+adjacent :: point -> [point]
+adjacent (x, y) = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+
+
+grid == m_map point int
+
+localMins :: grid -> grid
+localMins g
+    = m_filterWithKey cmppoint localMin g
+      where
+        localMin e
+            = all aboveD adjDepths
+              where
+                (p, d)          = e
+                adjDepths       = map (converse (m_lookup cmppoint) g) (adjacent p)
+                aboveD Nothing  = True
+                aboveD (Just n) = n > d
+
+findBasinSize :: grid -> (point, int) -> int
+findBasinSize g e
+    = go 0 s_empty [e]
+      where
+        go bs sn []  = bs
+        go bs sn ((p, d) : es)
+            = go bs sn es,                             if s_member cmppoint p sn
+            = go (bs + 1) (s_insert cmppoint p sn) (es ++ es'), otherwise
+              where
+                es' = (catMaybes . map ascendingLoc . adjacent) p
+                ascendingLoc p
+                    = Nothing,     if isNothing mn \/ n == 9 \/ n <= d
+                    = Just (p, n), otherwise
+                      where
+                        mn = m_lookup cmppoint p g
+                        n  = fromJust mn
+
+readInput :: string -> io grid
+readInput fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows = m_fromList cmppoint [((x, y), digitVal d) | (y, row) <- enumerate rows; (x, d) <- enumerate row]
+
+day09 :: io ()
+day09
+    = readInput "../inputs/day09.txt" >>=. go
+      where
+        go g
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                mins   = localMins g
+                basins = map (findBasinSize g) $ m_toList mins
+                part1  = (++) "part 1: " . showint . sum . map (1 +) . m_elems $ mins
+                part2  = (++) "part 2: " . showint . product . take 3 . sortBy (descending cmpint id) $ basins

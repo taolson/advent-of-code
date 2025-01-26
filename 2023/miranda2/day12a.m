@@ -1,0 +1,75 @@
+|| day12m.m -- Hot Springs -- memoized version
+
+
+%export day12
+
+%import <io> (>>=.)/io_bind
+%import <map>
+%import <maybe>
+%import <memoTrie>
+%import <mirandaExtensions>
+
+
+spring          == char
+conditionRecord == ([spring], [int])    || springs, size of contiguous damaged groups
+
+findCombos :: conditionRecord -> int
+findCombos = memofix (memopair memostring (memolist memoint)) findCombos'
+
+findCombos' :: (conditionRecord -> stdlib.int) -> conditionRecord -> int
+findCombos' f (s, [])  = 0, if elem cmpchar '#' s
+                       = 1, otherwise
+findCombos' f ([], _)  = 0
+
+findCombos' f ((s0 : ss), qa)
+    = doOpr,            if s0 ==. '.'
+    = doBroken,         if s0 ==. '#'
+    = doOpr + doBroken, otherwise
+      where
+        q0 : qs  = qa
+        doOpr    = f (ss, qa)
+        doBroken = brokenCase ss q0 qs
+
+        brokenCase srest q qrest
+            = 0,     if q - 1 >  #srest     || more broken to match, but not enough springs left: no solution
+            = check, if q - 1 == #srest     || same number of broken as springs left; check
+            = tally, otherwise              || more springs than broken left, tally up all possible solutions
+              where
+                check = 0, if elem cmpchar '.' srest \/ not (null qrest)        || all remaining must be '#' or '?'
+                      = 1, otherwise                                            || match
+
+                || tally is written as a sum of a list, but the list will only contain 0 or 1 elements;
+                || this list comprehension is used to simplify filtering out the bad cases
+                tally = sum $ map f xs
+                        where
+                          xs = [(rest, qrest) |
+                                (header, dot : rest) <- [splitAt (q - 1) srest];        || header is the match for (q - 1) broken springs
+                                dot ~=. '#';                                            || dot is the next elem; must be '.' or '?' (implicit '.')
+                                ~elem cmpchar '.' header]                               || header must only be '#' or '?' (implicit '#')
+
+processLine1 :: string -> int
+processLine1 str
+    = findCombos (fstr, seqnums)
+      where
+        [fstr, seqnumsStr] = split ' ' str
+        seqnums            = map intval . split ',' $ seqnumsStr
+
+processLine2 :: string -> int
+processLine2 str
+    = findCombos (fullFstr, fullSeqNums)
+      where
+        [fstr, seqnumsStr] = split ' ' str
+        seqnums            = map intval . split ',' $ seqnumsStr
+        fullFstr           = intercalate "?" $ rep 5 fstr
+        fullSeqNums        = concat $ rep 5 seqnums
+
+day12 :: io ()
+day12
+    = readFile "../inputs/day12.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                process f = showint . sum . map f . lines $ input
+                part1     = "part 1: " ++ process processLine1
+                part2     = "part 2: " ++ process processLine2

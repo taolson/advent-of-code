@@ -1,0 +1,41 @@
+|| day03.m
+
+
+%export day03
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <set>
+
+point == (int, int)
+grid  ::= Grid (s_set point) int int
+
+treeCount :: grid -> point -> int
+treeCount (Grid trees maxX maxY) (slopeX, slopeY)
+    = sum . map countTree $ steps
+      where
+        countTree pt     = if' (s_member cmppoint pt trees) 1 0
+        steps            = takeWhile ((< maxY) . snd) . iterate stepSlope $ (0, 0)
+        stepSlope (x, y) = ((x + slopeX) $mod maxX, y + slopeY)
+
+readGrid :: string -> io grid
+readGrid fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows
+            = Grid trees maxX maxY
+              where
+                trees = s_fromList cmppoint [(x, y) | (y, row) <- enumerate rows; (x, col) <- enumerate row; col ==. '#']
+                maxX  = length . hd $ rows
+                maxY  = length rows
+
+day03 :: io ()
+day03
+    = readGrid "../inputs/day03.txt" >>=. go
+      where
+        go grid
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                slopes = [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+                part1  = (++) "part 1: " . showint $ treeCount grid (3, 1)
+                part2  = (++) "part 2: " . showint . product . map (treeCount grid) $ slopes

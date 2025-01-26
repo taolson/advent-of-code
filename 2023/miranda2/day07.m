@@ -1,0 +1,94 @@
+|| day07.m -- Camel Cards
+
+
+%export day07
+
+%import <io> (>>=.)/io_bind
+%import <maybe>
+%import <mirandaExtensions>
+
+
+card ::= Card int       || card strength
+
+strength :: card -> int
+strength (Card s) = s
+
+isJoker :: card -> bool
+isJoker (Card 0) = True
+isJoker _        = False
+
+|| card in order of increasing strength, with Jokers represented as '*'
+cardOrder :: string
+cardOrder  = "*23456789TJQKA"
+
+cardFromChar :: char -> card
+cardFromChar c
+    = Card . fromMaybe err . elemIndex cmpchar c $ cardOrder
+      where
+        err = error ("cardFromChar: bad card: " ++ showchar c)
+
+
+handType ::= HighCard | OnePair | TwoPairs | ThreeOfAKind | FullHouse | FourOfAKind | FiveOfAKind
+hand     ::= Hand handType [card]
+
+|| make a hand by sorting the cards in descending strength and classifying its type
+readHand :: string -> hand
+readHand
+    = classify . map cardFromChar
+      where
+        classify cs
+            = Hand ht cs        || hand type, and the cards in their original order
+              where
+                || divide cards into sorted groups of matching strength
+                gps  = distributeJokers . findJokers . group cmpcard . sortBy (descending cmpint strength) $ cs
+                g1   = #(gps ! 0)
+                g2   = #(gps ! 1)
+
+                || then classify based upon the group sizes
+                ht = FiveOfAKind,  if g1 == 5
+                   = FourOfAKind,  if g1 == 4
+                   = FullHouse,    if g1 == 3 & g2 == 2
+                   = ThreeOfAKind, if g1 == 3
+                   = TwoPairs,     if g1 == 2 & g2 == 2
+                   = OnePair,      if g1 == 2
+                   = HighCard,     otherwise
+
+                findJokers gps
+                    = fromMaybe (gps, []) $ viewR gps $mb_bind check
+                      where
+                        check r = Just r,  if isJoker . hd . snd $ r
+                                = Nothing, otherwise
+
+                distributeJokers ([], jks) = [jks]  || all jokers!
+                distributeJokers (gps, jks)
+                    = (jks ++ best) : rest
+                      where
+                        best : rest = sortBy (descending cmpint length) $ gps
+
+handBid == (hand, int)
+
+makeHandBids :: (char -> char) -> string -> [handBid]
+makeHandBids xlate
+    = map (mkHandBid . split ' ') . lines
+      where
+        mkHandBid [hs, bs] = (readHand . map xlate $ hs, intval bs)
+        mkHandBid _        = error "readHandBids: parse error"
+
+totalWinnings :: [handBid] -> int
+totalWinnings
+    = sum . zipWith (*) [1 ..] . map snd . sortOn cmphand fst
+
+mapJokers :: char -> char
+mapJokers 'J' = '*'
+mapJokers c   = c
+
+day07 :: io ()
+day07
+    = readFile "../inputs/day07.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                process xlate = showint . totalWinnings . makeHandBids xlate $ input
+                part1         = "part 1: " ++ process id
+                part2         = "part 2: " ++ process mapJokers

@@ -1,0 +1,85 @@
+%export day12
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <parser> (*>)/p_right (<*)/p_left
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+position == num
+velocity == num
+
+moon == (position, velocity)
+axis == [moon]
+sys  == [axis]
+
+applyGravity :: axis -> axis
+applyGravity moons
+    = zip2 positions (map deltaG moons)
+      where
+        positions = map fst moons
+        deltaG (p, v) = v + (sum . map (signum . subtract p)) (filter (~= p) positions)
+
+applyVelocity :: axis -> axis
+applyVelocity
+    = map addv
+      where
+        addv (p, v) = (p + v, v)
+
+timeStep :: axis -> axis
+timeStep = applyVelocity . applyGravity
+
+totalEnergy :: sys -> num
+totalEnergy
+    = sum . map (te . energies) . transpose
+      where
+        energies               = foldr energy (0, 0)
+        energy (p, v) (pe, ke) = (pe + abs p, ke + abs v)
+        te (pe, ke)            = pe * ke
+
+findRepeat :: axis -> num
+findRepeat init
+    = go 0 m_empty init
+      where
+        go step seen state
+            = go (step + 1) (m_insert cmpaxis state step seen) (timeStep state), if isNothing findSeen
+            = step - s,                                                          otherwise
+              where
+                findSeen = m_lookup cmpaxis state seen
+                (Just s) = findSeen
+
+
+|| day12 parsing
+
+p_inBrackets :: parser * -> parser *
+p_inBrackets p = p_char '<' *> p <* p_char '>'
+
+p_pos :: parser position
+p_pos = p_any *> p_any *> p_int
+
+p_poslist :: parser [position]
+p_poslist = p_inBrackets (p_manySepBy (p_comma <* p_spaces) p_pos) <* p_spaces
+
+makeSystem :: [[position]] -> sys
+makeSystem positions
+    = map makeAxis axes
+      where
+        axes     = transpose positions
+        makeAxis = map tuple0
+        tuple0 p = (p, 0)
+
+readSystem :: string -> io sys
+readSystem fn
+    = go <$>. parse (p_many p_poslist <* p_end) <$>. readFile fn
+      where
+        go (mps, ps) = fromMaybef (error (p_error ps)) makeSystem mps
+
+day12 :: io ()
+day12
+     = readSystem "../inputs/day12.input" >>=. go
+       where
+         go syst
+             = io_mapM_ putStrLn [part1, part2]
+               where
+                 part1  = (++) "part 1: " . showint . totalEnergy . hd . drop 1000 . iterate (map timeStep) $ syst
+                 part2  = (++) "part 2: " . showint . foldr1 lcm . map findRepeat $ syst

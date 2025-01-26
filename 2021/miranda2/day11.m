@@ -1,0 +1,63 @@
+%export day11
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+
+loc  == (int, int)
+grid == m_map loc int
+
+adjacent :: loc -> [loc]
+adjacent (x, y)
+    = [(x', y') | x' <- around x; y' <- around y; legal x' y']
+      where
+        around n    = [n - 1 .. n + 1]
+        legal x' y' = 0 <= x' <= 9 & 0 <= y' <= 9 & (x' ~= x \/ y' ~= y)
+
+tallyFlashes :: grid -> [loc] -> (grid, int)
+tallyFlashes
+    = go s_empty
+      where
+        go fs g [] = (m_fmap unflash g, s_size fs)
+        go fs g (p : ps)
+            = go fs  g  ps,          if s_member cmploc p fs
+            = go fs' g' (ps' ++ ps), otherwise    
+              where
+                fs' = s_insert cmploc p fs
+                adj = adjacent p
+                g'  = foldl incLoc g adj
+                ps' = filter ((== 10) . getLoc g') adj
+        incLoc g p  = m_adjust cmploc (+ 1) p g
+        getLoc g p  = m_findWithDefault cmploc 0 p g
+        unflash n   = 0, if n > 9
+                    = n, otherwise
+
+step :: (grid, int) -> (grid, int)
+step (g, nf)
+    = (g2, nf + nf')
+      where
+        g1        = m_fmap (+ 1) g
+        ps        = m_keys (m_filter cmploc (== 10) g1)
+        (g2, nf') = tallyFlashes g1 ps
+
+anyNotFlashed :: (grid, int) -> bool
+anyNotFlashed (g, x) = any (~= 0) (m_elems g)
+
+readGrid :: string -> io grid
+readGrid fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows = m_fromList cmploc [((x, y) , digitVal c) | (x, cols) <- enumerate rows; (y, c) <- enumerate cols]
+
+day11 :: io ()
+day11
+    = readGrid "../inputs/day11.txt" >>=. go
+      where
+        go g
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . snd . (! 100) . iterate step $ (g, 0)
+                part2 = (++) "part 2: " . showint . length . takeWhile anyNotFlashed . iterate step $ (g, 0)

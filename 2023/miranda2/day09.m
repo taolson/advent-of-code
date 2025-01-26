@@ -1,0 +1,38 @@
+|| day09.m -- Mirage Maintenance
+
+
+%export day09
+
+%import <io> (>>=.)/io_bind
+%import <mirandaExtensions>
+
+
+sequence == [int]
+
+diffs :: sequence -> [sequence]
+diffs
+    = takeWhile (any (~= 0)) . iterate diff
+      where
+        diff xs = zipWith (-) (tl xs) xs
+
+predictNext :: [sequence] -> int
+predictNext
+    = foldr extrap 0
+      where
+        extrap xs d = last xs + d
+
+predictPrev :: [sequence] -> int
+predictPrev
+    = foldr extrap 0
+      where
+        extrap xs d = hd xs - d
+
+day09
+    = readFile "../inputs/day09.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                ds    = map (diffs . map intval . split ' ') . lines $ input
+                part1 = ("part 1: " ++) . showint . sum . map predictNext $ ds
+                part2 = ("part 2: " ++) . showint . sum . map predictPrev $ ds

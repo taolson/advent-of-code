@@ -1,0 +1,188 @@
+|| day15.m
+
+
+%export day15
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <avl>
+%import <either>
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+
+|| (y, x) location; y first to sort naturally into "read order"
+loc == (int, int)
+
+adjacencies :: loc -> [loc]
+adjacencies (y, x) = [(y - 1, x), (y, x - 1), (y, x + 1), (y + 1, x)]
+
+|| expand to adjacencies around a given loc until we hit one or more goals; return the first "read order" goal
+nearest :: s_set loc -> s_set loc -> loc -> maybe loc
+nearest walls goals
+    = go walls . s_singleton
+      where
+        go visited q
+            = Nothing,                if s_null q
+            = Just (s_first reached), if ~s_null reached        || uses set sorted on y first to provide "read order" nearest
+            = go visited' q',         otherwise
+              where
+                visited' = s_union cmploc visited q
+                reached  = s_intersect cmploc goals q
+                q'       = s_fromList cmploc [pa | p <- s_toList q; pa <- adjacencies p; ~s_member cmploc pa visited]
+
+
+species  ::= Elf | Goblin
+sunit    ::= Sunit species int  || species, hit power remaining
+
+u_species = Lens getf overf where getf (Sunit a b) = a; overf fn (Sunit a b) = Sunit (fn a) b
+u_hp      = Lens getf overf where getf (Sunit a b) = b; overf fn (Sunit a b) = Sunit a (fn b)
+
+sunitMap ==  m_map loc sunit
+cave     ::= Cave (s_set loc) sunitMap
+
+|| actionResult and monad/functor
+actionResult * ::= Fail | Del | Res *           || Fail entire round (elf died), delete sunit due to death, or return modified result
+
+(>>=) :: actionResult * -> (* -> actionResult **) -> actionResult **
+Fail  >>= f = Fail
+Del   >>= f = Del
+Res x >>= f = f x
+
+(<$>) :: (* -> **) -> actionResult * -> actionResult **
+f <$> ma = ma >>= (Res . f)
+
+a_bind2 :: actionResult * -> actionResult ** -> (* -> ** -> actionResult ***) -> actionResult ***
+a_bind2 ma mb f
+    = ma >>= fa
+      where
+        fa a = mb >>= fb
+               where
+                 fb b = f a b
+
+action == (sunit -> actionResult sunit)
+
+
+|| perform an action on an sunit in the sunitMap located at loc, returning the new map
+doAction :: action -> loc -> sunitMap -> actionResult sunitMap
+doAction f k
+    = go
+      where
+        go AVLLeaf = Res AVLLeaf
+
+        go (AVLNode (k', v) l r h)
+            = case cmploc k k' of
+                EQ -> case f v of
+                        Fail   -> Fail
+                        Del    -> Res $ a_moveR l r             || delete the node
+                        Res v' -> Res $ AVLNode (k', v') l r h  || adjust the node
+
+                LT -> case go l of
+                        Fail   -> Fail
+                        Del    -> Del
+                        Res l' -> Res . a_balance $ AVLNode (k', v) l' r h
+
+                GT -> case go r of
+                        Fail   -> Fail
+                        Del    -> Del
+                        Res r' -> Res . a_balance $ AVLNode (k', v) l r' h
+
+step :: action -> s_set loc -> sunitMap -> actionResult (bool, sunitMap)
+step strike walls
+    = go m_empty
+      where
+        go past m
+            = Res (True, past),                              if m_null m        || finished round; return updated sunits
+            = Res (False, m_insert cmploc k unit allOthers), if m_null enemies  || game done, no more enemies
+            = a_bind2 doPast doFuture go,                    otherwise          || choose an attacker and enemy, possibly perform a strike action
+              where
+                (k, unit)   = m_first m
+                future      = m_delete cmploc k m
+                allOthers   = m_union cmploc past future
+                walls'      = s_union cmploc walls $ m_keysSet allOthers
+                enemies     = m_filter cmploc ((_ne cmpspecies $ view u_species unit) . view u_species) allOthers
+                adjEnemies  = s_intersect cmploc (s_fromList cmploc (adjacencies k)) $ m_keysSet enemies
+                enemyRanges = s_fromList cmploc [p | k <- m_keys enemies; p <- adjacencies k; ~s_member cmploc p walls']
+                k'          = findGoal k
+                target      = selTarget . sortOn cmpint (view u_hp . snd) . filter (member cmploc (adjacencies k') . fst) $ m_toList enemies
+
+                doPast      = m_insert cmploc k' unit <$> fromMaybef (Res past) doStrike target
+                              where
+                                doStrike t = doAction strike t past
+
+                doFuture    = fromMaybef (Res future) doStrike target
+                              where
+                                doStrike t = doAction strike t future
+
+                selTarget []           = Nothing
+                selTarget ((t, _) : _) = Just t
+
+                findGoal k
+                    = fromMaybe k move
+                      where
+                        move
+                            = Nothing,                                              if ~s_null adjEnemies
+                            = nearest walls' enemyRanges k $mb_bind
+                              nearest walls' (s_fromList cmploc (adjacencies k)), otherwise
+
+outcome :: action -> cave -> actionResult (int, int)
+outcome strike (Cave walls units)
+    = go 0 units
+      where
+        go rounds units'
+            = step strike walls units' >>= check
+              where
+                check (False, us) = Res (rounds, sum . map (view u_hp) . m_elems $ us)
+                check (True, us)  = go (rounds + 1) us
+
+doPart1 :: cave -> (int, int)
+doPart1 cave
+    = fromAction (outcome strike cave)
+      where
+        strike (Sunit u hp)
+             = Res (Sunit u (hp - 3)), if hp > 3
+             = Del,                    otherwise
+
+        fromAction (Res x) = x
+        fromAction _       = error "fromAction: action is not Res"
+
+doPart2 :: cave -> (int, int)
+doPart2 cave
+    = foldr findWin (error "no elf powerf found!") [3 .. 200]
+      where
+        findWin elfPower k
+            = check (outcome strike cave)
+              where
+                strike (Sunit Elf hp)
+                    = Res (Sunit Elf (hp - 3)), if hp > 3
+                    = Fail,                     otherwise
+
+                strike (Sunit u hp)
+                    = Res (Sunit u (hp - elfPower)), if hp > elfPower
+                    = Del,                           otherwise
+
+                check (Res p) = p
+                check _       = k
+
+readCave :: (species -> int) -> string -> io cave
+readCave initialHP fn
+    = uncurry Cave <$>. (s_fromList cmploc *** m_fromList cmploc) <$>. partitionEithers <$>. parseCave <$>. lines <$>. readFile fn
+      where
+        parseCave s = [elt | Just elt <- [classify (y, x) c | (y, row) <- enumerate s; (x, c) <- enumerate row]]
+
+        classify p '#' = Just (Left p)
+        classify p 'E' = Just (Right (p, Sunit Elf    $ initialHP Elf))
+        classify p 'G' = Just (Right (p, Sunit Goblin $ initialHP Goblin))
+        classify _ _   = Nothing
+
+day15 :: io ()
+day15
+    = readCave (const 200) "../inputs/day15.input" >>=. go
+      where
+        go cave
+           = io_mapM_ putStrLn [part1, part2]
+             where
+               part1 = (++) "part 1: " . showint . uncurry (*) . doPart1 $ cave
+               part2 = (++) "part 2: " . showint . uncurry (*) . doPart2 $ cave

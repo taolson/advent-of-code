@@ -1,0 +1,64 @@
+|| day18.m
+
+
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+tile ::= S | T  || safe or trap
+
+toTile :: char -> tile
+toTile '.' = S
+toTile '^' = T
+toTile _   = error "toTile: bad char"
+
+tallyTile :: int -> tile -> int
+tallyTile n t
+    = case t of
+        S -> case n + 1 of n' -> n'
+        T -> n
+
+row == [tile]
+
+genTile T T S = T
+genTile S T T = T
+genTile T S S = T
+genTile S S T = T
+genTile _ _ _ = S
+
+|| scan across a row, tallying the safe tiles and generating the next row
+|| written using strict case evaluation to prevent space leaks
+scanRow :: (int, row) -> (int, row)
+scanRow (n, (c : r : ts))
+    = go S c r (ts ++ [S])
+      where
+        go l c r []
+            = case tallyTile n c of
+                n1 -> case genTile l c r of t -> (n1, [t])
+
+        go l c r (x : xs)
+            = case go c r x xs of
+                (n1, ts) -> case tallyTile n1 c of
+                              n2 -> case genTile l c r of
+                                      t -> (n2, t : ts)
+
+scanRow _ = undef       || added to remove compiler warning
+
+|| generate N rows from an initial string, returning the final number
+|| of safe tiles in the room.  Written with strict case evaluation, instead of
+|| iterate, to prevent space leaks
+genRows :: int -> string -> int
+genRows rows s
+    = go rows (0, map toTile s)
+      where
+        go 0    (n, _) = n
+        go rows r      = case scanRow r of r' -> go (rows - 1) r'
+
+day18 :: io ()
+day18
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        input = "^^.^..^.....^..^..^^...^^.^....^^^.^.^^....^.^^^...^^^^.^^^^.^..^^^^.^^.^.^.^.^.^^...^^..^^^..^.^^^^"
+        part1 = (++) "part 1: " . showint . genRows 40      $ input
+        part2 = (++) "part 2: " . showint . genRows 400_000 $ input

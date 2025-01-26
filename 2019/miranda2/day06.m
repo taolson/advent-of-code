@@ -1,0 +1,67 @@
+%export day06
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <avl>
+%import <bfs>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+objId     == string
+orbitSpec == (objId, objId)
+orbitMap  == m_map objId [objId]
+depthMap  == m_map objId int
+
+makeOrbitMap :: [orbitSpec] -> orbitMap
+makeOrbitMap specs
+    = foldl addSpec m_empty specs
+      where
+        addSpec m (o1, o2) = m_insertWith cmpstring (++) o1 [o2] m
+
+
+makeDepthMap :: orbitMap -> objId -> depthMap
+makeDepthMap om root
+    = go [root] 0 m_empty
+      where
+        go []  d dm = dm
+        go ids d dm = go ids' (d + 1) dm'
+                      where
+                        ids'       = concatMap find ids
+                        dm'        = foldl insert dm ids
+                        find x     = m_findWithDefault cmpstring [] x om
+                        insert m x = m_insert cmpstring x d m
+
+findPath :: objId -> objId -> orbitMap -> [objId]
+findPath start stop om
+    = path
+      where
+        (path, _)          = bfsSolve cmpstring start goalFn expandFn ()
+        goalFn oid         = oid ==$ stop
+        expandFn (oid, _)  = (m_findWithDefault cmpstring [] oid om, ())
+
+orbitalTransfers :: objId -> objId -> orbitMap -> int
+orbitalTransfers start stop om
+    = # pStart - common - 1 + # pStop - common - 1
+      where
+        pStart = findPath "COM" start om
+        pStop  = findPath "COM" stop om
+        common = (length . takeWhile (uncurry (==$))) (zip2 pStart pStop)
+
+readSpecs :: string -> io [(objId, objId)]
+readSpecs fn
+    = map (mkSpec . split ')') <$>. lines <$>. readFile fn
+      where mkSpec [a, b] = (a, b)
+            mkSpec xs     = error "parse error"
+
+day06 :: io ()
+day06
+    = readSpecs "../inputs/day06.input" >>=. go
+      where
+        go orbitSpecs
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                orbits = makeOrbitMap orbitSpecs
+                depths = makeDepthMap orbits "COM"
+                part1  = (++) "part 1: " . showint . foldr (+) 0 . m_elems $ depths
+                part2  = (++) "part 2: " . showint $ orbitalTransfers "YOU" "SAN" orbits

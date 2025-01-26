@@ -1,0 +1,68 @@
+%export day13
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <set>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+point == (int, int)
+grid  == s_set point
+
+reflect :: int -> int -> int
+reflect n m
+    = m,         if m < n
+    = 2 * n - m, otherwise
+
+foldUp, foldLeft  :: int -> grid -> grid
+foldLeft n = (s_fmap cmppoint . mapFst . reflect) n
+foldUp   n = (s_fmap cmppoint . mapSnd . reflect) n
+
+showgrid :: grid -> string
+showgrid g
+    = intercalate "\n" (map showsrow [0 .. yMax]) ++ "\n\n"
+      where
+        (xMax, _) = s_last g
+        (yMax, _) = (s_last . s_fmap cmppoint swapPair) g
+        showsrow y
+            = map showcol [0 .. xMax]
+              where
+                showcol x = '#', if s_member cmppoint (x, y) g
+                          = ' ', otherwise
+
+readInput :: string -> io (grid, [grid -> grid])
+readInput fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go input
+            = (s_fromList cmppoint pts, fds)
+              where
+                (gs, in2) = span hdDigit input
+                pts       = map parsePoint gs
+                fds       = map parseFold (drop 1 in2)
+
+        hdDigit s = ~null s & digit (hd s)
+
+        parsePoint s
+            = (intval xs, intval ys)
+              where
+                (xs, s1) = span digit s
+                ys       = tl s1
+
+        parseFold s
+            = foldUp   n, if dir ==. 'y'
+            = foldLeft n, otherwise
+              where
+                cmd = words s ! 2
+                dir = hd cmd
+                n   = intval (drop 2 cmd)
+
+day13 :: io ()
+day13
+    = readInput "../inputs/day13.txt" >>=. go
+      where
+        go (g, fds)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . s_size . hd fds  $ g
+                part2 = (++) "part 2:\n" . showgrid . foldl rapply g $ fds

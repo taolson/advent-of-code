@@ -1,0 +1,106 @@
+|| day21.m
+
+
+%export day21
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+password == string
+
+command ::=
+    Swp    int  int     |
+    SwpLtr char char    |
+    Rot    int          |
+    RotLtr char         |
+    RotRev char         |
+    Rev    int  int     |
+    Mov    int  int
+
+pswap :: int -> int -> password -> password
+pswap i1 i2 p
+    = setAt i1 c2 . setAt i2 c1 $ p
+      where
+        c1 = p ! i1
+        c2 = p ! i2
+
+prot :: int -> password -> password
+prot n p
+    = r ++ l
+      where
+        sz     = #p
+        idx    = (sz - n) $mod sz
+        (l, r) = splitAt idx p
+
+prev :: int -> int -> password -> password
+prev begin end p
+    = l ++ reverse m ++ r
+      where
+        (l, rest) = splitAt begin p
+        (m, r)    = splitAt (end - begin + 1) rest
+
+pmov :: int -> int -> password -> password
+pmov from to p
+    = li ++ [rc] ++ ri
+      where
+        (lr, rr) = splitAt from p
+        rc       = hd rr
+        rs       = lr ++ tl rr
+        (li, ri) = splitAt to rs
+
+
+exec :: password -> command -> password
+exec p (Swp i1 i2)    = pswap i1 i2 p
+exec p (SwpLtr c1 c2) = pswap i1 i2 p where Just i1 = elemIndex cmpchar c1 p; Just i2 = elemIndex cmpchar c2 p
+exec p (Rot i1)       = prot  i1 p
+exec p (RotLtr c)     = prot  idx p   where Just i1 = elemIndex cmpchar c p; idx = i1 + 1 + if' (i1 >= 4) 1 0
+exec p (Rev i1 i2)    = prev  i1 i2 p
+exec p (Mov i1 i2)    = pmov  i1 i2 p
+exec p (RotRev c)
+    = prot (neg (steps $mod #p)) p
+      where
+        Just i1 = elemIndex cmpchar c p
+        steps   = 1,                   if i1 == 0
+                = (i1 + 1) $div 2,     if odd i1
+                = (i1 + 2) $div 2 + 4, otherwise
+
+reverseCommand :: command -> command
+reverseCommand c
+    = case c of
+        Rot n     -> Rot $ -n
+        RotLtr x  -> RotRev x
+        Mov i1 i2 -> Mov i2 i1
+        _         -> c
+
+reverseCommands :: [command] -> [command]
+reverseCommands = reverse . map reverseCommand
+
+p_command :: parser command
+p_command
+    = p_swp <|> p_swpLtr <|> p_rotR <|> p_rotL <|> p_rotLtr <|> p_rev <|> p_mov
+      where
+        p_swp    = p_liftA2 Swp    (p_string "swap position " *> p_posint)     (p_string " with position " *> p_posint)
+        p_swpLtr = p_liftA2 SwpLtr (p_string "swap letter " *> p_letter)       (p_string " with letter " *> p_letter)
+        p_rev    = p_liftA2 Rev    (p_string "reverse positions " *> p_posint) (p_string " through " *> p_posint)
+        p_rotR   = Rot <$>         (p_string "rotate right " *> p_posint) <*   p_spaces <* p_word
+        p_rotL   = (Rot . neg) <$> (p_string "rotate left "  *> p_posint) <*   p_spaces <* p_word
+        p_rotLtr = RotLtr <$>      (p_string "rotate based on position of letter " *> p_letter)
+        p_mov    = p_liftA2 Mov    (p_string "move position " *> p_posint)     (p_string " to position " *> p_posint)
+
+readCommands :: string -> io [command]
+readCommands fn
+    = go <$>. parse (p_someSepBy (p_char '\n') p_command) <$>. readFile fn
+      where
+        go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
+
+day21 :: io ()
+day21
+    = readCommands "../inputs/day21.input" >>=. go
+      where
+        go commands
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . foldl exec "abcdefgh" $ commands
+                part2 = (++) "part 2: " . foldl exec "fbgdceah" . reverseCommands $ commands

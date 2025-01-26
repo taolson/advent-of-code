@@ -1,0 +1,56 @@
+|| day03.m
+
+
+%export day03
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+location == (int, int)
+
+|| written strictly to prevent space leaks during generation of grid locations
+move :: location -> location -> location
+move (x, y) (dx, dy) = case x + dx of x' -> case y + dy of y' -> (x', y')
+
+distance :: location -> int
+distance (x, y) = abs x + abs y
+
+gridLocations :: [location]
+gridLocations
+    = go (0, 0) 0 0 0 (cycle [(1, 0), (0, 1), (-1, 0), (0, -1)])
+      where
+        go loc steps turnCount stepCount directions
+            = loc : loc' $seq go loc' (steps - 1) turnCount stepCount directions,                                                     if steps > 0
+            = loc : loc' $seq turnCount' $seq stepCount' $seq directions' $seq go loc' stepCount'  turnCount' stepCount' directions', otherwise
+              where
+                loc'        = move loc (hd directions)
+                turnCount'  = turnCount + 1
+                stepCount'  = if' (even turnCount') (stepCount + 1) stepCount
+                directions' = tl directions
+
+valueAtLocation :: m_map location int -> location -> (int, m_map location int)
+valueAtLocation visited loc
+    = fromMaybef (value, visited') ($pair visited) (m_lookup cmplocation loc visited)
+      where
+        value         = sum . map checkDirs $ adjacentSteps
+        checkDirs dir = m_findWithDefault cmplocation 0 (move loc dir) visited
+        visited'      = m_insert cmplocation  loc value visited
+        adjacentSteps = [(x, y) | x <- [-1 .. 1]; y <- [-1 .. 1]; x ~= 0 \/ y ~= 0]
+
+spiralValues :: m_map location int -> [location] -> [int]
+spiralValues visited [] = error "spiralValues: []"
+spiralValues visited (loc : rest)
+    = value : spiralValues visited' rest
+      where
+        (value, visited') = valueAtLocation visited loc
+
+day03 :: io ()
+day03
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        input = 361527
+        part1 = (++) "part 1: " . showint . distance . hd . drop (input - 1) $ gridLocations
+        part2 = (++) "part 2: " . showint . hd . dropWhile (< input) . spiralValues (m_singleton (0, 0) 1) $ gridLocations

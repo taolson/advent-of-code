@@ -1,0 +1,81 @@
+|| day18.m
+
+
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <state> (>>=)/st_bind (<$>)/st_fmap (>>)/st_right
+%import <vector>
+
+point == (int, int)
+grid  == (vector int, int, bool) || lights, nrows, fix corners
+mgrid == (mvector int, int, bool)
+
+lightsOn :: grid -> int
+lightsOn (v, _, _) = v_sum v
+
+fixCorners :: grid -> grid
+fixCorners (v, mi, _) = (v, mi, True)
+
+getLight :: grid -> point -> int
+getLight (v, mi, fix) (r, c)
+    = 1,                            if fix & (r == 0 \/ r == mi') & (c == 0 \/ c == mi')
+    = v_unsafeIndex v $ r * mi + c, if 0 <= r < mi & 0 <= c < mi
+    = 0,                            otherwise
+      where mi' = mi - 1
+
+setLight :: mgrid -> point -> int -> st ()
+setLight (mv, mi, fix) (r, c) x
+    = set,        if 0 <= r < mi & 0 <= c < mi
+    = st_pure (), otherwise
+      where
+        mi'     = mi - 1
+        set     = v_unsafeWrite mv (r * mi + c) (doFix x)
+        doFix x = 1, if fix & (r == 0 \/ r == mi') & (c == 0 \/ c == mi')
+                = x, otherwise
+
+neighbors :: grid -> point -> int
+neighbors g (r, c)
+    = sum $ map (getLight g) [(r', c') | r' <- [r - 1 .. r + 1]; c' <- [c - 1 .. c + 1]; r' ~= r \/ c' ~= c]
+
+step :: grid -> grid
+step g
+    = v' $seq (v', mi, fix)
+      where
+        (v, mi, fix) = g
+        mi'          = mi - 1
+        v'           = runSTVector step' v
+
+        step' mv
+            = st_mapM_ go [(r, c) | r <- [0 .. mi']; c <- [0 .. mi']]
+              where
+                g' = (mv, mi, fix)
+                go p
+                    = adj (getLight g p) (neighbors g p)
+                      where
+                        adj v n
+                            = setLight g' p 1, if v == 0 & n == 3
+                            = setLight g' p 0, if v == 1 & n < 2 \/ n > 3
+                            = st_pure (),      otherwise
+
+readGrid :: string -> io grid
+readGrid fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows
+            = (v_fromList lights, ncols, False)
+              where
+                ncols = # hd rows
+                lights = [if' (c ==. '#') 1 0 | row <- rows; c <- row]
+
+day18 :: io ()
+day18
+    = readGrid "../inputs/day18.input" >>=. go
+      where
+        go g
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                process = showint . lightsOn . (! 100) . iterate step
+                part1 = (++) "part 1: " . process $ g
+                part2 = (++) "part 2: " . process . fixCorners $ g

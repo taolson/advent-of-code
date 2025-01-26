@@ -1,0 +1,72 @@
+|| day24.m
+
+
+%export day24
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+port      == int
+component == (port, port)
+
+hasPort :: port -> component -> bool
+hasPort p (a, b) = a == p \/ b == p
+
+otherPort :: port -> component -> port
+otherPort p (a, b)
+    = a, if b == p
+    = b, otherwise
+
+strength :: component -> int
+strength (a, b) = a + b
+
+findChains :: int -> [component] -> [(int, int)]
+findChains p [] = []
+findChains p cs
+    = go [] cs
+      where
+        go ns [] = [(0, 0)]
+        go ns (c : cs)
+            = map (addComponent c) nextChains ++ tryNext, if hasPort p c
+            = tryNext,                                    otherwise
+              where
+                p'         = otherPort p c
+                tryNext    = go (c : ns) cs
+                nextChains = findChains p' (ns ++ cs)
+
+                addComponent c (s, l)
+                    = case s + strength c of
+                        s' -> case l + 1 of
+                                l' -> (s', l')
+
+findChainMaxes :: [component] -> (int, int)
+findChainMaxes cs
+    = unpack . foldl maxr (0, 0, 0) $ findChains 0 cs
+      where
+        unpack (ms, _, mss) = (ms, mss)
+
+        maxr (ms, ml, mss) (s, l)
+            = case max2 cmpint ms s of
+                ms' -> case ml < l of
+                         False -> (ms', ml, mss)
+                         True  -> (ms', l,  s)
+
+readComponents :: string -> io [component]
+readComponents fn
+    = map readComponent <$>. lines <$>. readFile fn
+      where
+        readComponent      = mkComponent . map intval . split '/'
+        mkComponent [a, b] = (a, b)
+        mkComponent _      = error "readComponents: bad parse"
+   
+day24 :: io ()
+day24
+    = readComponents "../inputs/day24.input" >>=. (go . findChainMaxes)
+      where
+        go r
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . fst $ r
+                part2 = (++) "part 2: " . showint . snd $ r
+

@@ -1,0 +1,107 @@
+|| day14.m
+
+
+%export day14
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+%import "knotHash"
+
+gridElement ::= GridElement bool (maybe int)            || used, region
+
+ge_empty :: gridElement
+ge_empty = GridElement False Nothing
+
+g_used   = Lens getf overf where getf (GridElement a b) = a; overf fn (GridElement a b) = GridElement (fn a) b
+g_region = Lens getf overf where getf (GridElement a b) = b; overf fn (GridElement a b) = GridElement a (fn b)
+
+grid ::= Grid (mvector gridElement) int int int  || gridElement vector, rowCount, colCount, regionCount
+
+g_v       = Lens getf overf where getf (Grid a b c d) = a; overf fn (Grid a b c d) = Grid (fn a) b c d
+g_nrow    = Lens getf overf where getf (Grid a b c d) = b; overf fn (Grid a b c d) = Grid a (fn b) c d
+g_ncol    = Lens getf overf where getf (Grid a b c d) = c; overf fn (Grid a b c d) = Grid a b (fn c) d
+g_nregion = Lens getf overf where getf (Grid a b c d) = d; overf fn (Grid a b c d) = Grid a b c (fn d)
+
+gridIndex == (int, int)
+
+g_read :: grid -> gridIndex -> st gridElement
+g_read g (r, c) = v_read (view g_v g) $ view g_ncol g * r + c
+
+g_write :: grid -> gridIndex -> gridElement -> st ()
+g_write g (r, c) elt = v_write (view g_v g) (view g_ncol g * r + c) elt
+
+makeGrid :: int -> int -> grid
+makeGrid rows cols = Grid (v_unsafeThaw $ v_rep (rows * cols) ge_empty) rows cols 0
+
+initializeRow :: grid -> int -> string -> st ()
+initializeRow g r
+    = st_mapM_ init . enumerate
+      where
+        init (c, ch) = g_write g (r, c) $ GridElement (ch ==. '1') Nothing
+
+neighbors :: grid -> gridIndex -> [gridIndex]
+neighbors g (r, c)
+    = filter validNeighbor [(r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)]
+      where
+        nrow = view g_nrow g
+        ncol = view g_ncol g
+
+        validNeighbor (r, c) = 0 <= r < nrow & 0 <= c < ncol
+
+markRegionsFrom :: grid -> gridIndex -> st grid
+markRegionsFrom g idx
+    = go g False [idx]
+      where
+        go g marked []
+            = st_pure $ over g_nregion adj g
+              where
+                adj nn = nn + 1, if marked
+                       = nn,     otherwise
+
+        go g marked (idx : rest)
+            = g_read g idx >>= checkUsed
+              where
+                checkUsed elt
+                    = g_write g idx elt' >> go g True rest', if view g_used elt & (isNothing $ view g_region elt)
+                    = go g marked rest,                     otherwise
+                      where
+                        elt'  = set g_region (Just (view g_nregion g)) elt
+                        rest' = neighbors g idx ++ rest
+
+findRegions :: grid -> int
+findRegions g
+    = st_evalState (go >>= st_pure . view g_nregion) ()
+      where
+        nrow    = view g_nrow g
+        ncol    = view g_ncol g
+        allLocs = [(r, c) | r <- [0 .. nrow - 1]; c <- [0 .. ncol - 1]]
+
+        go = st_foldM markRegionsFrom g allLocs
+
+usedCount :: grid -> int
+usedCount g
+    = st_evalState (v_unsafeFreeze (view g_v g) >>=
+                   (st_pure . length . filter (view g_used) . v_toList)) ()
+
+gridFromString :: string -> grid
+gridFromString s
+    = st_evalState (st_mapM_ go [0 .. 127] >> st_pure g) ()
+      where
+        g = makeGrid 128 128
+
+        go n
+            = initializeRow g n (hashResult n)
+              where
+                hashResult n = binaryString $ hash (makeKnotHash 256) (s ++ "-" ++ showint n)
+
+day14 :: io ()
+day14
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        grid  = gridFromString "ugkiagan"
+        part1 = (++) "part 1: " . showint . usedCount $ grid
+        part2 = (++) "part 2: " . showint . findRegions $ grid

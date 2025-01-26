@@ -1,0 +1,330 @@
+%export day25
+
+%import <astar>
+%import <either>
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <set>
+%import "intcode"
+
+
+|| solution plan:
+||
+||    1) use astarReachable and intcode program to create a graph of  all rooms and items from the entrance (don't pick up any, yet)
+||    2) use astarSolve on the graph of rooms (without intcode) to get the fastest path to the sentry point with all of the items
+||    3) move through the path in 2, picking up all items along the way, so that we end up in the Security room with all items dropped
+||    4) find the combination of items that gets through the weighing floor by trying all combinations, smallest first (power set)
+
+roomId    == num
+direction == string
+item      == string
+
+|| room type -- holds information about each room in the graph
+room ::= Room
+         roomId                        || roomId
+         string                        || name
+         string                        || desc
+         [direction]                   || moves
+         [item]                        || items
+
+emptyRoom :: room
+emptyRoom = Room 0 "" "" [] []
+
+r_roomId :: room -> roomId
+r_roomId (Room roomId name desc doors loot) = roomId
+
+r_name :: room -> string
+r_name (Room roomId name desc moves loot) = name
+
+r_moves :: room -> [direction]
+r_moves (Room roomId name desc moves items) = moves
+
+r_items :: room -> [item]
+r_items (Room roomId name desc moves items) = items
+
+makeRoomId :: string -> roomId          || used for uniquely identifying rooms in sets and maps
+makeRoomId s
+    = foldl comb 0 s
+      where
+        comb n c = n * 3 + code c
+
+|| exploreState type -- holds sequential state when exploring the graph and interacting with the intcode program
+showjitState = const "<jitState>"
+cmpjitState  = undef
+
+exploreState ::= Failure string        |
+                 ExploreState
+                 room                  || room
+                 (s_set item)          || inventory
+                 jitState              || task
+
+isFailure :: exploreState -> bool
+isFailure (Failure _) = True
+isFailure _           = False
+
+e_room :: exploreState -> room
+e_room (ExploreState room inv task) = room
+e_room _ = error "e_room not an ExploreState"
+
+e_inv :: exploreState -> s_set item
+e_inv (ExploreState room inv task) = inv
+e_inv _ = error "e_inv not an ExploreState"
+
+e_task :: exploreState -> jitState
+e_task (ExploreState room inv task) = task
+e_task _ = error "e_task not an ExploreState"
+
+|| build and analyze the graph
+roomMap == m_map roomId room
+graph   == m_map roomId [(string, roomId)]
+
+buildGraph :: exploreState -> (roomMap, graph)
+buildGraph start
+    = bfs [start] s_empty (m_empty, m_empty)
+      where
+        bfs queue visited info
+            = info,                                            if null queue
+            = bfs queue' visited info,                         if s_member cmproomId  rid visited
+            = bfs (queue' ++ map snd expanded) visited' info', otherwise
+              where
+                state : queue'                = queue
+                room                          = e_room state
+                rid                           = r_roomId room
+                visited'                      = s_insert cmproomId rid visited
+                expanded                      = (filter notFailure . map move) (r_moves room)
+                info'                         = (m_insert cmproomId rid room (fst info), foldl addRoom (snd info) expanded)
+                move dir                      = (dir, moveDir dir state)
+                addRoom graph (dir, state')   = m_insertWith cmproomId (++) rid [(dir, (r_roomId . e_room) state')] graph
+                notFailure (dir, Failure err) = False
+                notFailure move               = True
+
+move == (roomId, s_set roomId)
+
+shortestPathToAll :: roomId -> roomId -> s_set roomId -> graph -> [roomId]
+shortestPathToAll start finish required graph
+    = map fst path
+      where
+        path                          = fst $ aStarSolve cmpmove (start, s_empty) goalFn expandFn () costFn estFn
+        goalFn (rid, visited)         = rid == finish & _eq (cmplist cmproomId) (s_toList visited) requiredList
+        requiredList                  = s_toList required
+        expandFn ((rid, visited), ()) = (map (addRoom visited') (m_findWithDefault cmproomId [] rid graph), ())
+                                        where
+                                          visited' = s_insert cmproomId rid visited, if s_member cmproomId rid required
+                                                   = visited,              otherwise
+        costFn _ _ = 1
+        estFn  _   = 0
+
+        addRoom visited (dir, rid)   = (rid, visited)
+
+getAllItems :: exploreState -> [roomId] -> m_map roomId room -> graph -> exploreState
+getAllItems start path roomMap graph
+    = fst (foldl takeAndMove (start, hd path) (tl path))
+      where
+        takeAndMove (state, rid) rid' = (maybeMoveDir dir state (foldl maybeTakeItem state items), rid')
+                                         where
+                                           moves               = m_findWithDefault cmproomId [] rid graph
+                                           dir                 = (fst . matchSnd rid') moves
+                                           items               = r_items (m_findWithDefault cmproomId emptyRoom rid roomMap)
+                                           matchSnd x (y : ys) = y,             if snd y == x
+                                                               = matchSnd x ys, otherwise
+                                           matchSnd _ _        = error "getAllItems: matchSnd []"
+
+        maybeMoveDir dir state state' = moveDir dir state, if _eq cmpexploreState state'' (Failure err)
+                                      = state'',           otherwise
+                                        where
+                                          state''     = moveDir dir state'
+                                          Failure err = state''
+
+        maybeTakeItem state item      = state,  if _eq cmpexploreState state' (Failure err)
+                                      = state', otherwise
+                                        where
+                                          state'      = takeItem item state
+                                          Failure err = state'
+
+
+
+|| interactions with the intcode program 
+
+moveDir :: direction -> exploreState -> exploreState
+moveDir dir (Failure err) = Failure err
+moveDir dir (ExploreState room inv task)
+    = Failure err,                   if isLeft result
+    = ExploreState room' inv task'', otherwise
+      where
+        task'                 = jitContinue (jitPutAllInput task (map code (dir ++ "\n")))
+        result                = readRoom task'
+        Right (room', task'') = result
+        Left err              = result
+
+takeItem :: item -> exploreState -> exploreState
+takeItem "infinite loop" state = Failure "avoiding infinite loop"
+takeItem item (Failure err)    = Failure err
+takeItem item (ExploreState room inv task)
+    = Failure err,                   if isLeft result
+    = ExploreState room inv' task'', otherwise
+      where
+        task'                 = jitContinue (jitPutAllInput task (map code ("take " ++ item ++ "\n")))
+        result                = readTake task'
+        Right (item', task'') = result
+        Left err              = result
+        inv'                  = s_insert cmpitem item' inv
+
+dropItem :: item -> exploreState -> exploreState
+dropItem item (Failure err)    = Failure err
+dropItem item (ExploreState room inv task)
+    = Failure err,                   if isLeft result
+    = ExploreState room inv' task'', otherwise
+      where
+        task'                 = jitContinue (jitPutAllInput task (map code ("drop " ++ item ++ "\n")))
+        result                = readDrop task'
+        Right (item', task'') = result
+        Left err              = result
+        inv'                  = s_insert cmpitem item' inv
+
+dropAllItems :: exploreState -> exploreState
+dropAllItems state = foldr dropItem state (s_toList (e_inv state))
+
+weightCheck ::= Heavier | Lighter | Password string
+
+isPassword :: weightCheck -> bool
+isPassword (Password pw) = True
+isPassword wc            = False
+
+
+
+|| parsing of the intcode program output
+
+p_Item :: parser string
+p_Item = p_string "- " >> p_some (p_notChar '\n') << p_spaces
+
+p_ItemList :: string -> parser [string]
+p_ItemList s = (p_string s >> p_spaces >> p_some p_Item) <|> p_pure []
+
+p_RoomName :: parser string
+p_RoomName = p_spaces >> p_string "== " >> p_manyUntil p_any (p_string " ==") << p_spaces
+
+p_RoomDescr :: parser string
+p_RoomDescr = p_manyUntil p_any (p_char '\n') << p_spaces
+
+p_RoomMoves :: parser [string]
+p_RoomMoves = p_ItemList "Doors here lead:"
+
+p_Room :: parser room
+p_Room
+    = p_liftA4 mkRoom p_RoomName p_RoomDescr p_RoomMoves (p_ItemList "Items here:") << (p_string "Command?" >> p_spaces >> p_end)
+      where
+        mkRoom name descr moves items = Room (makeRoomId name) name descr moves items
+
+p_Take :: parser string
+p_Take = p_spaces >> p_string "You take the " >> p_manyUntil p_any (p_string ".") >>= fitem
+         where
+           fitem item
+               = p_spaces >> p_string "Command?" >> p_spaces >> p_pure item
+                     
+p_Drop :: parser string
+p_Drop = p_spaces >> p_string "You drop the " >> p_manyUntil p_any (p_string ".") >>= fitem
+         where
+           fitem item
+               = p_spaces >> p_string "Command?" >> p_spaces >> p_pure item
+                     
+p_WeightCheck :: parser weightCheck
+p_WeightCheck
+    = p_header >> (p_droid <|> p_passwd)
+      where
+        p_header = p_RoomName >> p_RoomDescr >> p_RoomMoves >> p_voice
+        p_voice  = p_string "A loud, robotic voice says "
+        p_droid  = p_string "\"Alert! Droids on this ship are " >> (p_heavy <|> p_light)
+        p_heavy  = p_string "heavier" >> p_pure Heavier
+        p_light  = p_string "lighter" >> p_pure Lighter
+        p_passwd = p_many p_notdigit >> p_some p_digit >>= (p_pure . Password)
+        p_notdigit = p_satisfy (not . digit)
+
+readRoom :: jitState -> either string (room, jitState)
+readRoom task
+    = Left text,           if isNothing mroom
+    = Right (room, task'), otherwise
+      where
+        (out, task')      = jitGetAllOutput task
+        text              = map decode out
+        mroom             = fst $ parse p_Room text
+        Just room         = mroom
+
+readTake :: jitState -> either string (string, jitState)
+readTake task
+    = Left text,           if isNothing mitem
+    = Right (item, task'), otherwise
+      where
+        (out, task') = jitGetAllOutput task
+        text         = map decode out
+        mitem        = fst $ parse p_Take text
+        Just item    = mitem
+
+readDrop :: jitState -> either string (string, jitState)
+readDrop task
+    = Left  text,          if isNothing mitem
+    = Right (item, task'), otherwise
+      where
+        (out, task') = jitGetAllOutput task
+        text         = map decode out
+        mitem        = fst $ parse p_Drop text
+        Just item    = mitem
+
+readWeightCheck :: jitState -> either string weightCheck
+readWeightCheck task
+    = Left text, if isNothing mwc
+    = Right wc,  otherwise
+      where
+        out     = fst $ jitGetAllOutput task
+        text    = map decode out
+        mwc     = fst $ parse p_WeightCheck text
+        Just wc = mwc
+
+powerset :: [*] -> [[*]]
+powerset [] = [[]]
+powerset (x : xs) = powerset xs ++ [x : ps | ps <- powerset xs]
+
+doWeightCheck :: exploreState -> [item] -> io ()
+doWeightCheck state allItems
+    = try . sortOn cmpint length . powerset $ allItems
+      where
+        try [] = error "not found!"
+        try (items : rest)
+            = putStrLn ("trying " ++ showlist showitem items) >>. checkResult
+              where
+                state'   = foldr takeItem state items
+                task'    = e_task state'
+                result   = (readWeightCheck . jitContinue . jitPutAllInput task' . map code) ("west" ++ "\n")
+                Right wc = result
+                Password passwd = wc
+
+                checkResult
+                  = error "take error",                if isFailure state' \/ isLeft result
+                  = putStrLn ("password: " ++ passwd), if isRight result & isPassword wc
+                  = try rest,                          otherwise
+
+day25 :: io ()
+day25
+    = readProgram "../inputs/day25.input" >>=. go
+      where
+        go prog
+            = progress "buildingGraph ..." graph >>.
+              progress "computing optimal path ..." pathToAllItems >>.
+              progress "getting all items ..." allItems >>.
+              putStrLn ("items collected: " ++ showlist showitem allItems) >>.
+              doWeightCheck checkpoint' allItems
+              where
+                task                 = jitRun prog []
+                Right (start, task') = readRoom task
+                (roomMap, graph)     = buildGraph (ExploreState start s_empty task')
+                allRoomsWithItems    = (s_fromList cmproomId . map r_roomId . filter (not . null . r_items) . m_elems) roomMap
+                startId              = makeRoomId "Hull Breach"
+                finishId             = makeRoomId "Security Checkpoint"
+                pathToAllItems       = shortestPathToAll startId finishId allRoomsWithItems graph
+                checkpoint           = getAllItems (ExploreState start s_empty task') pathToAllItems roomMap graph
+                allItems             = s_toList (e_inv checkpoint)
+                checkpoint'          = dropAllItems checkpoint
+
+                progress s x = putStrLn s >>. (x $seq io_pure x)

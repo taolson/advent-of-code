@@ -1,0 +1,75 @@
+|| day18.m
+
+
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <map>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+
+oper ::= Add | Mul
+expr ::= Lit int | Binop oper expr expr
+
+eval :: expr -> int
+eval (Lit n)           = n
+eval (Binop Add e1 e2) = eval e1 + eval e2
+eval (Binop Mul e1 e2) = eval e1 * eval e2
+
+|| parse expression with left associativity using a stack of operators and values, returning an Expr tree
+
+precMap == m_map oper int
+
+prec :: precMap -> oper -> int
+prec m o = m_findWithDefault cmpoper 0 o m
+
+p_oper :: parser oper
+p_oper = (p_pure Add <* p_char '+') <|> (p_pure Mul <* p_char '*') <* p_spaces
+
+p_lit :: parser expr
+p_lit  = Lit <$> p_int
+
+p_term, p_expr :: precMap -> parser expr
+p_term pm = (p_lit <|> (p_char '(' *> p_expr pm <* p_char ')')) <* p_spaces
+p_expr pm = p_exp pm [] []
+
+p_exp, p_op, p_reduce, p_final :: precMap -> [expr] -> [oper] -> parser expr
+
+p_exp pm es os = p_term pm >>= go where go e = p_op pm (e : es) os
+p_op  pm es os = (p_oper >>= go) <|> p_final pm es os where go o = p_reduce pm es (o : os)
+
+p_reduce pm (e2 : e1 : es) (o2 : o1 : os)
+    = p_exp pm (Binop o1 e1 e2 : es) (o2 : os), if prec pm o1 >= prec pm o2
+
+p_reduce pm es os = p_exp pm es os
+
+p_final pm (e2 : e1 : es) (o1 : os) = p_final pm (Binop o1 e1 e2 : es) os
+p_final pm [e] []                   = p_pure e
+p_final pm _   _                    = p_fail
+
+p_exprs :: precMap -> parser [expr]
+p_exprs pm = p_some (p_expr pm <* p_spaces)
+
+readExprs :: precMap -> string -> [expr]
+readExprs pm input
+    = fromMaybe err mexprs
+      where
+        (mexprs, ps) = parse (p_exprs pm) input
+        err          = error (p_error ps)
+
+day18 :: io ()
+day18
+    = readFile "../inputs/day18.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                pmap1  = m_empty
+                pmap2  = m_fromList cmpoper [(Add, 1), (Mul, 0)]
+                exprs1 = readExprs pmap1 input
+                exprs2 = readExprs pmap2 input
+                part1  = (++) "part 1: " . showint . sum . map eval $ exprs1
+                part2  = (++) "part 1: " . showint . sum . map eval $ exprs2
+    

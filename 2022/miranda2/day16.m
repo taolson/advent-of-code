@@ -1,0 +1,117 @@
+%export day16
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+
+valveId == string
+valve   == (valveId, int, [valveId])
+graph   == m_map valveId valve
+
+|| lenses for valve
+v_id = lensTup3_0
+v_fl = lensTup3_1
+v_ts = lensTup3_2
+
+valveIdPair == (valveId, valveId)
+distanceMap == m_map valveIdPair int
+flowMap     == m_map valveId int
+
+|| find the minimum distance between any two valveIds using the Floyd-Warshall algorithm
+makeDistanceMap :: graph -> distanceMap
+makeDistanceMap g
+    = foldl insDist initDist [(k, i, j) | k, i, j <- m_keys g]
+      where
+        initDist
+            = foldl addAdj m_empty (m_elems g)
+              where
+                addAdj m v
+                    = foldl insAdj m (view v_ts v)
+                      where
+                        vid           = view v_id v
+                        insAdj m vid' = m_insert cmpvalveIdPair (vid, vid') 1 m
+
+        insDist dist (k, i, j)
+            = m_insert cmpvalveIdPair (i, j) n dist
+              where
+                inf = 9999
+                nij = m_findWithDefault cmpvalveIdPair inf (i, j) dist
+                nik = m_findWithDefault cmpvalveIdPair inf (i, k) dist
+                nkj = m_findWithDefault cmpvalveIdPair inf (k, j) dist
+                n   = min2 cmpint nij (nik + nkj)
+
+valveIdSet == s_set valveId
+visitMap   == m_map valveIdSet int
+
+visitValves :: int -> flowMap -> distanceMap -> visitMap
+visitValves timeLimit fm dm
+    = foldl1 (m_unionWith cmpvalveIdSet (max2 cmpint)) (map doVisit valves)
+      where
+        valves = m_keys fm
+
+        || doVisit :: valveId -> visitMap
+        doVisit vid
+            = go1 0 time vid (s_singleton vid)
+              where
+                time = timeLimit - m_findWithDefault cmpvalveIdPair 0 ("AA", vid) dm
+
+        go1 fl time vid seen
+            = foldl (m_unionWith cmpvalveIdSet (max2 cmpint)) stopHere nextValves
+              where
+                fl'        = fl + m_findWithDefault cmpvalveId 0 vid fm * (time - 1)
+                stopHere   = m_singleton seen fl'
+                nextValves = catMaybes (map go2 valves)
+
+                go2 vid'
+                    = Nothing,                         if s_member cmpvalveId vid' seen \/ time' <= 1
+                    = Just (go1 fl' time' vid' seen'), otherwise
+                      where
+                        time' = time - 1 - m_findWithDefault cmpvalveIdPair 0 (vid, vid') dm
+                        seen' = s_insert cmpvalveId vid' seen
+                                                
+                       
+m_unionWith :: ordI * -> (** -> ** -> **) -> m_map * ** -> m_map * ** -> m_map * **
+m_unionWith cmp f ma mb
+    = foldl ins ma (m_toList mb)
+      where
+        ins m (k, v) = m_insertWith cmp f k v m
+
+readGraph :: string -> io graph
+readGraph fn
+    = foldl insValve m_empty <$>. map words <$>. lines <$>. readFile fn
+      where
+        insValve g ts
+            = m_insert cmpvalveId vid v g
+              where
+                vid = ts ! 1
+                fl  = intval (filter digit (ts ! 4))
+                tns = map (filter letter) (drop 9 ts)
+                v   = (vid, fl, tns)
+
+day16 :: io ()
+day16
+    = readGraph "../inputs/day16.txt" >>=. go
+      where
+        go g
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                fm     = m_fmap (view v_fl) . m_filter cmpvalveId notPassageway $ g
+                dm     = makeDistanceMap g
+                dm'    = m_filterWithKey cmpvalveIdPair inFm dm
+                part1  = (++) "part 1: " . showint . max cmpint . m_elems . visitValves 30 fm $ dm'
+                part2  = (++) "part 2: " . showint . bestCombo . m_toList . visitValves 26 fm $ dm'
+
+                notPassageway v  = view v_id v ==$ "AA" \/ view v_fl v > 0
+                inFm ((a, b), x) = m_member cmpvalveId a fm & m_member cmpvalveId b fm
+
+                bestCombo
+                    = max cmpint . map flowSum . disjointPairs
+                      where
+                        flowSum (a, b)         = snd a + snd b
+                        disjointPairs []       = []
+                        disjointPairs (x : xs) = [(x, y) | y <- xs; s_null (s_intersect cmpvalveId  (fst x) (fst y))]
+                                                 ++ disjointPairs xs

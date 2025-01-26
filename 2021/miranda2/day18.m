@@ -1,0 +1,117 @@
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions> -split
+
+
+|| tree representation
+sn ::= N int | S sn sn
+
+addSn :: sn -> sn -> sn
+addSn a b = reduce (S a b)
+
+magSn :: sn -> int
+magSn (N n)   = n
+magSn (S a b) = 3 * magSn a + 2 * magSn b
+
+reduce :: sn -> sn
+reduce = unflatten . reduce' . flatten
+
+|| flattened representation: (depth, int)
+flatSn == [(int, int)]
+
+reduce' :: flatSn -> flatSn
+reduce' = (fromJust . last . takeWhile isJust . iterate (step . fromJust)) . Just
+
+step :: flatSn -> maybe flatSn
+step sn = explode sn $mb_alt split sn
+
+explode :: flatSn -> maybe flatSn
+explode [] = Nothing
+explode (         (5, b) : (5, c) : rest) = Just (             (4, 0) : onHead (mapSnd (c +)) rest)
+explode ((d, a) : (5, b) : (5, c) : rest) = Just ((d, a + b) : (4, 0) : onHead (mapSnd (c +)) rest)
+explode (x : rest) = mb_fmap (x :) (explode rest)
+
+onHead :: (* -> *) -> [*] -> [*]
+onHead f []       = []
+onHead f (x : xs) = f x : xs
+
+split :: flatSn -> maybe flatSn
+split [] = Nothing
+
+split ((d, n) : rest)
+    = Just ((d + 1, floor) : (d + 1, ceil) : rest), if n >= 10
+      where
+        floor = n $div 2
+        ceil  = floor + n $mod 2
+
+split (x : rest)      = mb_fmap (x :) (split rest)
+
+flatten :: sn -> flatSn
+flatten
+    = go 0
+      where
+        go d (N n)   = [(d, n)]
+        go d (S a b) = go (d + 1) a ++ go (d + 1) b
+
+unflatten :: flatSn -> sn
+unflatten
+    = fst . go 0
+      where
+        go d ((d', n) : rest)
+            = (N n,   rest),  if d' == d
+            = (S a b, rest2), otherwise
+              where
+                (a, rest1) = go (d + 1) ((d', n) : rest)
+                (b, rest2) = go (d + 1) rest1
+        go _ _ = error "unflatten: []"
+
+allPairs :: [*] -> [(*, *)]
+allPairs [] = []
+allPairs (x : xs) = map ($pair x) xs ++ map (x $pair) xs ++ allPairs xs
+
+addPair :: (sn, sn) -> sn
+addPair (a, b) = addSn a b
+
+readInput :: string -> io [sn]
+readInput fn
+    = fst <$>. sepBy '\n' readSn <$>. readFile fn
+      where
+        perror s    = error ("parse error: " ++ s)
+        readSn      = mapFst mkSn . inBrackets readElts
+        mkSn [a, b] = S a b
+        mkSn xs     = perror "mkSn didn't get two elts"
+        readElts    = sepBy ',' readElt
+        readElt []  = perror "empty elt"
+        readElt xs  = readSn xs,                             if hd xs ==. '['
+                    = (mapFst (N . intval) . span digit) xs, otherwise
+        sepBy c rdr xs
+            = go xs
+              where
+                go []        = ([], [])
+                go (c' : xs) = go xs, if c' ==. c
+                go xs        = check (rdr xs)
+
+               check (r, xs)
+                    = ([r], xs),     if null xs \/ x ~=. c
+                    = (r : rs, xs2), otherwise
+                      where
+                        x : xs1   = xs
+                        (rs, xs2) = go xs1
+
+        inBrackets rdr xs
+            = check (rdr (tl xs)),   if ~null xs & hd xs ==. '['
+            = perror "expected '['", otherwise
+              where
+                check (r, xs) = (r, tl xs),            if ~null xs & hd xs ==. ']'
+                              = perror "expected ']'", otherwise
+
+day18
+    = readInput "../inputs/day18.txt" >>=. go
+      where
+        go sns
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . magSn . foldl1 addSn $ sns
+                part2 = (++) "part 2: " . showint . max cmpint . map (magSn . addPair) . allPairs $ sns

@@ -1,0 +1,70 @@
+|| day08.m
+
+
+%export day08
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <mirandaExtensions>
+
+
+reg         == string
+registers   == m_map reg int
+execState   == (int, registers)
+command     == (execState -> string -> int -> execState)
+test        == (execState -> string -> int -> bool)
+instruction == (reg, command, int, reg, test, int)
+
+|| don't need show/cmp for instruction, and tuple6 isn't defined elsewhere
+showinstruction = undef
+cmpinstruction  = undef
+
+|| execute an instruction with the given execState
+execute :: execState -> instruction -> execState
+execute state (dreg, cmd, amt, treg, tst, tval)
+    = cmd state dreg amt, if tst state treg tval
+    = state,              otherwise
+
+|| make a command from a binary integer op
+makeCommand :: (int -> int -> int) -> command
+makeCommand op (maxVal, regs) rn v
+    = (max2 cmpint result maxVal, m_insert cmpstring rn result regs)
+      where
+        result = m_findWithDefault cmpstring 0 rn regs $op v
+
+makeTst :: (int -> int -> bool) -> test
+makeTst tst (_, regs) rn v = m_findWithDefault cmpstring 0 rn regs $tst v
+
+testMap = m_fromList cmpstring
+              [ ("<=", (<=))
+              , ("<",  (<))
+              , (">=", (>=))
+              , (">",  (>))
+              , ("==", (==))
+              , ("!=", (~=))
+              ]
+
+readInstructions :: string -> io [instruction]
+readInstructions fn
+    = map (mkInst . words) <$>. lines <$>. readFile fn
+      where
+        err         = error "parse error"
+        doCmd "inc" = makeCommand (+)
+        doCmd "dec" = makeCommand (-)
+        doCmd s     = err
+        doTst tst   = makeTst (m_findWithDefault cmpstring (==) tst testMap)
+
+        mkInst [dreg, cmd, amt, _, treg, tst, tval]
+            = (dreg, doCmd cmd, intval amt, treg, doTst tst, intval tval)
+
+        mkInst xs = err
+     
+day08 :: io ()
+day08
+    = readInstructions "../inputs/day08.input" >>=. (go . foldl execute (0, m_empty))
+      where
+        go (maxVal, regs)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . max cmpint . m_elems $ regs
+                part2 = (++) "part 2: " . showint $ maxVal

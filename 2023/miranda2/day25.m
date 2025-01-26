@@ -1,0 +1,159 @@
+|| day25.m -- Snoverload
+
+
+%export day25
+
+%import <avl>
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <bag>
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+edge    == (int, int)           || vertex index, weight
+graph   == m_map int [edge]
+vmap    == m_map int [int]      || map from vertex index to list of combined symbol indicies
+
+g_find :: int -> graph -> [edge]
+g_find = m_findWithDefault cmpint []
+
+g_insert :: int -> [edge] -> graph -> graph
+g_insert = m_insertWith cmpint (++)
+
+g_delete :: int -> graph -> graph
+g_delete = m_delete cmpint
+
+g_anyKey :: graph -> int
+g_anyKey AVLLeaf                = error "g_anyKey: empty graph"
+g_anyKey (AVLNode (k, _) _ _ _) = k
+
+a_isSingleton :: avlTree * -> bool
+a_isSingleton (AVLNode _ AVLLeaf AVLLeaf _) = True
+a_isSingleton t                             = False
+
+
+cutset == b_bag int
+
+cs_insert :: edge -> cutset -> cutset
+cs_insert = uncurry (b_insertTimes cmpint)
+
+cs_delete :: int -> cutset -> cutset
+cs_delete = b_deleteKey cmpint
+
+
+stoerSt == (graph, vmap, s_set int, cutset, int, int)
+
+|| lenses for stoerSt
+st_graph = lensTup6_0
+st_vmap  = lensTup6_1
+st_as    = lensTup6_2
+st_cut   = lensTup6_3
+st_s     = lensTup6_4
+st_t     = lensTup6_5
+
+|| move vertex S from the graph to the A-set / cutset and set S to the next most tighly coupled one
+stCutMove :: stoerSt -> stoerSt
+stCutMove (g, vm, as, cut, _, s)
+    = (g', vm, as', cut', s, t)
+      where
+        es   = g_find s g
+        g'   = m_fmap (filter ((~= s) . fst)) $ g_delete s g
+        as'  = s_insert cmpint s as
+        cut' = foldr cs_insert (cs_delete s cut) $ es
+        t    = fst . maxBy cmpint snd . b_toList $ cut'
+
+|| merge the last two vertices S and T
+stMerge :: graph -> stoerSt -> (graph, vmap)
+stMerge g (gs, vm, as, cut, s, t)
+    = (g3, vm')
+      where
+        es  = filter notST $ g_find s g
+        et  = filter notST $ g_find t g
+        est = b_toList . b_fromCountList cmpint $ es ++ et
+        g1  = g_delete t $ g
+        g2  = m_fmap repl g1
+        g3  = m_insert cmpint s est g2
+        vm' = m_insertWith cmpint (++) s (m_findWithDefault cmpint [] t vm) $ vm
+
+        notST (e, _) = e ~= s & e ~= t
+
+        || replace any S, T edge entries with S
+        repl xs
+            = xs,                            if null stes
+            = (s, sum $ map snd stes) : es', otherwise
+              where
+                (es', stes) = partition notST xs
+                
+stCutPhase :: graph -> vmap -> stoerSt
+stCutPhase g vm
+    = hd . dropWhile (not . a_isSingleton . view st_graph) . iterate stCutMove $ (g, vm, s_empty, b_empty, 0, g_anyKey g)
+
+minCut :: graph -> stoerSt
+minCut g
+    = go g vm
+      where
+        vm          = m_fromList cmpint . map mkVmEntry . m_keys $ g
+        mkVmEntry n = (n, [n])
+        cutSetSize  = sum . b_elems . view st_cut
+
+        go g vm
+            = st',                        if a_isSingleton (view st_as st') \/ css == 3
+            = uncurry go $ stMerge g st', otherwise
+              where
+                st'  = stCutPhase g vm
+                css  = cutSetSize st' 
+
+doPart1 :: graph -> int
+doPart1 g
+    = #as * #bs
+      where
+        st = minCut g
+        vm = view st_vmap st
+        as = concatMap getVM . s_toList . view st_as $ st
+        bs = concatMap getVM . m_keys . view st_graph $ st
+
+        getVM k = m_findWithDefault cmpint [] k vm
+        
+
+symtab == (m_map string int, int)
+
+initSym :: symtab
+initSym = (m_empty, 0)
+
+addSym :: symtab -> string -> (symtab, int)
+addSym (m, n) s
+    = ((m, n), fromJust mi), if isJust mi
+    = ((m', n'), n),         otherwise
+      where
+        mi = m_lookup cmpstring s m
+        m' = m_insert cmpstring s n m
+        n' = n + 1
+
+readConnections :: string -> io graph
+readConnections fn
+    = (m_fmap (map ($pair 1) . nub cmpint) . fst . foldl addNode (m_empty, initSym) . map words . lines) <$>. readFile fn
+      where
+        init [] = error "init: []"
+        init (x : xs)
+            = go x xs
+              where
+                go y [] = []
+                go y (z : zs) = y : go z zs
+
+        addNode (g, st) (c : cs)
+            = (g', st')
+              where
+                c'             = init c
+                (st', ci :csi) = mapAccumL addSym st (c' : cs)
+                g'             = foldl (insr ci) (m_insertWith cmpint (++) ci csi g) csi
+                insr v g k     = m_insertWith cmpint (++) k [v] g
+
+         addNode _ _ = error "bad nodes in readConnections"
+
+day25 :: io ()
+day25
+    = readConnections "../inputs/day25.txt" >>=. go
+      where
+        go = putStrLn . (++) "part 1: " . showint . doPart1

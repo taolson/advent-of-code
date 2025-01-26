@@ -1,0 +1,183 @@
+%export day22
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <v2>
+
+
+location  == v2 int
+direction == v2 int
+
+d_right, d_left, d_up, d_down :: direction
+d_right = V2 0 1
+d_left  = V2 0 (-1)
+d_up    = V2 (-1) 0
+d_down  = V2 1 0
+
+facingVal :: direction -> int
+facingVal (V2 r c)
+    = 0, if c > 0       || d == d_right
+    = 1, if r > 0       || d == d_down
+    = 2, if c < 0       || d == d_left
+    = 3, if r < 0       || d == d_up
+    = 0, otherwise      || to quiet non-exhaustive warning
+
+turnLeft, turnRight :: direction -> direction
+turnLeft  (V2 r c) = V2 (- c) r
+turnRight (V2 r c) = V2 c (- r)
+
+gridElt ::= Open | Wall
+grid    ==  m_map location gridElt
+
+isWall :: gridElt -> bool
+isWall Wall = True
+isWall e    = False
+
+
+|| an edgeMap maps an off-edge location to its corresponding on-edge location and new direction to travel
+|| a colMap maps a column number to its top and bottom rows during parsing
+edgeMap == m_map location (location, direction)
+colMap  == m_map int (int, int)
+move    == (int, char)  || number of steps, turn direction
+
+parsePart ::= StartRow | Grid | Moves
+parseSt   ==  (grid, edgeMap, colMap, int, int, int, int)
+
+|| lenses for parseSt
+p_grid  = lensTup7_0
+p_edge  = lensTup7_1
+p_colm  = lensTup7_2
+p_row   = lensTup7_3
+p_col   = lensTup7_4
+p_left  = lensTup7_5
+p_right = lensTup7_6
+
+|| remap the edges so they form a cube.  The faces are labeled 'A' .. 'F' and are defined by their
+|| (zero-based) upper left corner (min row, col) in the grid (based upon the cube size argument).
+|| the remapping faces and edges were derived manually by examining the input.
+|| remapping is done by parsing a string of 5 letters: from face, from side, to face, to side, flip range mapping or not
+|| the from sides are adjusted by 1 to be off-grid, while the to sides are unchanged.
+|| the remap direction is the opposite of the to side argument
+|| example input
+||        fl     = [('A', V2 0 2), ('B', V2 1 0), ('C', V2 1 1), ('D', V2 1 2), ('E', V2 2 2), ('F', V2 2 3)]
+||        remaps = ["ALCT ", "ARFRf", "ATBTf", "BLFBf", "BTATf", "BBEBf", "CTAL ", "CBELf", "DRFTf", "ELCBf", "EBBBf", "FTDRf", "FRARf", "FBBLf"]
+cubeRemap :: int -> edgeMap -> edgeMap
+cubeRemap size em
+    = foldl addRemap em remaps
+      where
+        fl     = [('A', V2 1 1), ('B', V2 2 0), ('C', V2 0 1), ('D', V2 0 2), ('E', V2 2 1), ('F', V2 3 0)]
+        remaps = ["ALBT ", "ARDB ", "BTAL ", "BLCLf", "CTFL ", "CLBLf", "DTFB ", "DRERf", "DBAR ", "ERDRf", "EBFR ", "FREB ", "FBDT ", "FLCT "]
+        fm     = (m_fromList cmpchar . map (mapSnd (v2_fmap (* size)))) fl
+        side   = [1 .. size]
+    
+        addRemap m [ff, fs, tf, ts, flip]
+            = foldl ins m (zip2 (map ($v2_add fc $v2_add adj) fr) (map (($pair dir) . ($v2_add tc)) (doFlip  tr)))
+              where
+                fc            = fromJust (m_lookup cmpchar ff fm)
+                tc            = fromJust (m_lookup cmpchar tf fm)
+                (fr, adj, _)  = mkRange fs
+                (tr, _, dir)  = mkRange ts
+                ins m (k, v)  = m_insert cmplocation k v m
+                doFlip        = reverse, if flip ==. 'f'
+                              = id,      otherwise
+
+        addRemap m xs = error "addRemap: bad remap!"
+
+        || return a range of edge location deltas, along with an adjustment value for off-grid from range, and a direction for to range
+        mkRange 'T' = (map (V2  1)    side, d_up,    d_down)
+        mkRange 'B' = (map (V2  size) side, d_down,  d_up)
+        mkRange 'L' = (map ($V2 1)    side, d_left,  d_right)
+        mkRange 'R' = (map ($V2 size) side, d_right, d_left)
+        mkRange _   = error "bad mkRange"
+
+pathSt == (location, direction)
+
+runPath :: grid -> edgeMap -> pathSt -> [move] -> pathSt
+runPath g em st
+    = foldl doMove st
+      where
+        doMove (loc, dir) (steps, turn)
+            = (loc, dirT),                           if steps == 0 \/ isWall elt
+            = doMove (loc', dir') (steps - 1, turn), otherwise
+              where
+                loc1 = v2_add loc dir
+
+                Just (loc', dir', elt)
+                    = (triple loc1 dir $mb_fmap m_lookup cmplocation loc1 g) $mb_alt (m_lookup cmplocation loc1 em $mb_bind wrap)
+                      where
+                        wrap (locw, dirw) = triple locw dirw $mb_fmap m_lookup cmplocation locw g
+
+                dirT = turnLeft  dir, if turn ==. 'L'
+                     = turnRight dir, if turn ==. 'R'
+                     = dir,           otherwise
+
+passwd :: pathSt -> int
+passwd (V2 row col, dir) = 1000 * row + 4 * col + facingVal dir
+
+readInput :: string -> io (grid, edgeMap, int, [move])     || grid, edgeMap, cube size, moves
+readInput fn
+    = parse StartRow (m_empty, m_empty, m_empty, 1, 1, 0, 0) <$>. readFile fn           || note: grid indicies start at 1
+      where
+        parse StartRow st ('\n' : xs) = parse Moves st xs                               || empty line separates grid from moves
+        parse StartRow st (' ' : xs)  = parse StartRow (over p_col (+ 1) st) xs         || look for left edge of grid
+        parse StartRow st xs          = parse Grid (set p_left (view p_col st) st) xs   || process grid
+
+        || end of row -- add left/right edges to edge map and start a new row
+        parse Grid st ('\n' : xs)
+            = parse StartRow ((over p_row (+ 1) . set p_col 1 . over p_edge addEdges) st) xs
+              where
+                addEdges em
+                    = foldl ins em [(V2 row (right + 1), (V2 row left, d_right)), (V2 row (left -1), (V2 row right, d_left))]
+                      where
+                        row          = view p_row st
+                        left         = view p_left st
+                        right        = view p_right st
+                        ins m (k, v) = m_insert cmplocation k v m
+
+        parse Grid st (' ' : xs) = parse Grid (over p_col (+ 1) st) xs
+
+        || add Open/Wall to grid and adjust column map for this column
+        parse Grid st (x : xs)
+            = parse Grid ((addGrid . addColm . over p_col (+ 1) . set p_right col) st) xs
+              where
+                row     = view p_row st
+                col     = view p_col st
+                elt     = Wall, if x ==. '#'
+                        = Open, otherwise
+                addGrid = over p_grid (m_insert cmplocation (V2 row col) elt)
+                addColm = over p_colm (m_insertWith cmpint adjBot col (row,row))
+
+                adjBot (x, bot') (top, bot) = (top, bot')
+
+        parse Grid _ _          = undef || to quiet non-exhaustive warning
+
+        parse Moves st xs
+            = (view p_grid st, edgem, size, moves)
+              where
+                edgem   = foldl addEdge (view p_edge st) (m_toList (view p_colm st))
+                size    = (minDist . m_elems . view p_colm) st + 1
+                moves   = parseMove xs
+
+                minDist = pairDist . minBy cmpint pairDist where pairDist (a, b) = b - a
+
+                addEdge m (c, (t, b))
+                    = foldl ins m [(V2 (t - 1) c, (V2 b c, d_up)), (V2 (b + 1) c, (V2 t c, d_down))]
+                      where
+                        ins m (k, v) = m_insert cmplocation k v m
+
+                parseMove [] = []
+                parseMove xs = (intval ds, c) : parseMove xs' where (ds, c : xs') = span digit xs
+
+day22 :: io ()
+day22
+    = readInput "../inputs/day22.txt" >>=. go
+      where
+        go (g, em, cs, ms)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                start = fst (m_first g)
+                part1 = (++) "part 1: " . showint . passwd . runPath g em (start, V2 0 1) $ ms
+                part2 = (++) "part 2: " . showint . passwd . runPath g (cubeRemap cs em) (start, V2 0 1) $ ms

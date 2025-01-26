@@ -1,0 +1,45 @@
+|| day05.m
+
+
+%export day05
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <vector>
+
+|| Note: this had to be written with strict evaluation of everything, because otherwise
+|| it resulted in either stack or heap overflows in part2, due to space leaks of updated
+|| idx / cnt / n values
+jumpCount :: (int -> int) -> vector int -> int
+jumpCount updater v
+    = go 0 0
+      where
+        len = v_length v
+        mv  = v_thaw v
+
+        go idx cnt
+            = cnt,   if idx < 0 \/ idx >= len
+            = doJmp, otherwise
+              where
+                doJmp
+                    = case v_unsafeRead mv idx () of
+                        (n, _) -> case updater n of
+                                    n' -> case v_unsafeWrite mv idx n' of
+                                            _ -> case idx + n of
+                                                   idx' -> case cnt + 1 of
+                                                             cnt' -> go idx' cnt'
+
+towards3 :: int -> int
+towards3 n
+    = n - 1, if n >= 3
+    = n + 1, otherwise
+
+day05 :: io ()
+day05
+    = readFile "../inputs/day05.input" >>=. (go . v_fromList . map intval . words)
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . jumpCount (+ 1) $ input
+                part2 = (++) "part 2: " . showint . jumpCount towards3 $ input

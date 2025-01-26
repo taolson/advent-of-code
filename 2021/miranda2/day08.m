@@ -1,0 +1,109 @@
+%export day08
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+segment == char
+pattern == s_set segment
+
+|| common set operators
+(/-) = s_difference cmpchar
+(/+) = s_union cmpchar
+(/*) = s_intersect cmpchar
+
+|| list of (digit value, segment list) pairs
+canonicalSegList :: [(int, [segment])]
+canonicalSegList
+    = [ (0, "abcefg")
+      , (1, "cf")
+      , (2, "acdeg")
+      , (3, "acdfg")
+      , (4, "bcdf")
+      , (5, "abdfg")
+      , (6, "abdefg")
+      , (7, "acf")
+      , (8, "abcdefg")
+      , (9, "abcdfg")
+      ]
+
+|| map from canonical segment list to digit
+canonicalSegsToDigitMap :: m_map [segment] int
+canonicalSegsToDigitMap = (m_fromList cmpstring . map swapPair) canonicalSegList
+
+|| solve an entry, returning the list of digits displayed in order
+|| strategy: the mapping from displayed segment to canonical segment can be determined
+|| by set manipulation of the displayed segments for the digits
+||      1       only 2-segment
+||      7       only 3-segment
+||      4       only 4-segment
+||      8       only 8-segment (just all of the segments)
+||      2,3,5   the  5-segments
+||      0,6,9   the  6-segments
+
+solve :: entry -> [int]
+solve (pats, digs)
+    = map getDigit digs'
+      where
+        (p2s, pats1)  = partition ((== 2) . s_size) pats
+        (p3s, pats2)  = partition ((== 3) . s_size) pats1
+        (p4s, pats3)  = partition ((== 4) . s_size) pats2
+        (c235, pats4) = partition ((== 5) . s_size) pats3
+        (c069, pats5) = partition ((== 6) . s_size) pats4
+        p1            = hd p2s
+        p7            = hd p3s
+        p4            = hd p4s
+        p8            = hd pats5
+        p235          = foldl (/*) p8 c235                      || intersection of p2, p3, p5
+        p069          = foldl (/*) p8 c069                      || intersection of p0, p6, p9
+        sa            = s_first (p7 /- p1)
+        sb            = s_first ((p4 /- p1) /- p235)
+        sc            = s_first (p7 /- p069)
+        sd            = s_first (p4 /* p235)
+        se            = s_first ((p8 /- p069) /- p4)
+        sf            = s_first ((p069 /- p235) /- (p4 /- p1))
+        sg            = s_first ((p235 /- p4) /- p7)
+        segsMap       = m_fromList cmpchar
+                            [ (sa, 'a')
+                            , (sb, 'b')
+                            , (sc, 'c')
+                            , (sd, 'd')
+                            , (se, 'e')
+                            , (sf, 'f')
+                            , (sg, 'g')
+                            ]
+        digs'         = map (s_fmap cmpchar trans) digs
+        trans s       = m_findWithDefault cmpchar ' ' s segsMap
+        getDigit segs = m_findWithDefault cmpstring (-1) (s_toList segs) canonicalSegsToDigitMap
+
+
+|| parsing
+
+entry   == ([pattern], [pattern])
+
+readInput :: string -> io [entry]
+readInput fn
+    = map readEntry <$>. lines <$>. readFile fn
+      where
+         readEntry s
+             = (ps, ds)
+               where
+                 (ps, rs) = splitAt 10 . map (s_fromList cmpchar) . words $ s
+                 ds       = drop 1 rs
+
+day08 :: io ()
+day08
+    = readInput "../inputs/day08.txt" >>=. go
+      where
+        go entries
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                solved = map solve entries
+                part1  = (++) "part 1: " . showint . length . filter is1478 . concat $ solved
+                part2  = (++) "part 2: " . showint . sum . map mkVal $ solved
+
+                is1478 n     = n == 1 \/ n == 4 \/ n == 7 \/ n == 8
+                mkVal        = foldl addDigit 0
+                addDigit s n = s * 10 + n     

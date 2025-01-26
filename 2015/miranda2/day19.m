@@ -1,0 +1,90 @@
+|| day19.m
+
+
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+
+parseMapping :: string -> (string, string)
+parseMapping
+    = mkMapping . words
+      where
+        mkMapping [k, _, v] = (k, v)
+        mkMapping _         = error "parseMapping: parse error"
+
+singleReplacements :: string -> string -> string -> [string]
+singleReplacements k v
+    = go
+      where
+        n = #k
+
+        go [] = []
+        go s
+            = (v ++ drop n s) : rest, if isPrefixOf cmpchar k s
+            = rest,                   otherwise
+              where
+                rest = map (hd s :) . go . tl $ s
+
+uniqueSubs :: [(string, string)] -> string -> s_set string
+uniqueSubs reps src
+    = s_fromList cmpstring $ concat [singleReplacements k v src | (k, v) <- reps]
+
+uniquePreds :: [(string, string)] -> string -> s_set string
+uniquePreds reps src = s_fromList cmpstring $ concat [singleReplacements v k src | (k, v) <- reps]
+
+|| note: this works quickly on the given input, but isn't guaranteed to produce quick results on
+|| all inputs.  The "reverse" in the "go" computation perturbs the order enough that it stumbles
+|| upon a solution, but without it the computation runs over an hour without finding a solution.
+findPathToElectron :: [(string, string)] -> string -> int
+findPathToElectron reps
+    = fromJust . go 0
+      where
+        go c []  = Nothing
+        go c "e" = Just c
+        go c s   = listToMaybe . mapMaybe (go (c + 1)) . reverse . s_toList $ uniquePreds reps s
+
+        listToMaybe []       = Nothing
+        listToMaybe (x : xs) = Just x
+
+|| this solution was found by askalsi -- the trick is that we only need to know how many steps the
+|| solution takes to resolve to the electron "e", not the exact path.  Examining the input substitutions,
+|| there are only these kinds: a => "e", a => aa, a => a(a), a => a(a,a), a => a(a,a,a)
+|| so if we count their occurrences in the input, we can directly compute the number of steps to "e":
+findPathToElectronFast :: string -> int
+findPathToElectronFast s
+    = nTok - nParen - 2 * nComma - 1
+      where
+        toks   = parseToks s
+        nTok   = #toks
+        nParen = #filter isParen toks
+        nComma = #filter isComma toks
+
+        isParen t = t ==$ "Rn" \/ t ==$ "Ar"
+        isComma t = t ==$ "Y"
+
+        parseToks [] = []
+        parseToks (c : s)
+            = (c : s1) : parseToks s2
+              where
+                (s1, s2) = span isLower s
+
+readInput :: string -> io (string, [(string, string)])
+readInput fn
+    = go <$>. reverse <$>. lines <$>. readFile fn
+      where
+        go (tgt : _ : ms) = (tgt, map parseMapping ms)
+        go _              = error "readInput: bad parse"
+
+day19 :: io ()
+day19
+    = readInput "../inputs/day19.input" >>=. go
+      where
+        go (tgt, reps)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . s_size . uniqueSubs reps $ tgt
+                part2 = (++) "part 2: " . showint . findPathToElectronFast $ tgt

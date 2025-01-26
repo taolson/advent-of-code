@@ -1,0 +1,126 @@
+%export day15
+
+%import <bfs>
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import "intcode"
+
+
+point == (int, int)
+
+direction ::= North | South | West | East | Back
+
+turn :: direction -> direction
+turn North = South
+turn South = West
+turn West  = East
+turn East  = Back
+turn Back  = Back
+
+opposite :: direction -> direction
+opposite North = South
+opposite South = North
+opposite West  = East
+opposite East  = West
+opposite Back  = Back
+
+fromEnum :: direction -> num
+fromEnum North = 1
+fromEnum South = 2
+fromEnum West  = 3
+fromEnum East  = 4
+fromEnum Back  = 5
+
+walk :: point -> direction -> point
+walk (x, y) dir
+    = case dir of
+        North -> (x, y + 1)
+        South -> (x, y - 1)
+        West  -> (x - 1, y)
+        East  -> (x + 1, y)
+        Back  -> error "walk got Back as a direction"
+
+tile ::= Unknown | Explored | Wall | Filled | Tank
+
+mazeState ::=
+    MazeState
+    (m_map point tile)  || maze
+    point               || bot
+    direction           || dir
+    [direction]         || path
+
+explore :: mazeState -> jitState -> mazeState
+explore ms t
+    = ms,                                                 if _eq cmpdirection dir Back & null path
+    = explore (MazeState maze  botBack dirBack pathb) t2, if _eq cmpdirection dir Back
+    = explore (MazeState maze' bot' dir' path') t2,       if _eq cmptile tileFwd Unknown
+    = explore (MazeState maze  bot (turn dir) path) t,    otherwise
+      where
+        MazeState maze bot dir path = ms
+        dirb : pathb = path
+        back         = opposite dirb
+        botBack      = walk bot back
+        botFwd       = walk bot dir 
+        dirBack      = turn dirb
+        tileFwd      = m_findWithDefault cmppoint Unknown botFwd maze
+        cmd          = fromEnum back,                         if _eq cmpdirection dir Back
+                     = fromEnum dir,                          otherwise
+        t1           = jitContinue (jitPutInput t cmd)
+        (status, t2) = jitGetOutput t1
+
+        botTile      = Wall,                                  if status == 0
+                     = Explored,                              if status == 1
+                     = Tank,                                  if status == 2
+                     = error "botTile: bad status",           otherwise
+        maze'        = m_insert cmppoint botFwd botTile maze
+        bot'         = botFwd,                                if status ~= 0
+                     = bot,                                   otherwise
+        dir'         = turn dir,                              if status == 0
+                     = North,                                 otherwise
+        path'        = dir : path,                            if status ~= 0
+                     = path,                                  otherwise
+
+shortestPathToTank :: mazeState -> [point]
+shortestPathToTank (MazeState maze bot dir path)
+    = path
+      where
+        (path, ())      = bfsSolve cmppoint (0, 0) goalFn expFn ()
+        goalFn loc      = _eq cmptile Tank (findInMaze loc)
+        expFn (loc, ()) = ((filter notWall . map (walk loc)) [North, South, West, East], ())
+        notWall loc     = _ne cmptile Wall (findInMaze loc)
+        findInMaze loc  = m_findWithDefault cmppoint Unknown loc maze
+        
+tloc == (int, point)
+
+fillMaze :: point -> mazeState -> num
+fillMaze tank (MazeState maze b d p)
+    = time
+      where
+        (_, st)    = bfsSolve cmptloc (0, tank) goalFn expFn (0, maze)
+        (time, _)  = st
+        goalFn     = const False
+        expFn ((time, loc), (maxTime, maze))
+            = (map stepTime expanded, (max2 cmpint time maxTime, maze'))
+              where
+                expanded         = (filter wasExplored . map (walk loc)) [North, South, West, East]
+                wasExplored loc  = _eq cmptile Explored (m_findWithDefault cmppoint Unknown loc maze)
+                maze'            = foldr markFilled maze expanded
+                markFilled loc m = m_insert cmppoint loc Filled m
+                stepTime loc     = (time + 1, loc)
+
+day15 :: io ()
+day15
+    = readProgram "../inputs/day15.input" >>=. (go . jitReset)
+      where
+        go t
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                origin = (0, 0)
+                ms     = MazeState (m_singleton origin Explored) origin North []
+                ms'    = explore ms t
+                path   = shortestPathToTank ms'
+                time   = fillMaze (last path) ms'
+                part1  = (++) "part 1: " . showint . length . tl $ path
+                part2  = (++) "part 2: " . showint $ time

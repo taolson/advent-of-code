@@ -1,0 +1,71 @@
+|| day16.m
+||
+|| the straightforward solution here results in heap overflows due to rapidly expanding memory requirements
+|| for holding the intermediate lists (~128 bytes for each "bit")
+|| instead, examining the bit stream during dragonCurve expansion, we see that there is a repeated pattern of
+|| the initial seed, a separator bit, then the initial seed, reversed, then another separator bit.  The separator
+|| bits start with a seed [], then every time we need new bits, it is a '0' bit along with the previous seed reversed and inverted
+
+
+%export day16
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+|| determine the number of the dragon curve that has at least sz bits
+curveNumber :: int -> int
+curveNumber sz
+    = length . takeWhile (< sz) . iterate step $ 1
+      where
+        step n = n * 2 + 1
+
+|| generate a string of dragonCurve bits from the curve number, with each
+|| successive curve number expanding the previous by 2N + 1
+dragonCurve :: int -> string
+dragonCurve n
+    = front (n + 1) ""
+      where
+        front n   = bits "0" n
+        rear  n   = bits "1" n
+
+        bits bs 0 = id
+        bits bs n = front (n - 1) . (bs ++) . rear (n - 1)
+
+|| generate a string of n bits from dragon curve with a seed string s
+dragonString :: string -> int -> string
+dragonString s n
+    = take n . go . dragonCurve . curveNumber $ n $div #s
+      where
+        srev = map cnot . reverse $ s
+
+        cnot '0' = '1'
+        cnot '1' = '0'
+        cnot _   = error "cnot: bad char"
+
+        go (a : b : cs) = s ++ [a] ++ srev ++ [b] ++ go cs
+        go _            = []
+
+|| perform a checksum reduction on a string of size n
+checksum :: int -> string -> string
+checksum n s
+    = iterate go s ! steps
+      where
+        steps = length . takeWhile even . iterate ($div 2) $ n
+
+        ceq a b = '1', if a ==. b
+                = '0', otherwise
+
+        go (a : b : xs) = (: go xs) $! ceq a b
+        go _            = []
+
+genData :: string -> int -> string
+genData seed sz = checksum sz . dragonString seed $ sz
+
+day16 :: io ()
+day16
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        seed  = "00111101111101000"
+        part1 = "part 1: " ++ genData seed 272
+        part2 = "part 2: " ++ genData seed 35651584

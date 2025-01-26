@@ -1,0 +1,76 @@
+|| day04v.m -- Scratchcards -- version written using vector instead of map / bag
+
+
+%export day04
+
+%import <io> (>>=.)/io_bind
+%import <mirandaExtensions>
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+
+|| find the matches between two lists that have been sorted in ascending order
+match :: ordI * -> [*] -> [*] -> [*]
+match cmp
+    = go
+      where
+        go (a : as) (b : bs)
+            = case cmp a b of
+                EQ -> a : go as bs
+                LT -> go as (b : bs)
+                GT -> go (a : as) bs
+         go _ _ = []
+
+|| a card is simply the number of matches it has; its card ID is implicitly its index in the list / vector
+card == int
+
+readCard :: string -> card
+readCard
+    = part . map (map intval . splitOneOf cmpchar " :") . split '|'
+      where
+        part [(_ : cid : wins), nums]
+            = length $ match cmpint (sortBy cmpint wins) (sortBy cmpint nums)
+
+        part xs = error "readCard: bad parse"            
+
+cardPoints :: card -> int
+cardPoints c
+    = 0,              if c == 0
+    = 1 .<<. (c - 1), otherwise
+
+|| expand the card values to the list of indicies of the next n elements
+expandCards :: vector card -> vector [int]
+expandCards cv
+    = v_mapWithIndex takeN cv
+      where
+        takeN i n = [i + 1 .. i + n]
+
+|| tally total number of cards by expanding each entry of the expansion
+tallyCards :: vector [int] -> int
+tallyCards ev
+    = v_sum . runSTVector tally $ v_rep ncards 1
+      where
+        ncards = v_length ev
+
+        tally mv
+            = st_mapM_ iter [0 .. ncards - 1]
+              where
+                iter i
+                    = v_unsafeRead mv i >>= step
+                      where
+                        step n
+                            = st_mapM_ ins (ev !! i)
+                              where
+                                ins j = v_unsafeModify mv (+ n) j
+
+
+day04 :: io ()
+day04
+    = readFile "../inputs/day04.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                cards = v_fromList . map readCard . lines $ input
+                part1 = ("part 1: " ++) . showint . v_sum . v_map cardPoints $ cards
+                part2 = ("part 2: " ++) . showint . tallyCards . expandCards $ cards

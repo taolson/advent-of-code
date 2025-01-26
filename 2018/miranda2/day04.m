@@ -1,0 +1,93 @@
+|| day04.m
+
+
+%export day04
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+gid        == int
+guardTimes == vector int
+guardMap   == m_map gid guardTimes
+timestamp  == (int, int, int, int, int)
+
+ts_min :: timestamp -> int
+ts_min (_, _, _, _, m) = m
+
+
+event ::= Begin gid | Sleep | Wake
+
+isBegin :: event -> bool
+isBegin (Begin _) = True
+isBegin _         = False
+
+tsEvent == (timestamp, event)
+
+p_timestamp :: parser timestamp
+p_timestamp = p_liftA4 mkTime
+                  (p_char '[' *> p_int)
+                  (p_char '-' *> p_int)
+                  (p_char '-' *> p_int)
+                  (p_char ' ' *> p_int) <*> (p_char ':' *> p_int <* p_char ']') <* p_spaces
+              where
+                mkTime y mo d h mn = (y, mo, d, h, mn)
+
+p_begin, p_sleep, p_wake :: parser event
+p_begin = Begin <$> (p_string "Guard #" *> p_int <* p_string " begins shift")
+p_sleep = p_pure Sleep <* p_string "falls asleep"
+p_wake  = p_pure Wake  <* p_string "wakes up"
+
+p_event :: parser tsEvent
+p_event = p_liftA2 pair p_timestamp (p_begin <|> p_sleep <|> p_wake) <* p_spaces
+
+processGuard :: guardMap -> [tsEvent] -> guardMap
+processGuard m ((_, Begin gid) : es)
+    = m_insert cmpgid gid vs m
+      where
+        vs     = st_evalState doEvents initSt
+        initSt = (0, v_unsafeThaw . m_findWithDefault cmpgid (v_rep 60 0) gid $ m)
+
+        doEvents = st_mapM_ addEvent es >> st_get >>= v_unsafeFreeze . snd
+
+        addEvent (ts, Sleep) = st_modify ($setFst (ts_min ts))
+        addEvent (ts, Wake)  = st_get >>= incTimes (ts_min ts)
+        addEvent _           = error "addEvent got bad event"
+
+        incTimes tw (ts, vs) = st_mapM_ (v_unsafeModify vs (+ 1)) [ts .. tw - 1]
+
+processGuard m x = error ("processGuard: " ++ showlist showtsEvent x)
+
+processEvents :: [tsEvent] -> guardMap
+processEvents
+    = foldl processGuard m_empty . groupBy sameGuard
+      where
+        sameGuard _ (_, Begin _) = False
+        sameGuard _ _            = True
+
+strategy :: (vector int -> int) -> guardMap -> int
+strategy f gm
+    = gid * i
+      where
+        (gid, v) = maxBy cmpint (f . snd) . m_toList $ gm
+        (i, _)   = maxBy cmpint snd . enumerate . v_toList $ v
+
+readEvents :: string -> io [tsEvent]
+readEvents fn
+    = go <$>. parse (p_some p_event) <$>. readFile fn
+      where
+        go (mes, ps) = fromMaybef (error (p_error ps)) (sortBy cmptsEvent)  mes
+        
+day04 :: io ()
+day04
+    = readEvents "../inputs/day04.input" >>=. (go . processEvents)
+      where
+        go gm
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1  = (++) "part 1: " . showint . strategy v_sum          $ gm
+                part2  = (++) "part 2: " . showint . strategy (v_max cmpint) $ gm

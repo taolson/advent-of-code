@@ -1,0 +1,124 @@
+|| day20.m
+
+
+%export day20
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <dequeue>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <set>
+
+
+room    == (int, int)
+roomSet == s_set room
+
+direction ::= North | East | South | West
+
+move :: direction -> room -> room
+move dir (x, y)
+    = case dir of
+        North -> (x, y - 1)
+        East  -> (x + 1, y)
+        South -> (x, y + 1)
+        West  -> (x - 1, y)
+
+doorMap     == m_map room [room]
+distanceMap == m_map room int
+
+regExElt ::= RegExLit direction | RegExAlt [regExSeq]
+
+regExSeq == [regExElt]
+
+addDoor :: doorMap -> (room, room) -> doorMap
+addDoor doorMap (room1, room2)
+    = doorMap2
+      where
+        doorMap1 = m_insert cmproom room1 (addUnique room2 (doors room1)) doorMap
+        doorMap2 = m_insert cmproom room2 (addUnique room1 (doors room2)) doorMap1
+
+        addUnique elt lst
+            = lst,       if member cmproom lst elt
+            = elt : lst, otherwise
+
+        doors room = m_findWithDefault cmproom [] room doorMap
+
+
+expandElt :: (doorMap, roomSet) -> regExElt -> (doorMap, roomSet)
+
+expandElt (doorMap, starts) (RegExLit dir)
+    = (doorMap', starts')
+      where
+        startPairs = s_fromList (cmppair cmproom cmproom) . map pairDir . s_toList $ starts where pairDir r = (r, move dir r)
+        starts'    = s_fromList cmproom . map snd . s_toList $ startPairs
+        doorMap'   = s_foldl addDoor doorMap startPairs
+
+expandElt (doorMap, starts) (RegExAlt seq)
+    = foldl expandAlt (doorMap, s_empty) seq
+      where
+        expandAlt (dm, rms) elt
+            = (dm', s_foldr (s_insert cmproom) rms rms')
+              where
+                (dm', rms') = expandSeq (dm, starts) elt
+
+expandSeq :: (doorMap, roomSet) -> regExSeq -> (doorMap, roomSet)
+expandSeq = foldl expandElt
+
+mapRoomDistance :: doorMap -> distanceMap
+mapRoomDistance doorMap
+    = go (dq_singleton ((0, 0), 0)) m_empty
+      where
+        go q dm
+            = dm, if dq_null q
+            = go toVisit dm, if m_member cmproom here dm
+            = go toVisit' dm', otherwise
+              where
+                ((here, dist), toVisit) = fromJust $ dq_viewL q
+                adjacent = m_findWithDefault cmproom [] here doorMap
+                toVisit' = foldl (converse dq_addR) toVisit . zip2 adjacent $ repeat (dist + 1)
+                dm'      = m_insert cmproom here dist dm
+
+p_inParens :: parser * -> parser *
+p_inParens p
+    = p_char '(' *> p <* p_char ')'
+
+p_regExLit :: parser regExElt
+p_regExLit
+    = RegExLit <$> (p_any >>= fdir)
+      where
+        fdir 'N' = p_pure North
+        fdir 'E' = p_pure East
+        fdir 'S' = p_pure South
+        fdir 'W' = p_pure West
+        fdir _   = p_fail
+
+p_regExAlt :: parser regExElt
+p_regExAlt = RegExAlt <$> p_inParens (p_someSepBy (p_char '|') p_regExSeq)
+
+p_regExSeq :: parser regExSeq
+p_regExSeq = p_many (p_regExLit <|> p_regExAlt)
+
+p_regExProg :: parser regExSeq
+p_regExProg = p_char '^' *> p_regExSeq <* p_char '$'
+
+readRegEx :: string -> io regExSeq
+readRegEx fn
+    = go <$>. parse p_regExProg <$>. readFile fn
+      where
+        go (mreg, ps) = fromMaybe (error (p_error ps)) mreg
+
+day20 :: io ()
+day20
+    = readRegEx "../inputs/day20.input" >>=. go
+      where
+        go regex
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                expanded        = fst . expandSeq (m_empty, s_singleton (0, 0)) $ regex
+                distanceMap     = mapRoomDistance expanded
+                thousandDoorMap = m_filter cmproom (>= 1000) distanceMap
+                part1           = (++) "part 1: " . showint . max cmpint . m_elems $ thousandDoorMap
+                part2           = (++) "part 2: " . showint . m_size $ thousandDoorMap
+

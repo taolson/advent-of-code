@@ -1,0 +1,106 @@
+|| day22.m -- Sand Slabs
+
+
+%export day22
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <mirandaExtensions>
+%import <state>
+
+
+coord == (int, int, int)     || z, x, y
+
+c_z :: lens coord int
+c_z = lensTup3_0
+
+|| a comparison on coordinates only involving the x, y components
+cmpcoordXY :: ordI coord
+cmpcoordXY (z1, x1, y1) (z2, x2, y2)
+    = cmpint x1 x2 $thenCmp cmpint y1 y2
+
+brick == [coord]
+
+
+heightMap == m_map coord int    || max height for each x, y loc
+stackSt   == (heightMap, int)   || height map, count of # of bricks dropped
+
+st_hm  = lensFst
+st_cnt = lensSnd
+
+initStack :: stackSt
+initStack = (m_empty, 0)
+
+|| drop a brick to the top of the stack
+dropBrick :: brick -> state stackSt brick
+dropBrick b (hm, cnt)
+    = (b', (hm', cnt'))
+      where
+        bh  = view c_z . hd $ b                 || lo z of the brick
+        mh  = max cmpint . map (geth hm) $ b    || highest point of the stack covered by the brick's XY coordinates
+        dh  = mh - bh + 1                       || delta to move each c_z of the brick
+        b'  = map (over c_z (+ dh)) b           || dropped brick
+        hm' = foldl seth hm b'                  || new height map
+
+        cnt' = cnt,     if dh >= 0
+             = cnt + 1, otherwise
+
+        geth m c = m_findWithDefault cmpcoordXY 0 c m
+        seth m c = m_insert cmpcoordXY c (view c_z c) m
+
+|| try to drop the remaining bricks onto the stack without the first, to count how many drop,
+|| then return the stackSt with the first dropped and the cnt
+dropWithoutBrick :: [brick] -> state stackSt int
+dropWithoutBrick [] st = (0, st)
+dropWithoutBrick (b : bs) st
+    = (cnt, st1)
+      where
+        st1 = st_execState (dropBrick b) st
+        cnt = view st_cnt $ st_execState (st_mapM_ dropBrick bs) st
+
+compact :: [brick] -> [brick]
+compact bs = st_evalState (st_mapM dropBrick bs) initStack
+
+|| count the number of bricks that can safely be disintigrated without
+|| any other bricks in the stack dropping
+canDisintigrate :: [brick] -> int
+canDisintigrate bs
+    = #noDrops
+      where
+        noDrops = filter (==  0) . st_evalState (st_mapM dropWithoutBrick . tails $ bs) $ initStack
+
+totalDropped :: [brick] -> int
+totalDropped bs
+    = sum drops
+      where
+        drops = st_evalState (st_mapM dropWithoutBrick . tails $ bs) $ initStack
+        
+
+|| read the bricks data from a file and sort in order of ascending brick zLo coord
+readBricks :: string -> io [brick]
+readBricks fn
+    = (sortBy cmpbrick . map readBrick . lines) <$>. readFile fn
+      where
+        readBrick s
+            = sortBy cmpcoord cubes
+              where
+                [(z1, x1, y1), (z2, x2, y2)] = map readCoord . split '~' $ s
+
+                cubes = [(z, x, y) | z <- [z1 .. z2]; x <- [x1 .. x2]; y <- [y1 .. y2]]
+
+        readCoord s
+            = (z, x, y)
+              where
+                [x, y, z] = map intval . split ',' $ s
+
+day22 :: io ()
+day22
+    = readBricks "../inputs/day22.txt" >>=. go
+      where
+        go bricks
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                cBricks = compact bricks
+                part1   = (++) "part 1: " . showint . canDisintigrate $ cBricks
+                part2   = (++) "part 2: " . showint . totalDropped $ cBricks

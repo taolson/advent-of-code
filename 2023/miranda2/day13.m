@@ -1,0 +1,53 @@
+|| day13.m -- Point of Incidence
+
+
+%export day13
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+
+grid == [string]
+
+noSmudge :: grid -> maybe int
+noSmudge g
+    = find isRefl [1 .. #g - 1]
+      where
+        isRefl i
+            = and $ zipWith (==$) (reverse g1) g2
+              where
+                (g1, g2) = splitAt i g
+
+smudged :: grid -> maybe int
+smudged g
+    = find isRefl [1 .. #g - 1]
+      where
+        isRefl i
+            = (== 1) . foldl checkRow 0 $ zip2 (reverse g1) g2
+              where
+                (g1, g2) = splitAt i g
+
+                checkRow n (a, b)
+                    = n,      if n > 1
+                    = n + n', otherwise
+                      where
+                        n' = length . filter not $ zipWith (==.) a b
+
+findMirror :: (grid -> maybe int) -> grid -> maybe int
+findMirror f g
+    = (mb_fmap (* 100) (f g)) $mb_alt f (transpose g)
+
+readInput :: string -> io [grid]
+readInput fn = (splitWhen null . lines) <$>. readFile fn
+
+day13 :: io ()
+day13
+    = readInput "../inputs/day13.txt" >>=. go
+      where
+        go grids
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                process f = showint . sum . catMaybes . map (findMirror f) $ grids
+                part1     = "part 1: " ++ process noSmudge
+                part2     = "part 2: " ++ process smudged

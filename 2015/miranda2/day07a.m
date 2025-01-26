@@ -1,0 +1,102 @@
+|| day07.m -- implemented with loeb, from paper "Löb and möb: strange loops in Haskell"
+
+
+%export day07
+
+%import <io>
+%import <either>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (*>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <state> (>>=)/st_bind (>>)/st_right
+
+
+op ::= WIRE | NOT | AND | OR | LSHIFT | RSHIFT
+
+signal == string
+sigmap == m_map signal int
+
+|| a gate is the delayed computation of a value.  When given a sigmap, it
+|| returns an int
+gate == sigmap -> int
+
+|| a circuit is a mapping of signal names to gates (the delayed computation of the signal's value,
+circuit == m_map signal gate
+
+|| loeb is similar to fix, but operates on a Functor.  Where fix can be used to implement a recursive
+|| function that depends upon itself, loeb can be used to implement a recursive Functor (data structure)
+|| that depends upon itself, along with memoization of computed results.
+||
+|| fix  :: (a -> a) -> a
+|| fix f = x where x = f x
+||
+|| loeb :: Functor f => f (f a -> a) -> f a
+|| loeb fa = fb where fb = fmap ($ fb) fa
+||
+|| (in this case, loeb is specialized to take a circuit (map from a signal to gate) and
+|| turn it into a sigmap (map from a signal to an int)
+loeb :: circuit -> sigmap
+loeb c = sm where sm = m_fmap ($ sm) c  || fmap all the gates in the circuit with an application of the results of the fmap
+
+getSig :: signal -> sigmap -> int
+getSig s c = fromJust $ m_lookup cmpsignal s c
+
+compute :: circuit -> signal -> int
+compute c s = getSig s (loeb c)
+
+p_signal :: parser signal
+p_signal = p_word
+
+p_input :: parser gate
+p_input = (getSig <$> p_signal) <|> (const <$> p_int)
+
+p_op :: parser (int -> int -> int)
+p_op
+    = p_and <|> p_or <|> p_lshift <|> p_rshift
+      where
+        p_and    = p_string "AND"    *> p_pure (.&.)
+        p_or     = p_string "OR"     *> p_pure (.|.)
+        p_lshift = p_string "LSHIFT" *> p_pure (.<<.)
+        p_rshift = p_string "RSHIFT" *> p_pure (.>>.)      
+
+p_notg :: parser gate
+p_notg
+    = mkNot <$> (p_string "NOT" *> p_spaces *> p_input)
+      where
+        mkNot g = complement . g
+
+p_bing :: parser gate
+p_bing
+    = p_liftA3 mkBin (p_input <* p_spaces) (p_op <* p_spaces) p_input
+      where
+        mkBin s1 op s2 = go where go c = s1 c $op s2 c
+
+p_gate :: parser gate
+p_gate = p_bing <|> p_notg <|> p_input
+
+p_entry :: parser (signal, gate)
+p_entry
+    = p_liftA2 mkEntry (p_gate <* p_spaces) (p_string "->" *> p_spaces *> p_signal) <* p_spaces
+      where
+        mkEntry g s = (s, g)
+
+makeCircuit :: string -> circuit
+makeCircuit input
+    = fromMaybef err (m_fromList cmpstring) mentries
+      where
+        (mentries, ps) = parse (p_some p_entry <* p_end) input
+        err            = error (p_error ps)
+
+day07 :: io ()
+day07
+    = readFile "../inputs/day07.input" >>= makeCircuit .> go
+      where
+        go c1
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                a1    = compute c1 "a"
+                c2    = m_insert cmpstring "b" (const a1) c1
+                a2    = compute c2 "a"
+                part1 = (++) "part 1: " . showint $ a1
+                part2 = (++) "part 2: " . showint $ a2

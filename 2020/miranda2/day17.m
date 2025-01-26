@@ -1,0 +1,83 @@
+|| day17.m
+
+
+%export day17
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+|| an N-dimensional coordinate with the dimensions in a list
+coord == [int]
+
+|| all adjacent coordinates within +/- 1 in each dimension
+adjacent :: coord -> [coord]
+adjacent []       = [[]]
+adjacent (x : xs) = [x : xs' | x <- [x, x - 1, x + 1]; xs' <- adjacent xs]
+
+grid == (s_set coord, maybe coord, maybe coord)   || active, min, max
+
+g_empty :: grid
+g_empty = (s_empty, Nothing, Nothing)
+
+g_append :: grid -> coord -> grid
+g_append (active, mina, maxa) c
+    = (active', mina', maxa')
+      where
+        active' = s_insert cmpcoord c active
+        mina'   = merge (min2 cmpint) mina
+        maxa'   = merge (max2 cmpint) maxa
+
+        merge f Nothing  = Just c
+        merge f (Just a) = Just (zipWith f a c)
+
+makeGrid :: [coord] -> grid
+makeGrid = foldl g_append g_empty
+
+adjacentCount :: grid -> coord -> int
+adjacentCount (active, _, _)
+    = length . filter isActive . tl . adjacent
+      where
+        isActive c = s_member cmpcoord c active
+
+|| all coordinates to scan for a cycle (min - 1 .. max + 1 for each dimension)
+allCoords :: grid -> [coord]
+allCoords (active, mina, maxa)
+    = go (fromJust mina) (fromJust maxa)
+      where
+        go (x : xs) (y : ys) = [c : cs' | c <- [x - 1 .. y + 1]; cs' <- go xs ys]
+        go _        _        = [[]]
+
+
+cycleCoord :: grid -> coord -> bool
+cycleCoord g c
+    = go g
+      where
+        go (active, _, _)
+            = isActive & (count == 2 \/ count == 3) \/ ~isActive & count == 3
+              where
+                isActive = s_member cmpcoord c active
+                count    = adjacentCount g c
+
+cycleGrid :: grid -> grid
+cycleGrid grid = makeGrid . filter (cycleCoord grid) . allCoords $ grid
+
+readGrid :: int -> string -> grid
+readGrid dim input
+    = makeGrid [x : y : rep (dim - 2) 0 | (y, row) <- enumerate (lines input); (x, ch) <- enumerate row; ch ==. '#']
+
+doPart :: string -> (int, int) -> string
+doPart input (part, dim)
+    = "part " ++ showint part ++ ": " ++ showint (nactive boot)
+      where
+        g                      = readGrid dim input
+        boot                   = hd . drop 6 . iterate cycleGrid $ g
+        nactive (active, _, _) = s_size active
+
+day17 :: io ()
+day17
+    = readFile "../inputs/day17.txt" >>=. go
+      where
+        go input
+            = io_mapM_ (putStrLn . doPart input) $ [(1, 3), (2, 4)]

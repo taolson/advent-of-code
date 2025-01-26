@@ -1,0 +1,64 @@
+|| day21.m -- optimized by replacing inner loop with pseudo instruction to divide by 256
+
+
+%export day21
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <vector>
+%import <set>
+%import <state> (>>=)/st_bind (<<)/st_left (>>)/st_right
+
+%import "day19"
+
+
+runTo28 :: (int, program) -> mregisters -> st mregisters
+runTo28 info mregs
+    = runUntil ip28 info mregs
+      where
+        ip28 ip _ s = (ip == 28, s)
+
+doStep :: (int, program) -> mregisters -> st bool
+doStep info mregs
+    = step noHalt info mregs
+      where
+        noHalt _ _ s = (False, s)
+
+runUntilFirstMatch :: (int, program) -> registers -> int
+runUntilFirstMatch info regs
+    = st_evalState (go s_empty 0) ()
+      where
+        mregs = v_unsafeThaw regs
+
+        go samples prev
+            = runTo28 info mregs >>
+              v_read mregs 4     >>=
+              checkMatch
+              where
+                checkMatch r4
+                  = st_pure prev,                       if s_member cmpint r4 samples
+                  = doStep info mregs >>
+                    go (s_insert cmpint r4 samples) r4, otherwise
+
+|| optimize the program by replacing the detected inner loop beginning at ip=18 with an
+|| equivalent divide operation
+optimize :: (int, program) -> (int, program)
+optimize (ipReg, prog)
+    = (ipReg, runSTVector opt prog)
+      where
+        opt mv = v_write mv 18 innerLoop   || replace insn at 18 with a psuedo-insn "r2 = r3 / 256"
+
+        innerLoop mregs
+            = (v_read mregs 3 >>= v_write mregs 2 . ($div 256)) >> v_write mregs ipReg 25
+
+day21 :: io ()
+day21
+    = readProgram "../inputs/day21.input" >>=. (go . optimize)
+      where
+        go info
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                regs1 = st_evalState (runTo28 info (v_unsafeThaw (v_rep 6 0)) >>= v_unsafeFreeze) ()
+                regs2 = run info $ regs1 // [(0, regs1 !! 4)]
+                part1 = (++) "part 1: " . showint . v_first $ regs2
+                part2 = (++) "part 2: " . showint . runUntilFirstMatch info $ v_rep 6 0

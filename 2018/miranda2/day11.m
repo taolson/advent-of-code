@@ -1,0 +1,63 @@
+|| day11.m
+
+
+%export day11
+
+%import <io> (>>.)/io_right
+%import <mirandaExtensions>
+
+
+intTup3 == (int, int, int)
+
+powerLevel :: int -> int -> int -> int
+powerLevel x y serial
+    = (rackId * y + serial) * rackId $mod 1000 $div 100 - 5
+      where
+        rackId = x + 10
+
+summedPowers :: [int]
+summedPowers
+    = take (size * size) . go 1 1 0 $ rep size 0 ++ summedPowers
+      where
+        size   = 300
+        serial = 1955
+
+        go x y xPower [] = undef        || added to remove compiler warning
+        go x y xPower (p : ps)
+            = (xPower' + p) : go 1 (y + 1) 0 ps,       if x == size
+            = (xPower' + p) : go (x + 1) y xPower' ps, otherwise
+              where
+                xPower' = xPower + powerLevel x y serial
+
+findMaxPower :: [int] -> int -> int -> (int, intTup3)
+findMaxPower summedPowers size blockSize
+    = insertBlockSize . maxBy cmpint fst . take (limit * limit) $ go 1 1 upperLeft upperRight lowerLeft lowerRight
+      where
+        insertBlockSize (m, (x, y)) = (m, (x, y, blockSize))
+        limit           = size - blockSize + 1
+        nextBlockLeft   = drop blockSize
+        nextBlockRight  = drop (blockSize - 1)
+        upperLeft       = 0 : rep size 0 ++ summedPowers
+        lowerLeft       = 0 : drop ((blockSize - 1) * size) summedPowers
+        upperRight      = rep size 0 ++ nextBlockRight summedPowers
+        lowerRight      = drop ((blockSize - 1) * size) $ nextBlockRight summedPowers
+
+        go x y (ul : uls) (ur : urs) (ll : lls) (lr : lrs)
+            = pow : go 1 (y + 1) uls' urs' lls' lrs', if x == limit
+            = pow : go (x + 1) y uls urs lls lrs,     otherwise
+              where
+                pow  = (ul - ur + lr - ll, (x, y))
+                uls' = 0 : nextBlockLeft uls
+                lls' = 0 : nextBlockLeft lls
+                urs' = nextBlockRight urs
+                lrs' = nextBlockRight lrs
+
+       go x y ul ur ll lr = error "findMaxPower'go: []"
+
+day11 :: io ()
+day11
+    = putStrLn part1 >>. putStrLn part2
+      where
+        results = map (findMaxPower summedPowers 300) [1 .. 300]
+        part1   = (++) "part 1: " . showintTup3 . snd . hd . drop 2 $ results
+        part2   = (++) "part 2: " . showintTup3 . snd . maxBy cmpint fst $ results

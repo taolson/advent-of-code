@@ -1,0 +1,36 @@
+|| day25.m
+
+
+%export day25
+
+%import <io>
+%import <mirandaExtensions>
+
+coord == (int, int)
+
+|| generator which takes a target coordinate, and generates a sequence of (row, col, code) values
+|| corresponding to each diagonal step, until the coord is equal to the target coord
+gen :: coord -> int
+gen (tr, tc)
+    = go 1 1 20151125
+      where
+        go r c n
+            = n,          if r == tr & c == tc
+            = step r c n, otherwise
+        
+        || step written in strict form with explicit case statements to prevent
+        || stack overflow due to pushes of updates (code not examined until the end)
+        step r c n
+            = case (n * 252533) $mod 33554393 of                || calculate new code
+                n' -> case c + 1 of                             || new column or row 
+                        c' -> case r == 1 of                    || are we at the top row?
+                                False -> case r - 1 of          || no, decrement row and continue
+                                           r' -> go r' c' n'    
+                                True  -> go c' 1 n'             || yes, start new diag
+
+day25 :: io ()
+day25
+    = putStrLn part1
+      where
+        coord = (3010, 3019)
+        part1 = (++) "part 1: " . showint . gen $ coord

@@ -1,0 +1,50 @@
+|| day09.m
+
+
+%export day09
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <dequeue>
+
+
+noMatchSumPair :: int -> [int] -> bool
+noMatchSumPair n xs
+    = all (~= n) [a + b | a : rest <- tails xs; b <- rest]
+
+findInWindow :: int -> (int -> [int] -> bool) -> [int] -> maybe int
+findInWindow n f
+    = uncurry go . splitAt n
+      where
+        go w [] = Nothing
+
+        go w (x : xs)
+            = Just x,              if f x w
+            = go (tl w ++ [x]) xs, otherwise
+
+findContiguousSum :: int -> [int] -> maybe int
+findContiguousSum n xs
+    = go 0 dq_empty xs
+      where
+        go s w [] = Nothing
+        go s w (h : xs)
+            = case cmpint s n of
+                EQ -> Just (max cmpint wl + min cmpint wl)
+                LT -> go (s + h) (dq_addR h w) xs
+                GT -> go (s - x) w' (h : xs)
+              where
+                wl      = dq_toList w
+                (x, w') = fromJust $ dq_viewL w
+
+day09 :: io ()
+day09
+    = readFile "../inputs/day09.txt" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                data  = map intval . lines $ input
+                p1    = fromJust . findInWindow 25 (noMatchSumPair) $ data
+                part1 = (++) "part 1: " $ showint p1
+                part2 = (++) "part 2: " . showint . fromJust . findContiguousSum p1 $ data

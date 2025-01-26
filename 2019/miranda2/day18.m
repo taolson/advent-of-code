@@ -1,0 +1,216 @@
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <astar>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+point == (int, int)
+
+gridType ::= Open | Wall | Key char | Door char | Entrance
+
+toMazeType :: char -> gridType
+toMazeType '.' = Open
+toMazeType '#' = Wall
+toMazeType '@' = Entrance
+toMazeType c
+    = Key c,            if isLower c
+    = Door (toLower c), otherwise
+
+isDoor :: gridType -> bool
+isDoor (Door c) = True
+isDoor mt       = False
+
+maze ::= Maze
+         (m_map point gridType) || grid
+         (m_map char point)     || mazeMap
+
+mazeGrid :: maze -> m_map point gridType
+mazeGrid (Maze grid mm) = grid
+
+mazeMap :: maze -> m_map char point
+mazeMap (Maze grid mm) = mm
+
+partitionMaze :: maze -> [maze]
+partitionMaze maze
+    = map pm [(dx, dy) | dx, dy <- [-1, 1]]
+      where
+        Maze grid mm = maze
+        (ex, ey)     = m_findWithDefault cmpchar (0, 0) '@' mm
+        pm (dx, dy)  = Maze grid3 mm'
+                       where
+                         grid1                = m_insert cmppoint (ex + dx, ey + dy) Entrance grid
+                         grid2                = m_insert cmppoint (ex, ey + dy) Wall grid1
+                         grid3                = m_insert cmppoint (ex + dx, ey) Wall grid2
+                         mm'                  = (m_insert cmpchar '@' (ex + dx, ey + dy) . m_fromList cmpchar . filter inQuad . m_toList) mm
+                         inQuad (k, (kx, ky)) = signum (kx - ex) == dx & signum (ky - ey) == dy
+    
+pathInfo    == (num, [point], [char]) || steps, path, doors
+pathInfoMap == m_map char pathInfo
+
+pathInfoSteps :: pathInfo -> num
+pathInfoSteps (steps, path, doors) = steps
+
+pathInfoPath :: pathInfo -> [point]
+pathInfoPath (steps, path, doors) = path
+
+pathInfoDoors :: pathInfo -> [char]
+pathInfoDoors (steps, path, doors) = doors
+
+backtrace :: maze -> m_map point point -> point -> maybe pathInfo
+backtrace (Maze grid mm) pm loc
+    = Nothing,     if isNothing (m_lookup cmppoint loc pm)
+    = go 0 [] "" loc, otherwise
+      where
+        go steps path doors loc = Just (steps, path, doors),               if isNothing found
+                                = go (steps + 1) (loc : path) doors' loc', otherwise
+                                  where
+                                    found       = m_lookup cmppoint loc pm
+                                    mt          = m_findWithDefault cmppoint Open loc grid
+                                    (Door d)    = mt
+                                    (Just loc') = found
+                                    doors'      = d : doors, if isDoor mt
+                                                = doors, otherwise
+        
+pathToEachKeyFrom :: maze -> point -> pathInfoMap
+pathToEachKeyFrom maze start
+    = foldl addKeyPath m_empty keys
+      where
+        Maze grid mm = maze
+        keys         = (filter isLower . m_keys) mm
+        addKeyPath m k
+            = m,                            if isNothing bt
+            = seq edge (m_insert cmpchar k edge m), otherwise
+              where
+                tgt                        = m_findWithDefault cmpchar (0, 0) k mm
+                bt                         = backtrace maze pathMap tgt
+                Just edge                  = bt
+                pathMap                    = aStarReachable cmppoint start expFn () costFn estFn
+                expFn ((x, y), ())         = seq expd (expd, ())
+                                             where
+                                               expd = foldl expLoc [] [addMazeType loc | loc <- [(x, y - 1), (x, y + 1), (x - 1, y), (x + 1, y)]]
+                costFn _ _                 = 1
+                estFn  _                   = 0
+                addMazeType loc            = seq ty (loc, ty)
+                                             where
+                                               ty = m_findWithDefault cmppoint Open loc grid
+                expLoc adj (loc, Wall)     = adj
+                expLoc adj (loc, Open)     = loc : adj
+                expLoc adj (loc, (Key k))  = loc : adj, if _eq cmppoint loc tgt
+                                           = adj,       otherwise
+                expLoc adj (loc, (Door d)) = loc : adj
+                expLoc adj (loc, Entrance) = loc : adj
+                
+graph ==  m_map char pathInfoMap
+
+buildGraph :: maze -> graph
+buildGraph maze
+    = foldl addPaths m_empty starts
+      where
+        mm           = mazeMap maze
+        addPaths m c = m_insert cmpchar c (pathToEachKeyFrom maze (m_findWithDefault cmpchar (0, 0) c mm)) m
+        starts       = '@' : (filter isLower . m_keys) mm
+
+stepsWithDefault ::  num -> char -> char -> graph -> num
+stepsWithDefault d c1 c2 graph = (pathInfoSteps . m_findWithDefault cmpchar (d, [], "") c2) (m_findWithDefault cmpchar m_empty c1 graph)
+
+pathWithDefault ::  [point] -> char -> char -> graph -> [point]
+pathWithDefault d c1 c2 graph = (pathInfoPath . m_findWithDefault cmpchar (0, d, "") c2) (m_findWithDefault cmpchar m_empty c1 graph)
+
+keySet == num
+
+ksEmpty :: keySet
+ksEmpty = 0
+
+ksInsert :: char -> keySet -> keySet
+ksInsert c ks
+    = ks .|. (1 .<<. cBit)
+      where
+        cBit = code c - code 'a'
+
+ksElem :: char -> keySet -> bool
+ksElem c ks
+    = (ks .&. (1 .<<. cBit)) ~= 0
+      where
+        cBit = code c - code 'a'
+
+ksFromList :: [char] -> keySet
+ksFromList = foldr ksInsert ksEmpty
+
+ksToList :: keySet -> [char]
+ksToList
+    = go (code 'a')
+      where
+        go k 0 = []
+        go k n
+            = decode k : rest, if n $mod 2 ~= 0
+            = rest,            otherwise
+              where
+                rest = go (k + 1) (n $div 2)
+
+move == (char, keySet)
+
+graphPathToAllKeys :: graph -> [char]
+graphPathToAllKeys graph
+    = map fst path
+      where
+        hugenum                  = 99999
+        (path, ())               = aStarSolve cmpmove ('@', ksEmpty) goalFn expFn () costFn estFn
+        goalFn (c, ks)           = ks == allKeys
+        expFn ((c, ks), ())      = (foldr (exp ks) [] (m_toList (m_findWithDefault cmpchar m_empty c graph)), ())
+        costFn (a, ks1) (b, ks2) = stepsWithDefault hugenum a b graph
+        estFn                    = const 0
+        allKeys                  = (ksFromList . filter isLower) (m_keys graph)
+        exp ks (c, pinfo) adj    = (c, ksInsert c ks) : adj, if all (elem  ks) (filter (elem allKeys) (pathInfoDoors pinfo))
+                                 = adj,                      otherwise
+
+       elem ks c = ksElem c ks
+
+graphPathDist :: graph -> [char] -> num
+graphPathDist graph path
+    = dist
+      where
+        (_, dist) = foldl addStep (hd path, 0) (tl path)
+        addStep (c1, t) c2 = (c2, t + stepsWithDefault 0 c1 c2 graph)
+
+stepPartitions :: [graph] -> [string] -> num
+stepPartitions graphs paths
+    = sum (map pathLength (zip2 graphs paths))
+      where
+        pathLength (g, c1 : c2 : cs) = length (pathWithDefault [] c1 c2 g) + pathLength (g, c2 : cs)
+        pathLength (g, cs)           = 0
+
+readMaze :: string -> io maze
+readMaze fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows
+            = Maze grid mm
+              where
+                (grid, mm) = foldl addEntry (m_empty, m_empty) [(x, y, c) | (y, row) <- enumerate rows; (x, c) <- enumerate row]
+
+        addEntry (grid, mm) (x, y, c)
+            = (grid', mm')
+              where
+                mt    = toMazeType c
+                grid' = grid,                    if _eq cmpgridType mt Open
+                      = m_insert cmppoint (x, y) mt grid, otherwise
+                mm'   = mm,                      if _eq cmpgridType mt Open \/ _eq cmpgridType mt Wall
+                      = m_insert cmpchar c (x, y) mm,    otherwise
+
+day18 :: io ()
+day18
+    = readMaze "../inputs/day18.input" >>=. go
+      where
+        go maze
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                graph           = buildGraph maze
+                path            = graphPathToAllKeys graph
+                partitions      = partitionMaze maze
+                partitionGraphs = map buildGraph partitions
+                paths           = map graphPathToAllKeys partitionGraphs
+                part1           = (++) "part 1: " . showint . graphPathDist graph $ path
+                part2           = (++) "part 2: " . showint . sum . map (uncurry graphPathDist) $ zip2 partitionGraphs paths

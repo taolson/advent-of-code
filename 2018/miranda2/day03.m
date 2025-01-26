@@ -1,0 +1,69 @@
+|| day03.m
+
+
+%export day03
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right
+
+
+point  == (int, int)
+fabric == m_map point int
+
+(!!!) :: fabric -> point -> int
+f !!! p = fromJust (m_lookup cmppoint p f)
+
+claim ::= Claim int int int int int [point]
+
+cid :: claim -> int
+cid (Claim i _ _ _ _ _) = i
+
+points :: claim -> [point]
+points (Claim _ _ _ _ _ p) = p
+
+makeClaim :: int -> int -> int -> int -> int -> claim
+makeClaim i l t w h
+    = Claim i l t w h p
+      where
+        p = [(x, y) | x <- [l .. l + w - 1]; y <- [t .. t + h - 1]]
+
+mergeClaims :: [claim] -> fabric
+mergeClaims
+    = foldl mergeClaim m_empty
+      where
+        mergeClaim f = foldl ins f . points
+        ins f k      = m_insertWith cmppoint (+) k 1 f
+
+p_liftA5 f ma mb mc md me = p_liftA4 f ma mb mc md <*> me
+
+p_claim :: parser claim
+p_claim
+    = p_liftA5 makeClaim
+          (p_char '#' *> p_int)
+          (p_string " @ " *> p_int)
+          (p_char ',' *> p_int)
+          (p_string ": " *> p_int)
+          (p_char 'x' *> p_int)
+
+p_claims :: parser [claim]
+p_claims = p_some (p_claim <* p_spaces)
+
+readClaims :: string -> io [claim]
+readClaims fn
+    = go <$>. parse p_claims <$>. readFile fn
+      where
+        go (mclaims, ps) = fromMaybe (error (p_error ps)) mclaims
+
+day03 :: io ()
+day03
+    = readClaims "../inputs/day03.input" >>=. go
+      where
+        go claims
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                fabric = mergeClaims claims
+                part1  = (++) "part 1: " . showint . length . filter (> 1) . m_elems $ fabric
+                part2  = (++) "part 2: " . showint . cid . hd . filter (all (== 1) . map (fabric !!!) . points) $ claims

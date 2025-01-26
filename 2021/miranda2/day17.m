@@ -1,0 +1,47 @@
+%export day17
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+
+|| target area ranges
+tx = (117, 164)
+ty = (-140, -89)
+
+class :: int -> (int, int) -> ordering
+class x (l, h)
+    = LT, if x < l
+    = GT, if x > h
+    = EQ, otherwise
+
+solve :: (int, int) -> (int, (ordering, ordering))
+solve (vx, vy)
+    = go 0 0 0 vx vy
+      where
+        go h x y dx dy
+            = case class x' tx of
+                GT -> rslt
+                _  -> case class y' ty of
+                        LT -> rslt
+                        _  -> go (max2 cmpint h y') x' y' (drag dx) (dy - 1)
+              where
+                rslt = (h, (class x tx, class y ty))
+                x'   = x + dx
+                y'   = y + dy
+                drag x = x - 1, if x > 0
+                       = x + 1, if x < 0
+                       = 0,     otherwise
+
+day17 :: io ()
+day17
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        tests     = [(x, y) | x <- [0 .. snd tx]; y <- [fst ty .. -fst ty]]
+        solns     = filter inRange (zip2 (map solve tests) tests)
+        maxHeight = fst . fst
+        part1     = "part 1: " ++ (showint . maxHeight . hd . sortBy (descending cmpint maxHeight)) solns
+        part2     = "part 2: " ++ (showint . length) solns
+
+        inRange ((h, (EQ, EQ)), t) = True
+        inRange x                  = False

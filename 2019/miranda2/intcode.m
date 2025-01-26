@@ -1,0 +1,465 @@
+%export program processorState runState reset run continue step getRunState getMem setMem getOutput getAllOutput
+        putInput putAllInput readProgram opcode oprMode decodeInst
+        jitState jitReset jitRun jitContinue decodedInst cache jitGetRunState jitGetMem jitSetMem jitGetOutput jitGetAllOutput
+        jitPutInput jitPutAllInput jitGetCache jitGetCacheStats isRun isHalt isWait
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+program == m_map int int
+
+opcode ::= Add | Mul | Inp | Out | Jt | Jf | Lt | Eq | Rbo | Hlt | IllOpc
+
+oprMode ::= Imm | Ind | Rel | IllMode
+
+operand == (oprMode, int)
+
+instruction == (opcode, [operand])
+
+readMem :: int -> program -> int
+readMem = m_findWithDefault cmpint 0
+
+opDecoder :: m_map int (opcode, int)
+opDecoder = m_fromList cmpint
+            [ (1,  (Add, 3))
+            , (2,  (Mul, 3))
+            , (3,  (Inp, 1))
+            , (4,  (Out, 1))
+            , (5,  (Jt,  2))
+            , (6,  (Jf,  2))
+            , (7,  (Lt,  3))
+            , (8,  (Eq,  3))
+            , (9,  (Rbo, 1))
+            , (99, (Hlt, 0))
+            ]
+
+decodeOpc :: int -> (opcode, int)
+decodeOpc op = m_findWithDefault cmpint (IllOpc, 0) (op $mod 100) opDecoder
+
+decodeMode :: int -> oprMode
+decodeMode 0 = Ind
+decodeMode 1 = Imm
+decodeMode 2 = Rel
+decodeMode x = IllMode
+
+decodeInst :: int -> program -> (instruction, int)
+decodeInst ip memory
+    = ((opr, args), ip')
+      where
+        opcode          = readMem ip memory
+        (opr, argCount) = decodeOpc opcode
+        args            = [(decodeMode (m $mod 10), readMem (ip + i) memory) | (m, i) <- zip2 (iterate ($div 10) (opcode $div 100)) [1 .. argCount]]
+        ip'             = ip + argCount + 1
+
+runState ::= Run | Halt | Wait | ErrOpc | ErrMode
+
+isRun, isHalt, isWait :: runState -> bool
+isRun  Run  = True
+isRun  _    = False
+isHalt Halt = True
+isHalt _    = False
+isWait Wait = True
+isWait _    = False
+
+processorState ::= ProcessorState
+                   runState!            || rs
+                   int!                 || ip
+                   int!                 || rb
+                   program!             || mem
+                   [int]!               || inp
+                   [int]!               || out
+
+reset :: program -> processorState
+reset program = ProcessorState Run 0 0 program [] []
+
+run :: program -> [int] -> processorState
+run program inp = continue (ProcessorState Run 0 0 program inp [])
+
+continue :: processorState -> processorState
+continue state
+    = state' $seq continue state',   if isRun rs \/ isWait rs & ~null inp
+    = state,                         otherwise
+      where
+        ProcessorState rs _ _ _ inp _ = state
+        state'                        = step state
+
+step :: processorState -> processorState
+step state
+    = contInst inst,                if isRun rs \/ isWait rs & ~null inp
+    = state,                        otherwise
+      where
+        ProcessorState rs ip rb mem inp out       = state
+        (inst, ip')                               = decodeInst ip mem
+        contInst (Add, [a1, a2, d])               = contBinOp (+)  (getArg a1) (getArg a2) (getDst d)
+        contInst (Mul, [a1, a2, d])               = contBinOp (*)  (getArg a1) (getArg a2) (getDst d)
+        contInst (Lt,  [a1, a2, d])               = contCmpOp (<)  (getArg a1) (getArg a2) (getDst d)
+        contInst (Eq,  [a1, a2, d])               = contCmpOp (==) (getArg a1) (getArg a2) (getDst d)
+        contInst (Jt, [a1, a2])                   = contJmp (~= 0) (getArg a1) (getArg a2)
+        contInst (Jf, [a1, a2])                   = contJmp (== 0) (getArg a1) (getArg a2)
+        contInst (Out, [a])                       = contOut (getArg a)
+        contInst (Rbo, [a])                       = contRbo (getArg a)
+        contInst (Inp, [d])                       = contInp (getDst d),     if ~null inp
+                                                  = setRunState Wait state, otherwise
+        contInst (Hlt, _)                         = setRunState Halt state
+        contInst _                                = setRunState ErrOpc state
+
+        contBinOp op (Just a1) (Just a2) (Just d) = ProcessorState Run ip' rb  mem' inp out
+                                                    where
+                                                      mem' = m_insert cmpint d x mem
+                                                      x    = op a1 a2
+        contBinOp _  _         _         _       = setRunState ErrMode state
+
+        contCmpOp op (Just a1) (Just a2) (Just d) = ProcessorState Run ip' rb  mem' inp out
+                                                    where
+                                                      mem' = m_insert cmpint d x mem
+                                                      x    = intRep (op a1 a2)
+        contCmpOp _  _         _         _        = setRunState ErrMode state
+
+        contJmp   cp (Just a1) (Just tgt)         = ProcessorState Run tgt rb mem inp out, if cp a1
+                                                  = ProcessorState Run ip' rb mem inp out, otherwise
+        contJmp   _  _         _                  = setRunState ErrMode state
+
+        contInp (Just d)                          = ProcessorState Run ip' rb mem' inp' out
+                                                    where
+                                                      mem'       = m_insert cmpint d h mem
+                                                      (h : inp') = inp
+        contInp _                                 = setRunState ErrMode state
+
+        contOut (Just n)                          = ProcessorState Run ip' rb mem inp out' where out' = out ++ [n]
+        contOut _                                 = setRunState ErrMode state
+
+        contRbo (Just n)                          = ProcessorState Run ip' rb' mem inp out where rb' =  rb + n
+        contRbo _                                 = setRunState ErrMode state
+
+        getArg (Imm, n)                           = Just n
+        getArg (Ind, a)                           = Just x where x = readMem a mem
+        getArg (Rel, a)                           = Just x where x = readMem (a + rb) mem
+        getArg _                                  = Nothing
+
+        getDst (Ind, a)                           = Just a
+        getDst (Rel, a)                           = Just x where x = (a + rb)
+        getDst _                                  = Nothing
+
+        intRep True                               = 1
+        intRep False                              = 0
+
+getRunState :: processorState -> runState
+getRunState (ProcessorState rs ip rb mem inp out) = rs
+
+setRunState :: runState -> processorState -> processorState
+setRunState rs' (ProcessorState rs ip rb mem inp out)
+    = ProcessorState rs' ip rb mem inp out
+
+getMem :: int -> processorState -> maybe int
+getMem addr (ProcessorState rs ip rb mem inp out)
+    = m_lookup cmpint addr mem
+
+setMem :: int -> int -> processorState -> processorState
+setMem addr val (ProcessorState rs ip rb mem inp out)
+    = ProcessorState rs ip rb mem' inp out
+      where
+        mem' = m_insert cmpint addr val mem
+
+getOutput :: processorState -> (int, processorState)
+getOutput (ProcessorState rs ip rb mem inp (x : xs))
+    = (x, ProcessorState rs ip rb mem inp xs)
+getOutput _ = error "getOutput: empty"
+
+getAllOutput :: processorState -> ([int], processorState)
+getAllOutput (ProcessorState rs ip rb mem inp out)
+    = (out, ProcessorState rs ip rb mem inp [])
+
+putInput :: processorState -> int -> processorState
+putInput (ProcessorState rs ip rb mem inp out) inp'
+    = ProcessorState rs ip rb mem inp'' out
+      where
+        inp'' = inp ++ [inp']
+
+putAllInput :: processorState -> [int] -> processorState
+putAllInput (ProcessorState rs ip rb mem inp out) inp'
+    = ProcessorState rs ip rb mem inp'' out
+      where
+        inp'' = inp ++ inp'
+
+|| JIT
+
+opAccess == program -> int -> int
+
+getArgImm :: int -> opAccess
+getArgImm a mem rb = a
+
+getArgInd :: int -> opAccess
+getArgInd a mem rb = readMem a mem
+
+getArgRel :: int -> opAccess
+getArgRel a mem rb = readMem (rb + a) mem
+
+getDstRel :: int -> opAccess
+getDstRel a mem rb = rb + a
+
+decodedInst
+    ::= DAdd opAccess! opAccess! opAccess!                     |
+        DOpr (int -> int -> int) opAccess! opAccess! opAccess! |
+        DJt  opAccess! opAccess!                               |
+        DJf  opAccess! opAccess!                               |
+        DRbo opAccess!                                         |
+        DInp opAccess!                                         |
+        DOut opAccess!                                         |
+        DHlt                                                   |
+        DIop                                                   |
+        DImo                                                   |
+        CMrk int!
+
+isCMrk :: decodedInst -> bool
+isCMrk (CMrk _) = True
+isCMrk d        = False
+
+unCMrk :: decodedInst -> int
+unCMrk (CMrk n) = n
+unCMrk _        = error "unCMrk: not a CMrk"
+
+cache ::= Cache
+          (m_map int decodedInst)      || cache
+          int!                         || accesses
+          int!                         || hits
+          int!                         || flushes
+
+cacheInit :: cache
+cacheInit = Cache m_empty 0 0 0
+
+jitState ::= JitState
+             runState!     || rs
+             int!          || ip
+             int!          || rb
+             program!      || mem
+             [int]!        || inp
+             [int]!        || out
+             cache!        || cache
+
+jitReset :: program -> jitState
+jitReset program = JitState Run 0 0 program [] [] cacheInit
+
+jitRun :: program -> [int] -> jitState
+jitRun program inp = jitContinue (JitState Run 0 0 program inp [] cacheInit)
+
+jitContinue :: jitState -> jitState
+jitContinue state
+    = state'' $seq jitContinue state'',  if isRun rs \/ isWait rs & ~null inp
+    = state,                             otherwise
+      where
+        JitState rs ip rb mem inp out ic  = state
+        (lookup, ic1)                     = cacheLookup ip ic
+        (Just cachedInst)                 = lookup
+        (compiledInst, ic2)               = compile state
+        inst                              = compiledInst, if isNothing lookup
+                                          = cachedInst,   otherwise
+        ic'                               = ic2,          if isNothing lookup
+                                          = ic1,          otherwise
+        state'                            = JitState Run ip rb mem inp out ic'
+        state''                           = exec inst state'
+
+lt :: int -> int -> int
+lt a b = 1, if a < b
+       = 0, otherwise
+
+eq :: int -> int -> int
+eq a b = 1, if a == b
+       = 0, otherwise
+
+compile :: jitState -> (decodedInst, cache)
+compile (JitState rs ip rb mem inp out ic)
+    = (compiledInst, ic')
+      where
+        ((op, args), _) = decodeInst ip mem
+        compiledInst    = compInst op
+        ic'             = cacheInsert ip (# args) compiledInst ic
+
+        compInst Add    = DOpr (+) getA getB getD, if isJust argA & isJust argB & isJust dstD
+                        = DImo,                    otherwise
+        compInst Mul    = DOpr (*) getA getB getD, if isJust argA & isJust argB & isJust dstD
+                        = DImo,                    otherwise
+        compInst Lt     = DOpr lt  getA getB getD, if isJust argA & isJust argB & isJust dstD
+                        = DImo,                    otherwise
+        compInst Eq     = DOpr eq  getA getB getD, if isJust argA & isJust argB & isJust dstD
+                        = DImo,                    otherwise
+        compInst Jt     = DJt  getA getB,          if isJust argA & isJust argB
+                        = DImo,                    otherwise
+        compInst Jf     = DJf  getA getB,          if isJust argA & isJust argB
+                        = DImo,                    otherwise
+        compInst Rbo    = DRbo getA,               if isJust argA
+                        = DImo,                    otherwise
+        compInst Inp    = DInp getDA,              if isJust dstA
+                        = DImo,                    otherwise
+        compInst Out    = DOut getA,               if isJust argA
+                        = DImo,                    otherwise
+        compInst Hlt    = DHlt
+        compInst IllOpc = DIop
+
+        argA            = getArg (args ! 0)
+        argB            = getArg (args ! 1)
+        dstD            = getDst (args ! 2)
+        dstA            = getDst (args ! 0)
+
+        (Just getA)     = argA
+        (Just getB)     = argB
+        (Just getD)     = dstD
+        (Just getDA)    = dstA
+
+        getArg (Imm, n) = Just acc where acc = getArgImm n
+        getArg (Ind, a) = Just acc where acc = getArgInd a
+        getArg (Rel, a) = Just acc where acc = getArgRel a
+        getArg _        = Nothing
+
+        getDst (Imm, n) = Nothing
+        getDst (Ind, a) = Just acc where acc = getArgImm a
+        getDst (Rel, a) = Just acc where acc = getDstRel a
+        getDst _        = Nothing
+
+exec :: decodedInst -> jitState -> jitState
+
+exec (DOpr opr getA getB getD) (JitState rs ip rb mem inp out ic)
+    = JitState rs ip' rb mem' inp out ic'
+      where
+        a    = getA mem rb
+        b    = getB mem rb
+        d    = getD mem rb
+        r    = a $opr b
+        ip'  = ip + 4
+        mem' = m_insert cmpint d r mem
+        ic'  = cacheFlush d ic
+
+exec (DJt getA getT) (JitState rs ip rb mem inp out ic)
+    = JitState rs ip' rb mem inp out ic
+      where
+        a   = getA mem rb
+        ip' = getT mem rb, if a ~= 0
+            = ip + 3,      otherwise
+
+exec (DJf getA getT) (JitState rs ip rb mem inp out ic)
+    = JitState rs ip' rb mem inp out ic
+      where
+        a   = getA mem rb
+        ip' = getT mem rb, if a == 0
+            = ip + 3,      otherwise
+
+exec (DRbo getA) (JitState rs ip rb mem inp out ic)
+    = JitState rs ip' rb' mem inp out ic
+      where
+        n = getA mem rb
+        ip' = ip + 2
+        rb' = rb + n
+
+exec (DInp getD) (JitState rs ip rb mem inp out ic)
+    = JitState Wait ip  rb mem  inp  out ic,  if null inp
+    = JitState rs   ip' rb mem' inp' out ic', otherwise
+      where
+        d          = getD mem rb
+        (c : inp') = inp
+        ip'        = ip + 2
+        mem'       = m_insert cmpint d c mem
+        ic'        = cacheFlush d ic
+
+exec (DOut getA) (JitState rs ip rb mem inp out ic)
+    = JitState rs ip' rb mem inp out' ic
+      where
+        ip'  = ip + 2
+        a    = getA mem rb
+        out' = out ++ [a]
+
+exec DHlt (JitState rs ip rb mem inp out ic)
+    = JitState Halt ip rb mem inp out ic
+
+exec DIop (JitState rs ip rb mem inp out ic)
+    = JitState ErrOpc ip rb mem inp out ic
+
+exec DImo (JitState rs ip rb mem inp out ic)
+    = JitState ErrMode ip rb mem inp out ic
+
+exec _ _ = error "exec: bad instruction"
+
+
+cacheLookup :: int -> cache -> (maybe decodedInst, cache)
+cacheLookup a (Cache ic ac hi fl)
+    = (lookup, Cache ic ac' hi' fl)
+      where
+        lookup = m_lookup cmpint a ic
+        ac'    = ac + 1
+        hi'    = hi,     if isNothing lookup
+               = hi + 1, otherwise
+
+cacheInsert :: int -> int -> decodedInst -> cache -> cache
+cacheInsert a len inst (Cache ic ac hi fl)
+    = Cache ic'' ac' hi fl
+      where
+        ac'            = ac + 1
+        ic'            = m_insert cmpint a inst ic
+        ic''           = foldl insertMrk ic' [1 .. len]
+        insertMrk ic d = m_insert cmpint (a + d) (CMrk a) ic
+
+cacheFlush :: int -> cache -> cache
+cacheFlush a cache
+    = cache'
+      where
+      Cache ic ac hi fl = cache
+      md                = m_lookup cmpint a ic
+      d                 = fromJust md
+      a'                = unCMrk d
+      cache'            = cache,                      if isNothing md
+                        = Cache ic' ac hi fl',        otherwise
+      ic'               = m_delete cmpint a' ic,      if isCMrk d
+                        = m_delete cmpint a  ic,      otherwise
+      fl'               = fl + 1
+
+jitGetRunState :: jitState -> runState
+jitGetRunState (JitState rs ip rb mem inp out ic) = rs
+
+jitSetRunState :: runState -> jitState -> jitState
+jitSetRunState rs' (JitState rs ip rb mem inp out ic)
+    = JitState rs' ip rb mem inp out ic
+
+jitGetMem :: int -> jitState -> maybe int
+jitGetMem addr (JitState rs ip rb mem inp out ic)
+    = m_lookup cmpint addr mem
+
+jitSetMem :: int -> int -> jitState -> jitState
+jitSetMem addr val (JitState rs ip rb mem inp out ic)
+    = JitState rs ip rb mem' inp out ic
+      where
+        mem' = m_insert cmpint addr val mem
+
+jitGetOutput :: jitState -> (int, jitState)
+jitGetOutput (JitState rs ip rb mem inp (x : xs) ic)
+    = (x, JitState rs ip rb mem inp xs ic)
+jitGetOutput _ = error "jitGetOutput: empty"
+
+jitGetAllOutput :: jitState -> ([int], jitState)
+jitGetAllOutput (JitState rs ip rb mem inp out ic)
+    = (out, JitState rs ip rb mem inp [] ic)
+
+jitPutInput :: jitState -> int -> jitState
+jitPutInput (JitState rs ip rb mem inp out ic) inp'
+    = JitState rs ip rb mem inp'' out ic
+      where
+        inp'' = inp ++ [inp']
+
+jitPutAllInput :: jitState -> [int] -> jitState
+jitPutAllInput (JitState rs ip rb mem inp out ic) inp'
+    = JitState rs ip rb mem inp'' out ic
+      where
+        inp'' = inp ++ inp'
+
+jitGetCache :: jitState -> cache
+jitGetCache (JitState rs ip rb mem inp out ic) = ic
+
+jitGetCacheStats :: jitState -> (int, int, int)
+jitGetCacheStats (JitState rs ip rb mem inp out (Cache ic ac hi fl))
+    = (ac, hi, fl)
+
+
+|| intcode parsing
+
+readProgram :: string -> io program
+readProgram fn = m_fromList cmpint <$>. enumerate <$>. map intval <$>. split ',' <$>. readFile fn

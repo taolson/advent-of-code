@@ -1,0 +1,115 @@
+|| day04.m
+
+
+%export day04
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+fieldKey   == string
+fieldValue ::= Valid string | Invalid string
+field      == (fieldKey, fieldValue)
+passport   == m_map fieldKey fieldValue
+constraint == string -> bool
+
+p_eol, p_sep, p_col :: parser char
+p_eol = p_char '\n'
+p_sep = p_anyOf [' ', '\n']
+p_col = p_char ':'
+
+p_str :: parser string
+p_str = p_some (p_noneOf [' ', '\n', ':'])
+
+p_field :: string -> constraint -> parser field
+p_field k c
+    = makeField <$> (p_string k <* p_col) <*> (p_str <* p_sep)
+      where
+        makeField k v
+            = (k, v')
+              where
+                v' = Valid v,   if c v
+                   = Invalid v, otherwise
+
+
+numBetween :: int -> int -> constraint
+numBetween lo hi s
+    = all digit s & lo <= n <= hi
+      where
+        n = intval s
+
+hexDigits :: constraint
+hexDigits
+    = all isHex
+      where
+        isHex c = '0' <=. c <=. '9' \/ 'a' <=. c <=. 'f'
+
+height :: constraint
+height s
+    = numBetween 150 193 val, if unit ==$ "cm"
+    = numBetween 59  76  val, if unit ==$ "in"
+    = False,                  otherwise
+      where
+        (val, unit) = span digit s
+
+hairColor :: constraint
+hairColor s
+    = #s == 7 & hd s ==. '#' & hexDigits (tl s)
+
+eyeColor :: constraint
+eyeColor s = member cmpstring ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"] s
+
+passportID :: constraint
+passportID s = #s == 9 & all digit s
+
+p_byr, p_iyr, p_eyr, p_hgt, p_hcl, p_ecl, p_pid, p_cid :: parser field
+p_byr = p_field "byr" (numBetween 1920 2002)
+p_iyr = p_field "iyr" (numBetween 2010 2020)
+p_eyr = p_field "eyr" (numBetween 2020 2030)
+p_hgt = p_field "hgt" height
+p_hcl = p_field "hcl" hairColor
+p_ecl = p_field "ecl" eyeColor
+p_pid = p_field "pid" passportID
+p_cid = p_field "cid" (const True)
+
+p_passportField :: parser field
+p_passportField
+    = p_byr <|> p_iyr <|> p_eyr <|> p_hgt <|> p_hcl <|> p_ecl <|> p_pid <|> p_cid
+
+p_passport :: parser passport
+p_passport = m_fromList cmpfieldKey <$> p_some p_passportField <* p_optional p_eol
+
+check ::= PresentFields | ValidFields
+
+validate :: check -> [string] -> passport -> bool
+validate check reqd pass
+    = case check of
+        PresentFields -> all isPresent reqd
+        ValidFields   -> all isValid   reqd
+      where
+        isPresent k = m_member cmpfieldKey k pass
+        isValid k
+            = case m_findWithDefault cmpfieldKey (Invalid "") k pass of
+                Valid v   -> True
+                Invalid v -> False
+
+readPassports :: string -> io [passport]
+readPassports fn
+    = go <$>. parse (p_many p_passport) <$>. readFile fn
+      where
+        go (mpasses, ps) = fromMaybe (error (p_error ps)) mpasses
+
+day04 :: io ()
+day04
+    = readPassports "../inputs/day04.txt" >>=. go
+      where
+        go passports
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                required = ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"]
+                part1    = (++) "part 1: " . showint $ countValid PresentFields
+                part2    = (++) "part 2: " . showint $ countValid ValidFields
+
+                countValid check = length . filter (validate check required) $ passports

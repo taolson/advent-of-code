@@ -1,0 +1,57 @@
+|| day10.m
+
+
+%export day10
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+intMap == m_map int int
+
+computeMissing :: intMap -> int -> (intMap, int)
+computeMissing mmap span
+    = case m_lookup cmpint span mmap of
+        Nothing      -> computeMissing (grow mmap) span
+        Just missing -> (mmap, missing)
+      where
+        n = m_size mmap
+        m = 1 .<<. (n - 3) + sum (m_elems mmap)
+
+        grow mmap = m_insert cmpint n m mmap
+
+initMissing :: intMap
+initMissing = m_fromList cmpint [(0,0), (1, 0), (2, 0), (3, 1)]
+
+validArrangements :: [int] -> int
+validArrangements xs
+    = product (zipWith (-) (map pow2 ones) miss)
+      where
+        deltas    = zipWith (-) xs (0 : xs)
+        groups    = group cmpint deltas
+        ones      = map ((subtract 1) . length) . filter ((== 1) . hd) $ groups
+        (_, miss) = mapAccumL computeMissing initMissing ones
+        pow2 n    = 1 .<<. n
+
+joltDistribution :: [int] -> intMap
+joltDistribution
+    = snd . foldl addDelta (0, m_empty)
+      where
+        addDelta (s, hist) n = (n, m_insertWith cmpint (+) (n - s) 1 hist)
+
+day10 :: io ()
+day10
+    = readFile "../inputs/day10.txt" >>=. (go . map intval . lines)
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                target   = max cmpint input + 3
+                adapters = sortBy cmpint (target : input)
+                hist     = joltDistribution adapters
+                part1    = (++) "part 1: " . showint $ getCount 1 * getCount 3
+                part2    = (++) "part 2: " . showint $ validArrangements adapters
+
+                getCount n = m_findWithDefault cmpint 0 n hist

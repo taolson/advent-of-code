@@ -1,0 +1,100 @@
+|| day22.m
+
+
+%export day22
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <v2>
+
+node == v2 int
+
+nodeSt ::= Clean | Infected | Flagged | Weakened
+
+readNodeSt:: char -> nodeSt
+readNodeSt '.' = Clean
+readNodeSt '#' = Infected
+readNodeSt _   = error "nodeStFromChar: bad char"
+
+
+dir ::= U | D | L | R
+
+turnLeft, turnRight, turnBack :: dir -> dir
+turnLeft  d = case d of U -> L; D -> R; L -> D; R -> U
+turnRight d = case d of U -> R; D -> L; L -> U; R -> D
+turnBack  d = case d of U -> D; D -> U; L -> R; R -> L
+
+move :: node -> dir -> node
+move (V2 r c) d
+    = case d of
+        U -> V2 (r - 1) c
+        D -> V2 (r + 1) c
+        L -> V2 r (c - 1)
+        R -> V2 r (c + 1)
+
+
+grid == m_map node nodeSt
+
+activity1 :: grid -> node -> dir -> int -> int
+activity1
+    = go 0
+      where
+        go nInf g n d 0 = nInf
+        go nInf g n d steps
+            = nInf' $seq g' $seq n' $seq d' $seq go nInf' g' n' d' (steps - 1)
+              where
+                ns     = fromMaybe Clean (m_lookup cmpnode n g)
+                g'     = m_insert cmpnode n ns' g
+                n'     = move n d'
+                (ns', d', nInf')
+                    = case ns of
+                        Clean    -> (Infected, turnLeft  d, nInf + 1)
+                        Infected -> (Clean,    turnRight d, nInf)
+                        _        -> (ns, d, nInf)
+
+|| this must be written with no extraneous thunks generated in order to iterate the required 10M steps --
+|| otherwise the pushes of Update closures for the thunks will overflow the stack
+activity2 :: grid -> node -> dir -> int -> int
+activity2
+    = go 0
+      where
+        go nInf g n d 0 = nInf
+        go nInf g n d steps
+            = case m_lookup cmpnode n g of
+                Nothing -> go1 Weakened turnLeft nInf
+                Just ns -> case ns of
+                             Clean    -> go1 Weakened turnLeft  nInf
+                             Infected -> go1 Flagged  turnRight nInf
+                             Flagged  -> go1 Clean    turnBack  nInf
+                             Weakened -> case nInf + 1 of
+                                           nInf' -> go1 Infected id nInf'
+              where
+                go1 ns' t nInf'
+                    = case m_insert cmpnode n ns' g of
+                        g' -> case t d of
+                                d' -> case move n d' of
+                                        n' -> case steps - 1 of
+                                                steps' -> go nInf' g' n' d' steps'
+
+readGrid :: string -> io (grid, int)
+readGrid fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows
+            = (g, #rows)
+              where
+                glist = [(V2 r c, Infected) | (r, row) <- enumerate rows; (c, ch) <- enumerate row; ch ==. '#']
+                g     = m_fromList cmpnode glist
+
+day22 :: io ()
+day22
+    = readGrid "../inputs/day22.input" >>=. go
+      where
+        go (g, sz)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                n     = v2_pure (sz $div 2)
+                part1 = (++) "part 1: " . showint $ activity1 g n U 10_000
+                part2 = (++) "part 2: " . showint $ activity2 g n U 10_000_000

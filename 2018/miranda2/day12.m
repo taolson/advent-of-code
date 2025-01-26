@@ -1,0 +1,109 @@
+|| day12.m
+
+
+%export day12
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <vector>
+
+
+rules  == vector int
+plants == [int]
+
+generation ::= Generation plants int int
+
+g_plants     = Lens getf overf where getf (Generation a b c) = a; overf fn (Generation a b c) = Generation (fn a) b c
+g_startIndex = Lens getf overf where getf (Generation a b c) = b; overf fn (Generation a b c) = Generation a (fn b) c
+g_generation = Lens getf overf where getf (Generation a b c) = c; overf fn (Generation a b c) = Generation a b (fn c)
+
+generate :: rules -> generation -> generation
+generate rules (Generation plants startIndex generations)
+    = Generation plants'' startIndex' (generations + 1)
+      where
+        plants' = go 0 plants
+
+        go pat []
+            = [],                                 if pat == 0
+            = (rules !! pat') : trimTrailingZeros (go pat' []), otherwise
+              where
+                pat' = shiftIn pat 0 
+
+        go pat (x : xs)
+            = (rules !! pat') : trimTrailingZeros (go pat' xs)
+              where
+                pat' = shiftIn pat x
+
+        shiftIn pat x         = ((pat .&. 15) .<<. 1) .|. x
+        startIndex'           = startIndex - 2 + ((length . takeWhile (== 0)) $ plants')
+        plants''              = trimLeadingZeros plants'
+        trimLeadingZeros      = dropWhile (== 0)
+        trimTrailingZeros []  = []
+        trimTrailingZeros [0] = []
+        trimTrailingZeros x   = x
+
+score :: generation -> int
+score (Generation plants startIndex _)
+    = sum . map ((+ startIndex) . fst) . filter ((== 1) . snd) $ enumerate plants
+
+findStable :: rules -> generation -> generation
+findStable rules gen
+    = go . iterate (generate rules) $ gen
+      where
+        go (g1 : g2 : gs)
+            = g1,           if _eq cmpplants (view g_plants g1) (view g_plants g2)
+            = go (g2 : gs), otherwise
+
+        go _ = undef || remove compiler warning
+
+warpToGeneration :: rules -> generation -> int -> generation
+warpToGeneration rules gen genNo
+    = over g_startIndex ((deltaShift * deltaGen) +) . set g_generation genNo $ gen
+      where
+        next       = generate rules gen
+        deltaShift = view g_startIndex next - view g_startIndex gen
+        deltaGen   = genNo - view g_generation gen
+
+p_ruleElt :: parser int
+p_ruleElt
+    = toInt <$> (p_char '.' <|> p_char '#')
+      where
+        toInt '#' = 1
+        toInt _   = 0
+
+p_rule :: parser (int, int)
+p_rule
+    = p_liftA2 mkRule (p_some p_ruleElt <* p_string " => ") p_ruleElt <* p_spaces
+      where
+        mkRule inp out = (foldl toInt 0 inp, out)
+        toInt n b      = (n .<<. 1) .|. b
+
+p_rules :: parser rules
+p_rules = (v_rep 32 0 //) <$> p_some p_rule
+
+p_initial :: parser plants
+p_initial = p_string "initial state: " *> p_some p_ruleElt
+
+p_initAndRules :: parser (plants, rules)
+p_initAndRules = p_liftA2 pair p_initial (p_spaces *> p_rules)
+
+readInitAndRules :: string -> io (plants, rules)
+readInitAndRules fn
+    = go <$>. parse p_initAndRules <$>. readFile fn
+      where
+        go (mres, ps) = fromMaybe (error (p_error ps)) mres
+
+day12 :: io ()
+day12
+    = readInitAndRules "../inputs/day12.input" >>=. go
+      where
+        go (init, rules)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                gen20  = hd . drop 20 . iterate (generate rules) $ Generation init 0 0
+                stable = findStable rules gen20
+                part1  = (++) "part 1: " . showint . score $ gen20
+                part2  = (++) "part 2: " . showint . score $ warpToGeneration rules stable 50_000_000_000

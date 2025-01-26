@@ -1,0 +1,126 @@
+|| day16.m
+
+
+%export day16
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <set>
+
+interval == (int, int)
+
+inInterval :: int -> interval -> bool
+inInterval n (lo, hi) = lo <= n <= hi
+
+field ::= Field int string interval interval
+
+|| custom ordI instance for field
+cmpfield :: ordI field
+cmpfield (Field fid1 _ _ _) (Field fid2 _ _ _)
+    = cmpint fid1 fid2
+
+setFid :: field -> int -> field
+setFid (Field _ fn r1 r2) n = Field n fn r1 r2
+
+f_name :: field -> string
+f_name (Field _ fn _ _) = fn
+
+validForField :: int -> field -> bool
+validForField n (Field _ _ interval1 interval2)
+    = inInterval n interval1 \/ inInterval n interval2
+
+ticket  == [int]
+vticket == [s_set field]
+
+validateFields :: [field] -> ticket -> vticket
+validateFields fs t
+    = map validFields t
+      where
+        validFields n = s_fromList cmpfield . filter (validForField n) $ fs
+
+badFields :: vticket -> ticket -> [int]
+badFields v t
+    = catMaybes $ zipWith findEmpty v t
+      where
+        findEmpty v n 
+            = Just n,  if s_null v
+            = Nothing, otherwise
+
+mergeFields :: [vticket] -> vticket
+mergeFields ts
+    = [],                                                     if null (hd ts)
+    = foldl1 (s_intersect cmpfield) hts : mergeFields tts, otherwise
+      where
+        hts = map hd ts
+        tts = map tl ts        
+
+findFieldPositions :: vticket -> [(field, int)]
+findFieldPositions vs
+    = go [] $ zip2 vs [0 ..]
+      where
+        go found [] = found
+        go found vs = go (f : found) vs'
+                      where
+                        f   = firstSingleton vs
+                        vs' = removeField (fst f) vs
+
+                        firstSingleton ((v, i) : vs)
+                            = (hd (s_toList v), i), if s_size v == 1
+                            = firstSingleton vs,    otherwise
+
+                        firstSingleton _ = undef        || to get rid of compiler warning
+
+                        removeField f [] = []
+                        removeField f ((v, i) : vs)
+                            = removeField f vs,           if s_null v'
+                            = (v', i) : removeField f vs, otherwise
+                              where
+                                v' = s_delete cmpfield f v
+|| Parsing
+
+p_nl :: parser char
+p_nl = p_char '\n'
+
+p_interval :: parser interval
+p_interval = p_liftA2 pair p_int (p_char '-' *> p_int)
+
+p_field :: parser field
+p_field
+    = p_liftA3 (Field 0)
+          (p_some (p_letter <|> (p_char ' ')))
+          (p_string ": " *> p_interval)
+          (p_string " or " *> p_interval <* p_nl)
+
+p_ticket :: parser ticket
+p_ticket = p_intlist <* p_nl
+
+p_inp :: parser ([field], ticket, [ticket])
+p_inp = p_liftA3 triple
+            (p_some p_field <* p_nl)
+            (p_string "your ticket:" *> p_nl *> p_ticket <* p_nl)
+            (p_string "nearby tickets:" *> p_nl *> p_some p_ticket)
+
+readInput :: string -> io ([field], ticket, [ticket])
+readInput fn
+    = go <$>. parse p_inp <$>. readFile fn
+      where
+        go (minp, ps) = fromMaybe (error (p_error ps)) minp
+    
+day16 :: io ()
+day16
+    = readInput "../inputs/day16.txt" >>=. go
+      where
+        go (fields, myTicket, nearby)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                fields'      = zipWith setFid fields [0 ..]
+                validated    = map (validateFields fields') nearby
+                errRate      = sum . concat . zipWith badFields validated $ nearby
+                validated'   = filter (not . any s_null) validated
+                fpos         = findFieldPositions (mergeFields validated')
+                departFields = filter (isPrefixOf cmpchar "departure" . f_name . fst) $ fpos
+                departVals   = map (myTicket !) $ map snd departFields
+                part1        = (++) "part 1: " . showint $ errRate
+                part2        = (++) "part 2: " . showint . product $ departVals

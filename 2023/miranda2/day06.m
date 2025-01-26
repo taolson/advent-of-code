@@ -1,0 +1,74 @@
+|| day06.m -- Wait For It
+
+
+%export day06
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
+%import <mirandaExtensions>
+%import <state>
+
+race == (int, int)      || race time, best distance
+
+waysToWin :: race -> int
+waysToWin (time, bestDist)
+    = length . filter (> bestDist) . map distForButtonTime $ [0 .. time]
+      where
+        distForButtonTime t = t * (time - t)
+
+|| integer sqrt, babylonian method
+isqrt :: int -> int
+isqrt n
+    = go n 1
+      where
+        go x y
+            = x,        if x <= y
+            = go x' y', otherwise
+              where
+                x' = (x + y) $div 2
+                y' = n $div x'
+
+|| solve for the roots of the fn  f t = time * t - t * t - best == 0, which will be the two points
+|| where the parabola crosses the best distance value.  Since we use an integer-only sqrt computation
+|| as part of the quadratic solution, it is truncated compared to a real sqrt, so the root values are
+|| approximate, and may be off by 1.  To get the actual values, we adjust each by stepping in the
+|| direction that will put it below the best line, then stepping back until we just cross the best line
+|| then the number of wins is the hi - lo + 1
+computeWins :: (int, int) -> int
+computeWins (time, best)
+    = hi' - lo' + 1
+      where
+        f t = time * t - t * t - best           || function we are finding the roots of
+        s   = isqrt (time * time - 4 * best)    || isqrt <= real sqrt <= isqrt + 1
+        r0  = (time - s) $div 2
+        r1  = (time + s) $div 2
+        lo  = min2 cmpint r0 r1
+        hi  = max2 cmpint r0 r1
+        lo' = adj (<= 0) (+ 1) . adj (> 0) (subtract 1) $ lo
+        hi' = adj (<= 0) (subtract 1) . adj (> 0) (+ 1) $ hi
+
+        || step a value in a direction until f t meets the test condition
+        adj tst step = hd . dropWhile (tst . f) . iterate step
+
+pairs :: [*] -> [(*, *)]
+pairs []           = []
+pairs (a : b : xs) = (a, b) : pairs xs
+pairs _            = error "pairs: odd length list"
+
+readRaces :: string -> io [race]
+readRaces fn
+    = (zip . map (map intval . tl . words) . lines) <$>. readFile fn
+      where
+        zip [a, b] = zip2 a b
+        zip _      = error "zip: bad input"
+
+removeKerning :: string -> io race
+removeKerning fn
+    = (hd . pairs . map (intval . concat . tl . words) . lines) <$>. readFile fn
+
+day06 :: io ()
+day06
+    = io_mapM_ (>>=. putStrLn) [part1, part2]   || part1 and part2 are io strings, so we need to bind them to putStrLn
+      where
+        input = "../inputs/day06.txt"
+        part1 = (("part 1: " ++) . showint . product . map waysToWin) <$>. readRaces input
+        part2 = (("part 2: " ++) . showint . computeWins) <$>. removeKerning input

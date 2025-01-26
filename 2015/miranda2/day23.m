@@ -1,0 +1,108 @@
+|| day23.m
+
+
+%export day23
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <maybeState> p_bind2/mst_bind2 p_bind3/mst_bind3
+%import <vector>
+
+procSt      == (int, int, int)
+instruction == procSt -> procSt
+program     == vector instruction
+regAccessor == lens procSt int
+
+p_pc, p_ra, p_rb :: regAccessor
+p_pc = lensTup3_0
+p_ra = lensTup3_1
+p_rb = lensTup3_2
+
+
+|| instruction set implementation
+
+hlf, tpl, inc :: regAccessor -> instruction
+hlf reg = over reg ($div 2)
+tpl reg = over reg (* 3)
+inc reg = over reg (+ 1)
+
+jmp :: int -> instruction
+jmp d = over p_pc (+ d - 1)
+
+jie, jio :: regAccessor -> int -> instruction
+jie reg d ps
+    = case even (view reg ps) of
+        False -> ps
+        True  -> over p_pc (+ d - 1) ps
+
+jio reg d ps
+    = case (view reg ps) == 1 of
+        False -> ps
+        True  -> over p_pc (+ d - 1) ps
+
+
+|| running
+run :: program -> procSt -> procSt
+run prog
+    = go
+      where
+        lim = v_length prog
+
+        go (pc, a, b)
+            = (pc, a, b),                       if pc >= lim
+            = go $ (prog !! pc) (pc + 1, a, b), otherwise
+
+|| parsing
+
+p_reg :: parser regAccessor
+p_reg
+    = (p_any >>= check) <* p_spaces
+      where
+        check 'a' = p_pure p_ra
+        check 'b' = p_pure p_rb
+        check _   = p_fail
+
+p_offset :: parser int
+p_offset = p_optional (p_char '+') *> p_int <* p_spaces
+
+p_arith, p_jmp, p_cjmp :: parser instruction
+p_arith
+    = p_bind2 (p_word <* p_spaces) p_reg check <* p_spaces
+      where
+        check "hlf" r = p_pure $ hlf r
+        check "tpl" r = p_pure $ tpl r
+        check "inc" r = p_pure $ inc r
+        check _     _ = p_fail
+
+p_jmp = jmp <$> (p_string "jmp " *> p_offset)
+
+p_cjmp
+    = p_bind3 (p_word <* p_spaces) (p_reg <* p_string ", ") p_offset check
+      where
+        check "jie" r d = p_pure $ jie r d
+        check "jio" r d = p_pure $ jio r d
+        check _     _ _ = p_fail
+
+p_inst :: parser instruction
+p_inst = p_arith <|> p_jmp <|> p_cjmp
+
+
+readProgram :: string -> io program
+readProgram fn
+    = go <$>. parse (p_some p_inst <* p_end) <$>. readFile fn
+      where
+        go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
+
+day23 :: io ()
+day23
+    = readProgram "../inputs/day23.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . view p_rb $ run prog (0, 0, 0)
+                part2 = (++) "part 2: " . showint . view p_rb $ run prog (0, 1, 0)
+

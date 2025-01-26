@@ -1,0 +1,126 @@
+|| day17.m
+
+
+%export day17
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <set>
+
+point    == (int, int)
+pointSet == s_set point
+
+flowMapLine ::= Hor int int int | Ver int int int
+
+flowMap ::= FlowMap int int pointSet pointSet pointSet
+
+fm_top    = Lens getf overf where getf (FlowMap a b c d e) = a; overf fn (FlowMap a b c d e) = FlowMap (fn a) b c d e
+fm_bot    = Lens getf overf where getf (FlowMap a b c d e) = b; overf fn (FlowMap a b c d e) = FlowMap a (fn b) c d e
+fm_clay   = Lens getf overf where getf (FlowMap a b c d e) = c; overf fn (FlowMap a b c d e) = FlowMap a b (fn c) d e
+fm_filled = Lens getf overf where getf (FlowMap a b c d e) = d; overf fn (FlowMap a b c d e) = FlowMap a b c (fn d) e
+fm_stream = Lens getf overf where getf (FlowMap a b c d e) = e; overf fn (FlowMap a b c d e) = FlowMap a b c d (fn e)
+
+
+makeFlowMap :: [flowMapLine] -> flowMap
+makeFlowMap flowMapLines
+    = FlowMap (fromJust top) (fromJust bot) clay s_empty s_empty
+      where
+        (top, bot, clay) = foldl addLine (Nothing, Nothing, s_empty) flowMapLines
+        ins s p          = s_insert cmppoint p s
+
+        Nothing <? b     = Just b
+        Just a  <? b     = Just $ min2 cmpint a b
+        Nothing >? b     = Just b
+        Just a  >? b     = Just $ max2 cmpint a b
+
+        addLine (top, bot, clay) (Hor y start stop) = (top <? y, bot >? y,        foldl ins clay . map ($pair y) $ [start .. stop])
+        addLine (top, bot, clay) (Ver x start stop) = (top <? start, bot >? stop, foldl ins clay . map (pair x)  $ [start .. stop])
+
+flowFrom :: point -> flowMap -> (bool, flowMap)
+flowFrom pt fm
+    = (True,  fm),       if y > view fm_bot fm \/ s_member cmppoint pt (view fm_stream fm)
+    = (False, fm),       if s_member cmppoint pt (view fm_clay fm) \/ s_member cmppoint pt (view fm_filled fm)
+    = (True,  fmDown'),  if flowDown
+    = (True,  fmHorizS), if flowHoriz
+    = (False, fmHorizF), otherwise
+      where
+        (x, y) = pt
+        (flowDown, fmDown)                = flowFrom (x, y + 1) fm
+        (flowLeft, fmLeft, streamLeft)    = flowHorizFrom pt (-1) fmDown [pt]
+        (flowRight, fmHoriz, streamHoriz) = flowHorizFrom pt 1 fmLeft streamLeft
+        flowHoriz                         = flowLeft \/ flowRight
+
+        fmDown'  = addIfValid fm_stream pt fmDown
+        fmHorizS = foldr (addIfValid fm_stream) fmHoriz streamHoriz
+        fmHorizF = foldr (addIfValid fm_filled) fmHoriz streamHoriz
+
+        addIfValid lns p fm
+            = over lns (s_insert cmppoint p) fm, if snd p >= view fm_top fm
+            = fm,                                otherwise
+
+flowHorizFrom :: point -> int -> flowMap -> [point] -> (bool, flowMap, [point])
+flowHorizFrom pt step fm stream
+    = (False, fm, stream),                   if s_member cmppoint pt' (view fm_clay fm) \/ s_member cmppoint pt' (view fm_filled fm)
+    = (True, fmDown, stream'),               if flowDown
+    = flowHorizFrom pt' step fmDown stream', otherwise
+      where
+        (x, y)             = pt
+        pt'                = (x + step, y)
+        stream'            = pt' : stream
+        (flowDown, fmDown) = flowFrom (x + step, y + 1) fm
+
+p_flowMapLine :: parser flowMapLine
+p_flowMapLine
+    = p_liftA4 mkLine
+          p_letter
+          (p_char '=' *> p_int)
+          (p_string ", " *> p_letter *> p_char '=' *> p_int)
+          (p_string ".." *> p_int <* p_spaces)
+      where
+        mkLine axis pt start stop
+            = lineTypeFor axis pt start stop
+              where
+                lineTypeFor 'y' = Hor
+                lineTypeFor _   = Ver
+
+p_flowMap :: parser flowMap
+p_flowMap = makeFlowMap <$> p_some p_flowMapLine <* p_end
+
+printFlowMap :: flowMap -> string
+printFlowMap fm
+    = showpoint (xMin, yMin) ++ showpoint (xMax, yMax) ++ (lay . map (showFlowMapLine fm xMin xMax) $ [yMin .. yMax])
+      where
+        (xMin, yMin) = foldl1 mins . s_toList . view fm_clay $ fm
+        (xMax, yMax) = foldl1 maxs . s_toList . view fm_clay $ fm
+
+        mins (a, b) (c, d) = (min2 cmpint a c, min2 cmpint b d)
+        maxs (a, b) (c, d) = (max2 cmpint a c, max2 cmpint b d)
+
+        showFlowMapLine fm xMin xMax y = concatMap (getToken . ($pair y)) [xMin .. xMax]
+        getToken pt
+            = "*", if s_member cmppoint pt (view fm_clay fm)
+            = ".", if s_member cmppoint pt (view fm_filled fm)
+            = "~", if s_member cmppoint pt (view fm_stream fm)
+            = " ", otherwise
+
+readFlowMap :: string -> io flowMap
+readFlowMap fn
+    = go <$>. parse p_flowMap <$>. readFile fn
+      where
+        go (mfm, ps) = fromMaybe (error (p_error ps)) mfm
+
+day17 :: io ()
+day17
+    = readFlowMap "../inputs/day17.input" >>=. go
+      where
+        go initMap
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                (_, flowMap) = flowFrom (500, 0) initMap
+                numFilled    = s_size . view fm_filled $ flowMap
+                numStream    = s_size . view fm_stream $ flowMap
+                part1        = "part 1: " ++ showint (numFilled + numStream)
+                part2        = "part 2: " ++ showint numFilled

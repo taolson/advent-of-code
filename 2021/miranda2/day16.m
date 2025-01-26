@@ -1,0 +1,154 @@
+%export day16
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+bits == [int]                           || bits are represented as a list of 0s and 1s
+
+hexDigit :: char -> bool
+hexDigit c = '0' <=. c <=. '9' \/ 'A' <=. c <=. 'F'
+
+hexToBits :: char -> bits
+hexToBits c
+    = extr (code c - code '0'),      if c <=. '9'
+    = extr (code c - code 'A' + 10), otherwise
+      where
+        extr n = map ($mod 2) [n $div 8, n $div 4, n $div 2, n]
+
+bitsToInt :: bits -> int
+bitsToInt
+    = foldl insBit 0
+      where
+        insBit n b = n * 2 + b
+
+
+pType  ::= Lit int | Opr int [packet]
+packet ::= P int pType
+
+|| extract all version intbers from a packet
+versions :: packet -> [int]
+versions (P v (Lit n))     = [v]
+versions (P v (Opr op ps)) = v : concatMap versions ps
+
+|| compute the value of a packet
+value :: packet -> int
+value (P v (Lit n)) = n
+value (P v (Opr op ps))
+    = go op (map value ps)
+      where
+        go 0 = sum
+        go 1 = product
+        go 2 = min cmpint
+        go 3 = max cmpint
+        go 5 = cmpOp (>)
+        go 6 = cmpOp (<)
+        go 7 = cmpOp (==)
+        go n = error ("value: bad packet value " ++ showint n)
+        cmpOp op [n1, n2]
+            = 1, if op n1 n2
+            = 0, otherwise
+        cmpOp op _ = error "cmpOp needs 2 values"
+
+|| packet parsing
+parser * == bits -> (*, bits)
+
+|| monad interface for parser
+(>>=) :: parser * -> (* -> parser **) -> parser **
+(>>=) pa f = uncurry f . pa
+
+p_pure :: * -> parser *
+p_pure a bs = (a, bs)
+
+|| functor interface for parser
+(<$>) :: (* -> **) -> parser * -> parser **
+(<$>) f p = p >>= (p_pure . f)
+
+|| applicative interface for parser
+(<*>) :: parser (* -> **) -> parser * -> parser **
+(<*>) pf pa = pf >>= (<$> pa)
+
+p_liftA2 :: (* -> ** -> ***) -> parser * -> parser ** -> parser ***
+p_liftA2 f pa pb = f <$> pa <*> pb
+
+p_many :: parser * -> parser [*]
+p_many p bs
+    = ([], bs),                     if null bs
+    = p_liftA2 (:) p (p_many p) bs, otherwise
+
+
+|| extract N raw bits from bits
+p_bits :: int -> parser bits
+p_bits = splitAt
+
+p_header :: parser int
+p_header = bitsToInt <$> (p_bits 3)
+
+p_type :: parser int
+p_type = bitsToInt <$> (p_bits 3)
+
+p_litGroups :: parser [int]
+p_litGroups
+    = p_bits 5 >>= f
+      where
+        f [] = error "p_litGroups: empty bits"
+        f (h : bs)
+            = p_pure [n],               if h == 0
+            = (n :) <$> p_litGroups, otherwise
+              where
+                n = bitsToInt bs
+
+p_lit :: parser pType
+p_lit
+    = (Lit . foldl insHex 0) <$> p_litGroups
+      where
+        insHex s n = s * 16 + n
+
+p_opr :: int -> parser pType
+p_opr op
+    = Opr op <$> (p_bits 1 >>= f)
+      where
+        f [0] = p_bits 15 >>= (p_pktsLength . bitsToInt)
+        f [1] = p_bits 11 >>= (p_pktsCount  . bitsToInt)
+        f xs  = undef
+
+p_pktsCount :: int -> parser [packet]
+p_pktsCount 0 = p_pure []
+p_pktsCount n = p_liftA2 (:) p_packet (p_pktsCount (n - 1))
+
+p_pktsLength :: int -> parser [packet]
+p_pktsLength n
+    = p_bits n >>= f
+      where
+        f bts bs
+            = (pkts, bs)
+              where
+                (pkts, _) = p_many p_packet bts
+
+p_packet :: parser packet
+p_packet
+    = p_header >>= f1
+      where
+       f1 hdr
+           = p_type >>= f2
+             where
+               f2 4 = P hdr <$> p_lit
+               f2 n = P hdr <$> p_opr n
+
+parse :: string -> io packet
+parse fn
+    = go <$>. p_packet <$>. concatMap hexToBits <$>. filter hexDigit <$>. readFile fn
+      where
+        go (p, bs)
+            = p,                          if all (== 0) bs
+            = error "parse: bits at end", otherwise
+
+day16 :: io ()
+day16
+    = parse "../inputs/day16.txt" >>=. go
+      where
+        go p
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . sum . versions $ p
+                part2 = (++) "part 2: " . showint . value $ p

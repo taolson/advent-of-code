@@ -1,0 +1,178 @@
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <parser>
+%import <mirandaExtensions>
+
+
+|| resources are a vector of 4 intbers, representing amounts of
+|| ore, clay, obsidian, and geodes
+resource == [int]
+
+r_pure :: int -> resource
+r_pure = rep 4 
+
+r_empty :: resource
+r_empty = r_pure 0
+
+|| binary operations on resources
+r_add, r_sub, r_mul, r_max :: resource -> resource -> resource
+r_add a b = zipWith (+) a b
+r_sub a b = zipWith (-) a b
+r_mul a b = zipWith (*) a b
+r_max a b = zipWith (max2 cmpint) a b
+
+|| reduce these with "and" / "or" to get all / any
+r_ge, r_lt :: resource -> resource -> [bool]
+r_ge a b = zipWith (>=) a b
+r_lt a b = zipWith (<) a b
+
+|| scalar multiplication of a resource
+r_smul :: int -> resource -> resource
+r_smul s a = map (* s) a
+
+r_sum :: [resource] -> resource
+r_sum a = foldl r_add r_empty a
+
+r_geodes :: resource -> int
+r_geodes [a, b, c, d] = d
+r_geodes rs           = error "bad resource for r_geodes"
+
+resourceNameMap :: m_map string resource
+resourceNameMap
+     = m_fromList cmpstring [ ("ore",      [1, 0, 0, 0])
+                            , ("clay",     [0, 1, 0, 0])
+                            , ("obsidian", [0, 0, 1, 0])
+                            , ("geode",    [0, 0, 0, 1])
+                            ]
+
+r_singleton :: string -> resource
+|| r_singleton = fromJust . converse (m_lookup cmpstring) resourceNameMap
+r_singleton s = fromJust $ m_lookup cmpstring s resourceNameMap
+
+
+robot ::= Robot resource resource       || harvests, costs
+
+rb_empty :: robot
+rb_empty = Robot r_empty r_empty
+
+rb_harvest, rb_cost :: robot -> resource
+rb_harvest (Robot h c) = h
+rb_cost    (Robot h c) = c
+
+
+|| a blueprint is an id and a list of the robots made in the factory
+blueprint ::= Blueprint int [robot]
+
+bp_id :: blueprint -> int
+bp_id  (Blueprint bid rbs) = bid
+
+bp_rbs :: blueprint -> [robot]
+bp_rbs (Blueprint bid rbs) = rbs
+
+
+|| parsing
+
+p_ident :: parser string
+p_ident = p_some p_letter $p_left p_spaces
+
+p_resource :: parser resource
+p_resource
+    = mkResource $p_fmap p_ident
+      where
+        mkResource s = m_findWithDefault cmpstring r_empty s resourceNameMap
+
+p_cost :: parser resource
+p_cost
+    = p_liftA2 mkCost (p_posint $p_left p_spaces) p_resource
+      where
+        mkCost n = map (* n)
+
+p_robot :: parser robot
+p_robot
+    = p_liftA2 mkRobot
+          (p_string "Each " $p_right p_resource $p_left p_string "robot costs ")
+          (p_someSepBy (p_string "and ") p_cost $p_left (p_char '.') $p_left p_spaces)
+      where
+        mkRobot h cs = Robot h (r_sum cs)
+        
+p_blueprint :: parser blueprint
+p_blueprint
+    = p_liftA2 Blueprint
+          (p_string "Blueprint " $p_right p_spaces $p_right p_posint)
+          (p_string ": " $p_right p_some p_robot)
+
+
+|| scheduling
+
+solveSt == (int, resource, resource)
+
+|| depth-first search with aggressive pruning to find maximum # of geodes cracked in a time limit
+maxGeodes :: int -> blueprint -> int
+maxGeodes timeLimit (Blueprint bid robots)
+    = go 0 (timeLimit, r_singleton "ore", r_empty)
+      where
+        r_ob     = r_singleton "obsidian"
+        r_gd     = r_singleton "geode"
+        r_gc     = rb_cost (robots ! 3) $r_mul r_ob                     || geode robot cost in obsidian only                                                
+        maxBuild = foldl r_max (r_smul 999 r_gd) (map rb_cost robots)   || maximum intber of each robot to build so we can generate a geode each minute
+
+        go best (tr, prod, avail)
+            = (foldl tryRobot best' . filter viable) robots
+              where
+                best' = max2 cmpint best ((r_geodes . r_add avail . r_smul tr) prod)     || best production in remaining time without building anything
+
+                || a robot is viable to build if we are producing all its costs and we still need more of them
+                viable r   = canBuild r & need r
+                canBuild r = and ((prod $r_mul cost)         $r_ge cost) where cost = rb_cost r || we are producing all costs
+                need r     = and ((prod $r_mul rb_harvest r) $r_lt maxBuild)
+
+                tryRobot best r
+                    = go best st', if tr' > 0 & pGeodes st' > best
+                    = best,        otherwise
+                      where
+                        dt     = timeToBuild r + 1
+                        tr'    = tr - dt
+                        prod'  = prod $r_add rb_harvest r
+                        avail' = (dt $r_smul prod) $r_add avail $r_sub rb_cost r
+                        st'    = (tr', prod', avail')
+
+||                timeToBuild r  = (length . takeWhile (or . ($r_lt rb_cost r)) . iterate (r_add prod)) avail
+                timeToBuild r  = (length . takeWhile (or . ($r_lt rb_cost r)) . iterate (r_add prod)) avail
+
+                || assuming we have infinite ore and clay, find out how many potential geodes we can crack in the time limit
+                pGeodes
+                    = go
+                      where
+                        go (tr, prod, avail)
+                            = r_geodes avail,          if tr == 0
+                            = go (tr', prodG, availG), if newGeode
+                            = go (tr', prod', avail'), otherwise
+                              where
+                                tr'         = tr - 1
+                                avail'      = avail $r_add prod
+                                prod'       = prod $r_add r_ob            || we can always add a new obsidian robot
+                                newGeode    = and (r_ge avail r_gc)
+                                prodG       = prod' $r_add r_gd
+                                availG      = avail' $r_sub r_gc
+
+qualLevel :: int -> blueprint -> int
+qualLevel timeLimit bp = bp_id bp * maxGeodes timeLimit bp
+
+readBlueprints :: string -> io [blueprint]
+readBlueprints fn
+    = go <$>. parse (p_some p_blueprint) <$>. readFile fn
+      where
+        go (pr, ps) = fromMaybe (error (p_error ps)) pr
+
+day19 :: io ()
+day19
+    = readBlueprints "../inputs/day19.txt" >>=. go
+      where
+        go blueprints
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . sum . map (qualLevel 24) $ blueprints
+                part2 = (++) "part 2: " . showint . product . map (maxGeodes 32) . take 3 $ blueprints

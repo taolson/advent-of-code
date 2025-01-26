@@ -1,0 +1,137 @@
+|| day24.m -- Never Tell Me The Odds
+||
+|| Note: this does not run correctly using only native 63-bit ints; works with double-precision floats in Miranda
+||       solved by using the bignum library (with basic ops limited to 16 digits precision) and modifying v3 to use bignums
+|| part1 answer is 21785
+|| part2 answer is 554668916217145
+
+
+%export day24
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import "v3big"
+%import "bignum"
+
+
+position == v3 bignum
+velocity == v3 bignum
+stone    == (position, velocity)
+
+showposition = showv3 bn_show
+showvelocity = showv3 bn_show
+
+|| limit calculation to 16 decimal digits (approx float double precision)
+|| this is required because the bignum library is infinite-precision, and when producing a quotient the
+|| result can be infinitely long, which results in problems when we try using it in another quotient
+doublePrec :: bignum -> bignum
+doublePrec (s, e, m) = (s, e, take 16 m)
+
+(+.), (-.), (*.), (/.) :: bignum -> bignum -> bignum
+(+.) a b = case a $bn_add b of c -> doublePrec c
+(-.) a b = case a $bn_sub b of c -> doublePrec c
+(*.) a b = case a $bn_mul b of c -> doublePrec c
+(/.) a b = case a $bn_div b of c -> doublePrec c
+
+
+|| convert X and Y time eqns into linear equations of the form y = mx + b:
+||p = v t + p0
+||X = vxa t + pxa -> (X - pxa)/vxa = t
+||Y = vya t + pya -> Y = vya ((X - pxa)/vxa) + pya
+||Y = vya/vxa (X - pxa) + pya
+
+|| then solve for the X/Y intersection of two lines a and b:
+||vya/vxa (X - pxa) + pya = vyb/vxb (X - pxb) + pyb
+||vya/vxa (X - pxa) - vyb/vxb (X - pxb) = pyb - pya
+||vya/vxa - vyb/vxb) X = pyb - pya + pxa *(vya/vxa) - pxb * (vyb/vxb)
+||X = vya/vxa * pxa - vyb/vxb * pxb + pyb - pya
+
+
+crossingsBetweenXY :: bignum -> bignum -> [stone] -> int
+crossingsBetweenXY lo hi sts
+    = sum [1 | a : rest <- tails sts; b <- rest; crosses a b]
+      where
+        crosses (V3 pxa pya pza, V3 vxa vya vza) (V3 pxb pyb pzb, V3 vxb vyb vzb)
+            = False,          if bn_is_zero denom
+            = bn_le lo x    &
+              bn_le x hi    &
+              bn_le lo y    &
+              bn_le y hi    &
+              ~bn_is_neg ta &
+              ~bn_is_neg tb,  otherwise
+              where
+                ra    = vya /. vxa
+                rb    = vyb /. vxb
+                numer = (((ra *. pxa) -. (rb *. pxb)) +. pyb) -. pya
+                denom = ra -. rb
+                x     = numer /. denom
+                y     = (ra *. (x -. pxa)) +. pya
+                ta    = (x -. pxa) /. vxa
+                tb    = (x -. pxb) /. vxb
+
+
+|| Part 2, From solution given by Aidiakapi in Reddit:
+||
+|| The lines of all the hailstones must intersect the line of the unknown rock in all 3 dimensions.
+|| The trick is to pick one hailstone R as a reference frame with a position at the origin and zero velocity,
+|| adjusting all other hailstones to be in that reference frame by subtracting the position and velocity.  Then
+|| the rock must pass through the origin, and pass through the lines of all the other hailstones.
+||
+|| Pick another hailstone A and from two points on its line determine the plane through the origin and those two
+|| points.  The rock must travel along this plane.  Pick another hailstone B which must intersect the origin and A.
+|| This intersection point gives the intersection time of the rock with B.
+||
+|| Then swap A and B, repeat the process, and the the intersection time of A.  Using this time, we can compute the
+|| position and velocity of the rock.
+
+findRockPos :: [stone] -> v3 bignum
+findRockPos sts
+    = rockP
+      where
+        [r, a, b] = take 3 sts
+        sts'   = map (subRef r) sts
+        ra     = sts' ! 1
+        rb     = sts' ! 2
+        ta     = intersectionTime rb ra
+        tb     = intersectionTime ra rb
+        rockPA = fst a $v3_add (snd a $v3_mul v3_pure ta)
+        rockPB = fst b $v3_add (snd b $v3_mul v3_pure tb)
+        dt     = bn_sub tb ta
+        dp     = rockPB $v3_sub rockPA
+        rockV  = v3_fmap doublePrec $ dp $v3_div v3_pure dt
+        rockP  = rockPA $v3_sub (rockV $v3_mul v3_pure ta)
+
+        subRef (ap, av) (bp, bv)
+            = (bp $v3_sub ap, bv $v3_sub av)
+        
+        intersectionTime a b
+            = numer /. denom
+              where
+                planeNorm = fst a $v3_cross (fst a $v3_add snd a)
+                denom     = snd b $v3_dot planeNorm
+                numer     = v3_neg (fst b) $v3_dot planeNorm
+
+readStones :: string -> io [stone]
+readStones fn
+    = (map mkStone . lines) <$>. readFile fn
+      where
+        mkV3 s
+            = V3 a b c
+              where
+                [a, b, c] = (map bn . splitOneOf cmpchar ", ") s
+
+        mkStone s
+            = (p, v)
+              where
+                [p, v] = (map mkV3 . split '@') s
+
+day24 :: io ()
+day24
+    = readStones "../inputs/day24.txt" >>=. go
+      where
+        go stones
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1  = (++) "part 1: " . showint . crossingsBetweenXY (bn "200000000000000") (bn "400000000000000") $ stones
+                part2  = (++) "part 2: " . bn_show . v3_sum . findRockPos $ stones

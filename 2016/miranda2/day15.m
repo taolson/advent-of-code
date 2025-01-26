@@ -1,0 +1,52 @@
+|| day15.m
+
+
+%export day15
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<*)/p_left (*>)/p_right
+
+
+disc ::= Disc int int int
+
+d_index, d_slots, d_phase :: disc -> int
+
+d_index (Disc i _ _) = i
+d_slots (Disc _ s _) = s
+d_phase (Disc _ _ p) = p
+
+p_disc :: parser disc
+p_disc = p_liftA3 Disc (p_string "Disc #" *> p_int) (p_string " has " *> p_int) (p_string " positions; at time=0, it is at position " *> p_int) <* p_char '.'
+
+solveTime :: [disc] -> int
+solveTime
+    = solve 0 1
+      where
+        solve time step [] = time
+        solve time step (disc : rest)
+            = solve (nextReadyTime time) step' rest
+              where
+                step' = step $lcm (d_slots disc)
+
+                nextReadyTime t
+                    = t,                        if (d_index disc + d_phase disc + t) $mod d_slots disc == 0
+                    = nextReadyTime (t + step), otherwise
+
+readDiscs :: string -> io [disc]
+readDiscs fn
+    = go <$>. parse (p_someSepBy (p_char '\n') p_disc) <$>. readFile fn
+      where
+        go (mdiscs, ps) = fromMaybe (error (p_error ps)) mdiscs
+
+day15 :: io ()
+day15
+    = readDiscs "../inputs/day15.input" >>=. go
+      where
+        go discs2
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                discs1 = init discs2
+                part1  = (++) "part 1: " . showint . solveTime $ discs1
+                part2  = (++) "part 2: " . showint . solveTime $ discs2

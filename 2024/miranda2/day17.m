@@ -1,0 +1,146 @@
+|| day17.m -- Chronospatial Computer
+
+
+%export day17
+
+%import "adventLib"
+%import <dequeue>
+%import <lens>
+%import <maybe>
+%import <state>
+%import <vector>
+
+
+|| machine state
+vmSt == (int, int, int, int, dequeue int)    || pc, regA, regB, regC, output
+
+cmpvmSt = undef  || dont define a comparison for vmSt, since cmpdequeue is undefined
+
+|| lenses for vmSt
+vm_pc  = lensTup5_0
+vm_a   = lensTup5_1
+vm_b   = lensTup5_2
+vm_c   = lensTup5_3
+vm_out = lensTup5_4
+
+|| lift lens operations into vmSt
+vm_view lns   vmSt = (view lns vmSt, vmSt)
+vm_over lns f vmSt = ((), over lns f vmSt)
+vm_set  lns x vmSt = ((), set  lns x vmSt)
+
+err = error "illegal instruction or cmb operator"
+
+|| an opr reads a value from the vmSt
+opr == state vmSt int
+
+|| decoder for a cmb operand
+cmbDecoder :: vector opr
+cmbDecoder = v_fromList [st_pure 0, st_pure 1, st_pure 2, st_pure 3, vm_view vm_a, vm_view vm_b, vm_view vm_c, err]
+
+|| an insn transforms the vmSt
+insn == opr -> state vmSt ()
+
+adv, bxl, bst, jnz, bxc, out, bdv, cdv :: insn
+adv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_a
+bxl opr = st_bind2 (vm_view vm_b) opr exec            where exec b x = b .^. x  |> vm_set vm_b
+bst opr = opr >>= exec                                where exec x   = x .&. 7  |> vm_set vm_b
+jnz opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = if' (a == 0) (st_pure ()) (vm_set vm_pc x)
+bxc _   = st_bind2 (vm_view vm_b) (vm_view vm_c) exec where exec b c = b .^. c  |> vm_set vm_b
+out opr = opr >>= exec                                where exec x   = vm_over vm_out (dq_addR $ x $mod 8)
+bdv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_b
+cdv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_c
+
+|| decoder for an insn
+insDecoder :: vector (stdlib.int -> state vmSt ())
+insDecoder
+    = v_fromList [cmb adv, lit bxl, cmb bst, lit jnz, lit bxc, cmb out, cmb bdv, cmb cdv, err]
+      where
+        cmb op opr = op $ v_unsafeIndex cmbDecoder opr   || unsafeIndex ok, because we are guaranteed to be in bounds
+        lit op opr = op $ st_pure opr
+
+program == vector int
+
+run :: program -> state vmSt [int]
+run prog
+    = st_bind2 fetch fetch decode       || fetch insn opc and opr, then decode
+      where
+        fetch = vm_view vm_pc >>= check
+                where
+                  check pc
+                      = Just <$> readInsn, if 0 <= pc < v_length prog
+                      = st_pure Nothing,   otherwise
+                        where readInsn = st_pure (v_unsafeIndex prog pc) << vm_set vm_pc (pc + 1)
+
+        decode (Just opc) (Just opr) = (v_unsafeIndex insDecoder opc) opr >> run prog   || got an insn; decode and exec, then continue
+        decode _          _          = dq_toList <$> vm_view vm_out                     || end of program; gen output
+
+makeProgState :: string -> (program, vmSt)
+makeProgState
+    = lines .> splitWhen null .> parse
+      where
+        err = error "parse error"
+
+        parse [rdefs, [p]] = (parseProg p, parseRegs rdefs)
+        parse _          = err
+
+        parseProg = words .> (! 1) .> split ',' .> map intval .> v_fromList
+        parseRegs = map (words .> (! 2) .> intval) .> mkSt
+
+        mkSt [a, b, c] = (0, a, b, c, dq_empty)
+        mkSt _         = err
+
+|| For part 2, we are asked to find the input value a which will replicate the program on the
+|| output.  This has a huge search space, but can be pruned by examining the program and seeing
+|| that bits of a only interact over a range of 10 bits across the 48-bit register width.  So
+|| we can search by implementing a sliding window of candidate values for each successive digit
+|| output, then filter them on a match and grow them by 3 bits in the msb.
+||
+|| Program: 2,4,1,5,7,5,1,6,0,3,4,6,5,5,3,0
+|| 2 4  bst a   b0 = a0 & 7
+|| 1 5  bxl 5   b1 = b0 ^ 5
+|| 7 5  cdv b   c0 = a0 >> b1
+|| 1 6  bxl 6   b2 = b1 ^ 6
+|| 0 3  adv 3   a1 = a0 >> 3
+|| 4 6  bxc _   b3 = b2 ^ c0    out 0
+|| 5 5  out b   output b3 & 7
+|| 3 0  jnz 0   {b0 = b3; a0 = a1}
+||
+|| emulate the program running to speed things up
+emulate :: int -> [int]
+emulate n
+   = go n
+     where
+       go a0 = b3 .&. 7 : if' (a1 ~= 0) (go a1) []
+               where
+                 b0 = a0 .&.  7
+                 b1 = b0 .^.  5
+                 c0 = a0 .>>. b1
+                 b2 = b1 .^.  6
+                 a1 = a0 .>>. 3
+                 b3 = b2 .^.  c0
+
+|| search for an input a that will recreate the program as output
+search :: program -> vmSt -> int
+search prog st
+    = foldl go (cands, 11) (inits target |> drop 1) |> fst |> min cmpint
+      where
+        target = v_toList prog
+        cands  = [0 .. (1 .<<. 10) - 1]
+
+        go (cands, n) ts
+            = filter match cand' |> ($pair n + 3)       || try each new cand', filtering the ones that still match, then add 3 to the shift amount
+              where
+                cand'    = [(x .<<. n) .|. c | x <- [0 .. 7]; c <- cands]
+|| triggers GC bug                match c  = st_evalState (vm_set vm_a c >> run prog) st |> check
+                match c  = emulate c |> check
+                check xs = isPrefixOf cmpint ts xs
+                
+day17 :: io ()
+day17
+    = readFile "../inputs/day17.txt" >>= makeProgState .> go
+      where
+        go (prog, st)
+            = output [part1, part2]
+              where
+                part1   = st_evalState (run prog) st |> map showint .> intercalate ","
+                part2   = search prog st |> showint

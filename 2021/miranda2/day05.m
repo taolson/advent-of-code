@@ -1,0 +1,128 @@
+|| implementation that finds the set of intersection points by comparing all pairs of line segments
+
+%export day05
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+maxn = max2 cmpint
+minn = min2 cmpint
+
+point == (int, int)
+
+|| classify segment to aid in determining intersections
+segmentType ::= Horiz | Vert | DiagU | DiagD
+
+segment == (segmentType, int, int, int, int)    || xl, xh, yl, yh
+
+mkSegment :: point -> point -> segment
+mkSegment (x1, y1) (x2, y2)
+    = (st, xl, xh, yl, yh)
+      where
+        xl = minn x1 x2
+        xh = maxn x1 x2
+        yl = minn y1 y2
+        yh = maxn y1 y2
+        st = Horiz, if y1 == y2
+           = Vert,  if x1 == x2
+           = DiagU, if x1 < x2 & y1 < y2 \/ x1 > x2 & y1 > y2
+           = DiagD, otherwise
+
+isHorizVert, isDiagU :: segmentType -> bool
+isHorizVert Horiz = True
+isHorizVert Vert  = True
+isHorizVert st    = False
+
+isDiagU     DiagU = True
+isDiagU     st    = False
+
+isHorizVertSeg :: segment -> bool
+isHorizVertSeg (st, xl, xh, yl, yh) = isHorizVert st
+
+intersections :: segment -> segment -> [point]
+intersections s1 s2
+    = [(x, y) |
+          x <- [maxn xl1 xl2 .. minn xh1 xh2];
+          y <- [maxn yl1 yl2 .. minn yh1 yh2]], if isHorizVert st1 & isHorizVert st2
+    = intersections s2 s1,                      if _lt cmpsegmentType st2 st1         || canonical order, to reduce cases
+      where
+        (st1, xl1, xh1, yl1, yh1) = s1
+        (st2, xl2, xh2, yl2, yh2) = s2
+
+intersections (Horiz, xl1, xh1, yl1, yh1) (st2, xl2, xh2, yl2, yh2)     || st2 is either DiagU or DiagD
+    = [(x', yl1)], if xl1 <= x' <= xh1 & yl2 <= yl1 <= yh2
+    = [],          otherwise
+      where x' = xl2 + yl1 - yl2, if isDiagU st2
+               = xl2 + yh2 - yh1, otherwise
+
+intersections (Vert, xl1, xh1, yl1, yh1) (st2, xl2, xh2, yl2, yh2)      || st2 is either DiagU or DiagD
+    = [(xl1, y')], if yl1 <= y' <= yh1 & xl2 <= xl1 <= xh2
+    = [],          otherwise
+      where y' = yl2 + xl1 - xl2, if isDiagU st2
+               = yl2 + xh2 - xl1, otherwise
+
+intersections (DiagU, xl1, xh1, yl1, yh1) (DiagU, xl2, xh2, yl2, yh2)
+    = [(xb + d, yb + d) | d <- [0 .. xt - xb]], if b1 == b2     || intercepts are equal, so co-linear
+    = [],                                       otherwise       || not co-linear
+      where
+        b1 = yl1 - xl1          || y intercept for line of seg1
+        b2 = yl2 - xl2          || y intercept for line of seg2
+        xb = maxn xl1 xl2
+        yb = maxn yl1 yl2
+        xt = minn xh1 xh2
+
+intersections (DiagD, xl1, xh1, yl1, yh1) (DiagD, xl2, xh2, yl2, yh2)
+    = [(xb + d, yt - d) | d <- [0 .. xt - xb]], if b1 == b2     || intercepts are equal, so co-linear
+    = [],                                       otherwise       || not co-linear
+      where
+        b1 = yh1 + xl1          || y intercept for line of seg1
+        b2 = yh2 + xl2          || y intercept for line of seg2
+        xb = maxn xl1 xl2
+        yt = minn yh1 yh2
+        xt = minn xh1 xh2
+
+intersections (DiagU, xl1, xh1, yl1, yh1) (DiagD, xl2, xh2, yl2, yh2)
+    = [(x, y)], if (b2 - b1) $mod 2 == 0 & (maxn xl1 xl2) <= x <= (minn xh1 xh2) & (maxn yl1 yl2) <= y <= (minn yh1 yh2)
+    = [],       otherwise
+      where
+        b1 = yl1 - xl1          || y intercept for line of seg1
+        b2 = yh2 + xl2          || y intercept for line of seg2
+        x  = (b2 - b1) $div 2   || solution for y1 == y2, x1 == x2 in y1 = x1 + b1; y2 = -x2 + b2
+        y  = x + b1
+
+intersections s1 s2 = []     || dummy default to remove non-exhaustive pattern warning
+
+tallyIntersections :: [segment] -> s_set point
+tallyIntersections
+    = foldl go s_empty . tails
+      where
+        go ps []       = ps
+        go ps (s : ss) = foldl (go1 s) ps ss
+        go1 s ps s'    = foldl (converse (s_insert cmppoint)) ps (intersections s s')
+
+readSegments :: string -> io [segment]
+readSegments fn
+    = map readSeg <$>. lines <$>. readFile fn
+      where
+        readSeg           = go . words
+        go [p1, "->", p2] = mkSegment (readPoint p1) (readPoint p2)
+        go _              = perror
+        readPoint         = mkPoint . map intval . split ','
+        mkPoint [x, y]    = (x, y)
+        mkPoint _         = perror
+        perror            = error "parse error"
+
+day05 :: io ()
+day05
+    = readSegments "../inputs/day05.txt" >>=. go
+      where
+        go segs
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                hvSegs = filter isHorizVertSeg segs
+                part1  = "part 1: " ++ countIntersections hvSegs
+                part2  = "part 2: " ++ countIntersections segs
+
+                countIntersections = showint . s_size . tallyIntersections

@@ -1,0 +1,42 @@
+|| day02.m
+
+
+%export day02
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+box ::= Box int int int
+
+paperRequired :: box -> int
+paperRequired (Box l w h)
+    = 2 * sum areas + extra
+      where
+        areas = [l * w, l * h, w * h]
+        extra = min cmpint areas
+
+ribbonRequired :: box -> int
+ribbonRequired (Box l w h)
+    = 2 * min cmpint perimeters + bow
+      where
+        perimeters = [l + w, l + h, w + h]
+        bow        = l * w * h
+
+readBoxes :: string -> io [box]
+readBoxes fn
+    = map readBox <$>. lines <$>. readFile fn
+      where
+        readBox         = mkBox . map intval . splitOneOf cmpchar "( )"
+        mkBox [l, w, h] = Box l w h
+        mkBox _         = error "readBoxes: parse error"
+
+day02 :: io ()
+day02
+    = readBoxes "../inputs/day02.input" >>=. go
+       where
+         go boxes
+             = io_mapM_ putStrLn [part1, part2]
+               where
+                 part1 = (++) "part 1: " . showint . sum . map paperRequired $ boxes
+                 part2 = (++) "part 2: " . showint . sum . map ribbonRequired $ boxes

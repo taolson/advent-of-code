@@ -1,0 +1,66 @@
+%export day13
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser>
+
+
+packet ::= Pint int | Plist [packet]
+
+isPint :: packet -> bool
+isPint (Pint n) = True
+isPint p        = False
+
+enlist :: packet -> packet
+enlist p = Plist [p]
+
+cmppacket :: packet -> packet -> ordering
+
+|| compare two ints
+cmppacket (Pint a) (Pint b) = compare cmpint a b
+
+|| compare two lists
+cmppacket (Plist []) (Plist [])             = EQ
+cmppacket (Plist []) (Plist bs)             = LT
+cmppacket (Plist as) (Plist [])             = GT
+cmppacket (Plist (a : as)) (Plist (b : bs)) = cmppacket a b $thenCmp cmppacket (Plist as) (Plist bs)
+
+|| compare different types by enlisting the int
+cmppacket a b
+    = cmppacket (enlist a) b, if isPint a
+    = cmppacket a (enlist b), otherwise
+
+
+|| parsing
+p_packet :: parser packet
+p_packet = p_fmap Pint p_int $p_alt
+           p_fmap Plist (p_char '[' $p_right p_manySepBy p_comma p_packet $p_left p_char ']')
+
+p_ppair :: parser (packet, packet)
+p_ppair = p_liftA2 pair (p_packet $p_left p_spaces) (p_packet $p_left p_spaces)
+
+p_ppairs :: parser [(packet, packet)]
+p_ppairs = p_many p_ppair
+
+readInput :: string -> io [(packet, packet)]
+readInput fn 
+    = go <$>. parse p_ppairs <$>. readFile fn
+      where
+        go (pr, ps) = fromMaybe (error (p_error ps)) pr
+
+
+day13 :: io ()
+day13
+    = readInput "../inputs/day13.txt" >>=. go
+      where
+        go ppairs
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                divPkts = map (enlist . enlist . Pint) [2, 6]
+                pkts    = sortBy cmppacket (foldr addPair [] ppairs ++ divPkts)
+                part1   = (++) "part 1: " . showint . sum . map fst . filter ((_eq cmpordering LT) . snd) . zip2 [1 ..] . map (uncurry cmppacket) $ ppairs
+                part2   = (++) "part 2: " . showint . product . map (findIndex pkts) $ divPkts
+
+        addPair (a, b) xs = a : b : xs
+        findIndex xs x    = fromJust (elemIndex cmppacket x xs) + 1

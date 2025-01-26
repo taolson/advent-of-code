@@ -1,0 +1,88 @@
+|| day10.m
+
+
+%export day10
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<*)/p_left (*>)/p_right
+%import <v2>
+
+
+position == (v2 int)
+velocity == (v2 int)
+
+star ::= Star position velocity
+
+s_pos :: star -> position
+s_pos (Star p v) = p
+
+moveStar :: star -> star
+moveStar (Star p v) = Star (v2_add p v) v
+
+
+boundingBox == (position, position)
+
+fullBounds :: [position] -> boundingBox
+fullBounds [] = error "fullBounds: []"
+fullBounds (p : ps)
+    = foldl ins (p, p) ps
+      where
+        ins (lo, hi) p = (v2_min cmpint lo p, v2_max cmpint hi p)
+
+area :: boundingBox -> int
+area (lo, hi) = v2_product $ v2_sub hi lo
+
+
+p_v2int :: parser (v2 int)
+p_v2int =  p_liftA2 V2 (p_char '<' *> p_spaces *> p_int) (p_char ',' *> p_spaces *> p_int <* p_char '>')
+
+p_star :: parser star
+p_star = p_liftA2 Star (p_string "position=" *> p_v2int <* p_spaces) (p_string "velocity=" *> p_v2int <* p_spaces)
+
+findLocalMinimum :: (* -> int) -> [*] -> (*, int)
+findLocalMinimum f [] = error "findLocalMinimum []"
+findLocalMinimum f (x : xs)
+    = go 0 (f x) x xs
+      where
+         go n fx x [] = (x, n)
+
+         go n fx x (y : ys)
+            = (x, n),        if fx < fy
+            = go n' fy y ys, otherwise
+              where
+                fy = f y
+                n' = n $seq n + 1
+
+showField :: [star] -> string
+showField stars
+    = go field
+      where
+        starPos    = map s_pos stars
+        (bLo, bHi) = fullBounds $ starPos
+        field      = [V2 x y | y <- [viewV2_1 bLo .. viewV2_1 bHi]; x <- [viewV2_0 bLo .. viewV2_0 bHi]]
+        lastX      = viewV2_0 bHi
+
+        go [] = []
+        go (p : ps)
+            = if' (member cmpposition starPos p) '#' '.' : 
+              if' (viewV2_0 p == lastX) ('\n' : go ps) (go ps)
+
+readStars :: string -> io [star]
+readStars fn
+    = go <$>. parse (p_some p_star) <$>. readFile fn
+      where
+        go (mstars, ps) = fromMaybe (error (p_error ps)) mstars
+
+day10 :: io ()
+day10
+    = readStars "../inputs/day10.input" >>=. go
+      where
+        go stars
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                (mina, time) = findLocalMinimum (area . fullBounds . map s_pos) . iterate (map moveStar) $ stars
+                part1 = (++) "part 1:\n" . showField $ mina
+                part2 = (++) "part 2: "  . showint $ time

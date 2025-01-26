@@ -1,0 +1,152 @@
+|| day23.m
+
+
+%export day23
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <either>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (*>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+
+reg   == int
+regId == int
+genOp == either regId int
+
+instruction ::= 
+    Cpy genOp genOp     |
+    Inc genOp           |
+    Dec genOp           |
+    Jnz genOp genOp     |
+    Ret genOp           |
+    Tgl genOp
+
+program    == vector  instruction
+mprogram   == mvector instruction
+registers  == vector  reg
+mregisters == mvector reg
+
+|| replace an instruction with it's toggle variant
+toggle :: mprogram -> int -> st ()
+toggle prog idx
+    = v_unsafeModify prog doToggle idx, if 0 <= idx < v_mlength prog
+    = st_pure (),                       otherwise
+      where
+        doToggle (Cpy a b) = Jnz a b
+        doToggle (Jnz a b) = Cpy a b
+        doToggle (Inc a)   = Dec a
+        doToggle (Dec a)   = Inc a
+        doToggle (Ret a)   = Inc a
+        doToggle (Tgl a)   = Inc a
+
+|| try to match a multiply code pattern at the current pc; if it matches,
+|| perform the multiply effects, otherwise return Nothing
+matchMul :: mprogram -> mregisters -> int -> st (maybe int)
+matchMul prog regs pc
+    = getInsns 8
+      where
+        getInsns n
+            = st_pure Nothing,                                            if pc < 0 \/ pc + n >= v_mlength prog
+            = st_mapM (v_unsafeRead prog) [pc .. pc + n - 1] >>= doMatch, otherwise
+
+        doMatch [ (Cpy (Left s1) (Left t1))
+                , (Cpy (Right 0) (Left x1))
+                , (Cpy (Left s2) (Left t2))
+                , (Inc (Left x2))
+                , (Dec (Left x3))
+                , (Jnz (Left x4) (Right (-2)))
+                , (Dec (Left x5))
+                , (Jnz (Left x6) (Right (-5)))
+                ]
+            = doMul s1 t1 s2 t2, if x1 == s1 & x2 == s1 & x3 == t2 & x4 == t2 & x5 == t1 & x6 == t1
+        doMatch _ = st_pure Nothing
+
+        doMul s1 t1 s2 t2
+            = st_bind2 (v_unsafeRead regs s1) (v_unsafeRead regs s2) f
+              where
+                f a b = v_unsafeReplace regs [(t1, 0), (t2, 0), (s1, a * b)] >> (st_pure . Just $ pc + 8)
+
+run :: int -> program -> registers -> registers
+run pc prog regs
+    = st_evalState (step pc >> v_unsafeFreeze mregs) ()
+      where
+        mprog    = v_thaw prog
+        mregs    = v_thaw regs
+        mprogLen = v_mlength mprog
+
+        step pc
+            = matchMul mprog mregs pc >>= check, if 0 <= pc < mprogLen
+            = st_pure (),                        otherwise
+              where
+                pc1 = pc + 1
+
+                getValue (Left a)  = v_unsafeRead mregs a
+                getValue (Right a) = st_pure a
+
+                update (Left a) x  = v_unsafeWrite mregs a x
+                update _        _  = error "run: update called with Right value"
+
+                check (Just pc')   = step pc'
+                check Nothing      = v_unsafeRead mprog pc >>= exec
+
+                exec (Cpy src dst) = (getValue src >>= update dst)                   >> step pc1
+                exec (Inc reg)     = (getValue reg >>= (update reg . (+ 1)))         >> step pc1
+                exec (Dec reg)     = (getValue reg >>= (update reg . (subtract 1)))  >> step pc1
+                exec (Tgl idx)     = (getValue idx >>= (toggle mprog . (pc +)))      >> step pc1
+                exec (Ret reg)     = st_pure ()
+
+                exec (Jnz tst dst)
+                    = getValue tst >>= check
+                      where
+                        check 0 = step pc1
+                        check _ = getValue dst >>= (step . (pc +))
+
+
+p_reg :: parser reg
+p_reg = mkReg <$> (p_spaces *> p_letter) where mkReg c = code c - code 'a'
+
+p_sint :: parser int
+p_sint = p_spaces *> p_int
+
+p_gen :: parser genOp
+p_gen = (Left <$> p_reg) <|> (Right <$> p_sint)
+
+p_cpy, p_inc, p_dec, p_jnz, p_ret, p_tgl, p_inst :: parser instruction
+p_inc = Inc <$> p_gen
+p_dec = Dec <$> p_gen
+p_ret = Ret <$> p_gen
+p_tgl = Tgl <$> p_gen
+p_cpy = p_liftA2 Cpy p_gen p_gen
+p_jnz = p_liftA2 Jnz p_gen p_gen
+
+p_inst
+    = p_spaces *> (p_word *>>= doInst) <* p_char '\n'
+      where
+        doInst "cpy" = p_cpy
+        doInst "inc" = p_inc
+        doInst "dec" = p_dec
+        doInst "jnz" = p_jnz
+        doInst "ret" = p_ret
+        doInst "tgl" = p_tgl
+        doInst _     = p_fail
+       
+readProgram :: string -> io program
+readProgram fn
+    = go <$>. parse (p_some p_inst) <$>. readFile fn
+      where
+        go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
+
+day23 :: io ()
+day23
+    = readProgram "../inputs/day23.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                regs1 = run 0 prog $ v_fromList [7, 0, 0, 0]
+                regs2 = run 0 prog $ v_fromList [12, 0, 0, 0]
+                part1 = (++) "part 1: " . showint $ regs1 !! 0
+                part2 = (++) "part 2: " . showint $ regs2 !! 0

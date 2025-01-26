@@ -1,0 +1,58 @@
+|| day11.m -- Cosmic Expansion
+
+
+%export day11
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <mirandaExtensions>
+
+
+loc == (int, int)
+
+xaxis = lensFst
+yaxis = lensSnd
+
+
+galaxies == [loc]
+
+expandAxis :: lens loc int -> int -> galaxies -> galaxies
+expandAxis axis expMult gxs
+    = snd . mapAccumL expand (0, hd gxs) . sortBy (comparing cmpint $ view axis) $ gxs
+      where
+        expand (exp, prev) loc
+            = ((exp', loc), loc')
+              where
+                gap  = view axis loc - view axis prev
+                de   = (expMult - 1) * (gap - 1)
+                exp' = exp,      if gap < 2
+                     = exp + de, otherwise
+                loc' = over axis (+ exp') loc
+
+expand :: int -> galaxies -> galaxies
+expand expMult
+    = expandAxis xaxis expMult . expandAxis yaxis expMult
+
+dist :: loc -> loc -> int
+dist (x1, y1) (x2, y2) = abs (x2 - x1) + abs (y2 - y1)
+
+shortestPaths :: galaxies -> [int]
+shortestPaths gxs
+    = [dist a b | (a : rest) <- tails gxs; b <- rest]
+
+readGalaxies :: string -> io galaxies
+readGalaxies fn
+    = (go . lines) <$>. readFile fn
+      where
+        go rows
+            = [(x, y) | (y, cs) <- enumerate rows; (x, c) <- enumerate cs; c ==. '#']
+
+day11 :: io ()
+day11
+    = readGalaxies "../inputs/day11.txt" >>=. go
+      where
+        go gxs
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = ("part 1: " ++) . showint . sum . shortestPaths . expand 2 $ gxs
+                part2 = ("part 2: " ++) . showint . sum . shortestPaths . expand 1_000_000 $ gxs

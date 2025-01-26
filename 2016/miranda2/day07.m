@@ -1,0 +1,66 @@
+|| day07.m
+
+
+%export day07
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+
+ip      == string
+pattern == string
+
+abbaPattern :: ip -> maybe pattern
+abbaPattern (a : b : c : d : _)
+    = Just [a, b, b, a], if a ==. d & b ==. c & letter b & a ~=. b
+    = Nothing,           otherwise
+
+abbaPattern _ = Nothing
+
+abaPattern :: ip -> maybe pattern
+abaPattern (a : b : c : _)
+    = Just [a, b, a], if a ==. c & letter b & a ~=. b
+    = Nothing,        otherwise
+
+abaPattern _ = Nothing
+
+findPatterns :: (ip -> maybe pattern) -> ip -> ([pattern], [pattern])
+findPatterns f
+    = go 0 [] []
+      where
+        go level super hyper []           = (super, hyper)
+        go level super hyper ('[' : rest) = go (level + 1) super hyper rest
+        go level super hyper (']' : rest) = go (level - 1) super hyper rest
+        go level super hyper s
+            = go level (update super) hyper rest, if level == 0
+            = go level super (update hyper) rest, otherwise
+              where
+                rest       = tl s
+                update lst = fromMaybef lst (: lst) (f s)
+
+supportsTLS :: ip -> bool
+supportsTLS s
+    = ~null super & null hyper
+      where
+        (super, hyper) = findPatterns abbaPattern s
+
+supportsSSL :: ip -> bool
+supportsSSL s
+    = any tst super
+      where
+        (super, hyper) = findPatterns abaPattern s
+        tst p          = member cmpstring hyper $ bab p 
+
+        bab [a, b, _]  = [b, a, b]
+        bab _          = error "supportsSSL: patterns must be 3 chars"
+
+day07 :: io ()
+day07
+    = readFile "../inputs/day07.input" >>=. (go . lines)
+      where
+        go contents
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . length . filter supportsTLS $ contents
+                part2 = (++) "part 2: " . showint . length . filter supportsSSL $ contents

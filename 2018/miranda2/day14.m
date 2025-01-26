@@ -1,0 +1,105 @@
+|| day14.m -- implementation using max-sized mutable vector for recipe state
+
+
+%export day14
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+%import <vector>
+%import <state> (>>=)/st_bind (<$>)/st_fmap (>>)/st_right
+
+
+sequence == (mvector int, int)  || sequence of digits, sequence length
+elf      == int
+
+s_init :: int -> [int] -> sequence
+s_init sz ds
+    = (st_evalState (init mv) (), #ds)
+      where
+        mv      = v_unsafeThaw (v_rep sz (-1))
+        init mv = v_unsafeReplace mv (enumerate ds) >> st_pure mv
+        
+s_elfIndex :: sequence -> elf -> st int
+s_elfIndex (s, _) e = v_read s (e - 1)
+
+s_addDigit :: int -> sequence -> st sequence
+s_addDigit n (s, i) = v_write s i n >> st_pure (s, i + 1)
+
+s_addNZDigit :: int -> sequence -> st sequence
+s_addNZDigit 0 = st_pure
+s_addNZDigit n = s_addDigit n
+
+
+recipeSt == (sequence, int, int)   || sequence, index of elf1, index of elf2
+
+recipeStep :: recipeSt -> st recipeSt
+recipeStep (s, e1, e2)
+    = st_bind2 (s_elfIndex s e1) (s_elfIndex s e2) mix
+      where
+        mix r1 r2
+            = s_addNZDigit (rs $div 10) s >>=
+              s_addDigit   (rs $mod 10)   >>=
+              updateElves
+              where
+                rs        = r1 + r2
+
+                updateElves s'
+                    = st_pure (s', e1', e2')
+                      where
+                        nDigits = snd s'
+                        e1'     = (e1 + r1) $mod nDigits + 1
+                        e2'     = (e2 + r2) $mod nDigits + 1
+
+stepToSize :: int -> recipeSt -> recipeSt
+stepToSize sz rst
+    = st_evalState (go rst) ()
+      where
+        go rst
+            = st_pure rst,           if rstSize rst >= sz
+            = recipeStep rst >>= go, otherwise
+              where
+                rstSize ((_, n), _, _) = n
+
+
+findDigits :: [int] -> recipeSt -> int
+findDigits pat rst
+    = st_evalState (go rst) ()
+      where
+        nDigits = #pat
+
+        go rst
+            = recipeStep rst >>= go, if sz < nDigits
+            = extractLast >>= check, otherwise
+              where
+                ((mv, sz), _, _) = rst
+
+                extractLast = st_mapM (v_read mv) [i | i <- [sz - nDigits - 1 .. sz - 1]]       || extract nDigits + 1 digits
+
+                check ds
+                    = st_pure (sz - nDigits - 1), if and $ zipWith (==) ds      pat
+                    = st_pure (sz - nDigits),     if and $ zipWith (==) (tl ds) pat
+                    = recipeStep rst >>= go,      otherwise
+
+mkDigits :: int -> [int]
+mkDigits 0 = [0]
+mkDigits n
+    = go [] n
+      where
+        go ds 0 = ds
+        go ds n = go ((n $mod 10) : ds) (n $div 10)
+
+doPart1 :: int -> int -> recipeSt -> string
+doPart1 nds ndrop ((mv, _), _, _)
+    = concatMap showint . st_evalState extract $ ()
+      where
+        extract = st_mapM (v_read mv) [i | i <- [ndrop .. ndrop + nds - 1]]
+
+day14 :: io ()
+day14
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        input  = 880751
+        initSt = (s_init 22_000_000 [3, 7], 1, 2)       || allocate 22M vector (solution should be < 22M digits)
+        rst1   = stepToSize (input + 10) initSt
+        part1  = (++) "part 1: " . doPart1 10 input $ rst1
+        part2  = (++) "part 2: " . showint . findDigits (mkDigits input) $ rst1

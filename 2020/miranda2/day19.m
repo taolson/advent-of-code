@@ -1,0 +1,101 @@
+|| day19.m
+
+
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+sequence ==  [int]
+rule     ::= Lit char | Alts [sequence]
+ruleId   ==  (int, rule)
+ruleMap  ==  m_map int rule
+
+emptyRule :: rule
+emptyRule = Alts []
+
+getRule :: int -> ruleMap -> rule
+getRule n rm = m_findWithDefault cmpint emptyRule n rm
+
+
+|| parsing input
+
+p_sp, p_nl :: parser char
+p_sp = p_char ' '
+p_nl = p_char '\n'
+
+p_sequence :: parser sequence
+p_sequence = p_someSepBy p_sp p_int
+
+p_lit, p_alt :: parser rule
+p_lit = Lit  <$> (p_char '"' *> p_any <* p_char '"')
+p_alt = Alts <$> p_someSepBy (p_string " | ") p_sequence
+
+p_ruleId :: parser ruleId
+p_ruleId = p_liftA2 pair (p_int <* p_string ": ") (p_alt <|> p_lit)
+
+p_msg :: parser string
+p_msg = p_some p_letter
+
+p_info :: parser ([ruleId], [string])
+p_info = p_liftA2 pair (p_someSepBy p_nl p_ruleId) (p_spaces *> p_someSepBy p_nl p_msg)
+
+
+|| rule matching
+|| grammar is context free ambiguous, so we need to parse all possible path alternatives in a breadth-first manner
+|| each match of a rule returns a list of the possible parse trees that it matches
+
+matchState == (string, string)  || result string matched so far, rest of input to match
+
+matchRule :: int -> ruleMap -> [matchState] -> [matchState]
+matchRule n rm
+    = concatMap (matchRule' (getRule n rm))                  || try to apply rule to all matchState states, concatenating the results
+      where
+        matchRule' (Lit c)   = matchLit c
+        matchRule' (Alts xs) = matchAlts xs
+
+        matchLit c (s, (c' : cs))
+            = [(s ++ [c], cs)], if c' ==. c
+            = [],               otherwise
+        matchLit c _ = []                                               || end of input, fail
+
+        matchAlts [] ms       = []                                      || no alternative to check, fail
+        matchAlts (x : xs) ms = matchSequence x ms ++ matchAlts xs ms   || find all matchs down all Alt paths
+
+        matchSequence [] ms = [ms]                                      || end of sequenceuence; wrap matchState in list so concatMap can extract it
+        matchSequence (x : xs) ms
+            = case matchRule' (getRule x rm) ms of
+                []  -> []                                               || no match for rule x, fail all subsequenceuent paths
+                mss -> concatMap (matchSequence xs) mss                 || matched rule x, find all matching paths for rest of sequence
+
+matchMsg :: ruleMap -> string -> [string]
+matchMsg rm msg
+    = map fst . filter atEnd . matchRule 0 rm $ [([], msg)]
+      where
+        atEnd (_, []) = True
+        atEnd _       = False
+
+readInfo :: string -> io (ruleMap, [string])
+readInfo fn
+    = go <$>. parse p_info <$>. readFile fn
+      where
+        go (mr, ps) = fromMaybef (error (p_error ps)) buildRules mr
+
+        buildRules (ruleids, msgs) = (foldl addRule m_empty ruleids, msgs)
+        addRule m (n, rule)        = m_insert cmpint n rule m
+
+day19 :: io ()
+day19
+    = readInfo "../inputs/day19.txt" >>=. go
+      where
+        go (ruleMap, msgs)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                ruleMap'  = m_insert cmpint 8  (Alts [[42], [42, 8]]) ruleMap
+                ruleMap'' = m_insert cmpint 11 (Alts [[42, 31], [42, 11, 31]]) ruleMap'
+                process m = showint . length . filter (not . null) . map (matchMsg m) $ msgs
+                part1     = "part 1: " ++ process ruleMap
+                part2     = "part 2: " ++ process ruleMap''

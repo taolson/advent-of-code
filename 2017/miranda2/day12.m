@@ -1,0 +1,60 @@
+|| day12.m
+
+
+%export day12
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right
+%import <set>
+
+
+element  == int
+groupMap == m_map element [element]
+
+(!!) :: groupMap -> element -> [element]
+m !! e = fromJust $ m_lookup cmpelement e m
+
+groupContainingElement :: element -> groupMap -> [element]
+groupContainingElement e gm
+    = go s_empty [e]
+      where
+        go group [] = s_toList group
+        go group (e : rest)
+            = go group rest,   if s_member cmpelement e group
+            = go group' rest', otherwise
+              where
+                group' = s_insert cmpelement e group
+                rest'  = rest ++ gm !! e
+
+allGroups :: groupMap -> [[element]]
+allGroups m
+    = [],                   if m_null m
+    = group : allGroups m', otherwise
+      where
+        group = groupContainingElement (hd (m_keys m)) m
+        m'    = foldr (m_delete cmpelement) m group
+
+p_groups :: parser groupMap
+p_groups
+    = m_fromList cmpelement <$> p_many (p_group <* p_char '\n')
+      where
+        p_group = p_liftA2 pair p_int (p_string " <-> " *> p_someSepBy (p_string ", ") p_int)
+
+readGroups :: string -> io groupMap
+readGroups fn
+    = go <$>. parse p_groups <$>. readFile fn
+      where
+        go (mgm, ps) = fromMaybe (error (p_error ps)) mgm
+        
+day12 :: io ()
+day12
+    = readGroups "../inputs/day12.input" >>=. go
+      where
+        go  groupMap
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . length . groupContainingElement 0 $ groupMap
+                part2 = (++) "part 2: " . showint . length . allGroups $ groupMap

@@ -1,0 +1,49 @@
+%export day04
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+adjacentDigits :: (int -> bool) -> string -> bool
+adjacentDigits test = any (test . length) . group cmpchar
+
+|| slow version
+|| monotonic :: string -> bool
+|| monotonic (c1 : c2 : cs) = False,               if c1 >. c2
+||                          = monotonic (c2 : cs), otherwise
+|| monotonic s              = True
+
+|| fast version
+genMonotonic :: int -> int -> [string]
+genMonotonic start stop
+    = filter (inRange start stop) (gen c1 c2 n)
+      where
+        s1 = showint start
+        s2 = showint stop
+        c1 = hd s1
+        c2 = hd s2
+        n  = #s2
+
+inRange :: int -> int ->string -> bool
+inRange start stop s
+    = start <= ns <= stop
+      where
+        ns = intval s
+
+gen :: char -> char -> int -> [string]
+gen c1 c2 n
+    = [[]], if n == 0
+    = [], if c1 >. c2
+    = map (c1 :) (gen c1 '9' (n - 1)) ++ gen (inc c1) c2 n, otherwise
+      where
+        inc c = decode (code c + 1)
+
+day04 :: io ()
+day04
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        valid  = genMonotonic 235741 706948
+        valid1 = filter (adjacentDigits (> 1)) valid
+        valid2 = filter (adjacentDigits (== 2)) valid1
+        part1  = (++) "part 1: " . showint . length $ valid1
+        part2  = (++) "part 2: " . showint . length $ valid2

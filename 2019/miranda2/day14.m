@@ -1,0 +1,84 @@
+%export day14
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <parser> (<*)/p_left (*>)/p_right
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+chemical       == string
+reactant       == (num, chemical)
+reaction       == (num, [reactant])
+reactionTable  == m_map chemical reaction
+availableTable == m_map chemical num
+reactionResult == (num, availableTable)
+
+quantize :: num -> num -> (num, num)
+quantize a b
+    = (q, q * b - a)
+      where
+        r = signum (a $mod b)
+        q = a $div b + r
+
+makeChemical :: chemical -> num -> reactionTable -> availableTable -> reactionResult
+makeChemical chem count reactions available
+    = (count, available),                              if chem ==$ "ORE"
+    = (0, m_insertWith cmpchemical subtract chem count available), if avail >= count
+    = foldl addReactant (0, available) reactants,      otherwise
+      where
+        avail              = m_findWithDefault cmpchemical 0 chem available
+        (quant, reactants) = m_findWithDefault cmpchemical (0, []) chem reactions
+        addReactant (ore, available) (needed, chem')
+            = (ore + ore', available'')
+              where
+                (alloc, extra)      = quantize (count - avail) quant
+                available'          = m_insert cmpchemical chem extra available
+                (ore', available'') = makeChemical chem' (needed * alloc) reactions available'
+        
+binarySearch :: (num -> bool) -> num -> num -> num
+binarySearch test lo hi
+    = mid,                      if (hi - lo) < 2
+    = binarySearch test mid hi, if test mid
+    = binarySearch test lo mid, otherwise
+      where
+        mid = (hi + lo) $div 2
+
+|| day 14 parsing
+
+p_arrow :: parser string
+p_arrow = p_string " => "
+
+p_chem :: parser chemical
+p_chem = p_many p_letter
+
+p_reactant :: parser reactant
+p_reactant = p_liftA2 pair (p_int <* p_spaces) p_chem
+
+p_reactlst :: parser [reactant]
+p_reactlst = p_manySepBy (p_comma <* p_spaces) p_reactant
+
+p_reaction :: parser ([reactant], reactant)
+p_reaction = p_liftA2 pair (p_reactlst <* p_arrow) (p_reactant <* p_spaces)
+
+readReactions :: string -> io reactionTable
+readReactions fn
+    = go <$>. parse (p_many p_reaction <* p_end) <$>. readFile fn
+      where
+        go (mrs, ps) = fromMaybef (error (p_error ps)) mkTable mrs
+        mkTable rs   = m_fromList cmpchemical [(c, (n, rs)) | (rs, (n, c)) <- rs]
+
+day14 :: io ()
+day14
+    = readReactions "../inputs/day14.input" >>=. go
+      where
+        go reactions
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                (ore, _)     = makeChemical "FUEL" 1 reactions m_empty
+                underLimit n = ((1000000000000 >=) . fst) (makeChemical "FUEL" n reactions m_empty)
+                upperLimit   = (hd . dropWhile underLimit . iterate (*2)) 1
+                result       = binarySearch underLimit 1 upperLimit
+                part1        = "part 1: " ++ showint  ore
+                part2        = "part 2: " ++ showint result
+

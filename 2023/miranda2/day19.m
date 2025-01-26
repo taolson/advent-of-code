@@ -1,0 +1,204 @@
+|| day19.m -- Aplenty
+
+
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (>>)/p_right (<<)/p_left
+
+
+interval == (int, int)
+
+in_valid :: interval -> bool
+in_valid (lo, hi) = lo <= hi
+
+in_length :: interval -> int
+in_length (lo, hi) = hi - lo + 1
+
+in_partitionBelow, in_partitionAbove :: int -> interval -> (interval, interval)
+in_partitionBelow n (lo, hi) = ((lo, n - 1), (n, hi))
+in_partitionAbove n (lo, hi) = ((n + 1, hi), (lo, n))
+
+
+part * == (*, *, *, *)
+
+p_x = lensTup4_0
+p_m = lensTup4_1
+p_a = lensTup4_2
+p_s = lensTup4_3
+
+rating :: part int -> int
+rating (x, m, a, s) = x + m + a + s
+
+ncombs :: part interval -> int
+ncombs (x, m, a, s) = product . map in_length $ [x, m, a, s]
+
+pg_valid :: part interval -> bool
+pg_valid (x, m, a, s) = all in_valid [x, m, a, s]
+
+
+category    ::= X | M | A | S
+destination ::= Rejected | Accepted | Next string
+rule        ::= Rule category char int destination
+workflow    == (string, [rule])
+sys         == (m_map string [rule], [part int])
+
+
+|| parsing 
+
+p_inBraces :: parser * -> parser *
+p_inBraces p = p_char '{' >> p << p_char '}'
+
+p_ident :: parser string
+p_ident = p_many p_letter
+
+p_category :: parser category
+p_category
+    = p_any >>= check
+      where
+        check 'x' = p_pure X
+        check 'm' = p_pure M
+        check 'a' = p_pure A
+        check 's' = p_pure S
+        check _   = p_fail
+
+p_cmp :: parser char
+p_cmp
+    = p_any >>= check
+      where
+        check '<' = p_pure '<'
+        check '>' = p_pure '>'
+        check _   = p_fail
+
+p_cond :: parser (category, char, int)
+p_cond = p_liftA3 triple p_category p_cmp p_int << p_char ':'
+
+p_part :: parser (part int)
+p_part
+    = (p_inBraces . p_someSepBy p_comma $ (p_any >> p_char '=' >> p_int)) >>= check
+      where
+        check [x, m, a, s] = p_pure $ (x, m, a, s)
+        check _            = p_fail
+
+p_destination :: parser destination
+p_destination
+    = mkDest <$> p_ident
+      where
+        mkDest "A" = Accepted
+        mkDest "R" = Rejected
+        mkDest s   = Next s
+
+p_rule :: parser rule
+p_rule
+    = p_liftA2 mkRule (p_optional p_cond) p_destination
+      where
+        mkRule Nothing              dst = Rule X   'T' 0 dst
+        mkRule (Just (cat, cmp, n)) dst = Rule cat cmp n dst
+
+p_workflow :: parser workflow
+p_workflow
+    = p_liftA2 pair p_ident . p_inBraces . p_someSepBy p_comma $ p_rule
+
+p_sys :: parser sys
+p_sys = p_liftA2 mkSys (p_someSepBy p_spaces p_workflow) (p_spaces >> p_someSepBy p_spaces p_part)
+        where
+          mkSys wfs parts = (m_fromList cmpstring wfs, parts)
+
+
+|| running
+
+runRule :: rule -> part int -> maybe destination
+runRule (Rule cat c n dst) p
+    = Just dst, if test c (view (catLns cat) p) n
+    = Nothing,  otherwise
+      where
+        catLns X = p_x
+        catLns M = p_m
+        catLns A = p_a
+        catLns S = p_s
+
+        test 'T' a b = True
+        test '<' a b = a < b
+        test '>' a b = a > b
+        test _   _ _ = error "bad char for test"
+
+runRuleGroup :: rule -> part interval -> (destination, part interval, part interval)      || destination, passed, failed test
+runRuleGroup (Rule cat c n dst) pg
+    = (dst, set lns pass pg, set lns fail pg)
+      where
+        lns          = catLns cat
+        rng          = view lns pg
+        (pass, fail) = test c
+
+        catLns X = p_x
+        catLns M = p_m
+        catLns A = p_a
+        catLns S = p_s
+
+        test 'T' = (rng, (0, -1))
+        test '<' = in_partitionBelow n rng
+        test '>' = in_partitionAbove n rng
+        test _   = error "bad test type"
+
+runSys :: sys -> [part int]
+runSys (wfm, ps)
+    = catMaybes . map (runWorkflow "in") $ ps
+      where
+        runWorkflow s p
+            = foldr go Nothing rs
+              where
+                rs = fromJust $ m_lookup cmpstring s wfm
+
+                go r k
+                    = fromMaybef k choose $ runRule r p
+                      where
+                        choose Rejected = Nothing
+                        choose Accepted = Just p
+                        choose (Next s) = runWorkflow s p
+
+sieveSys :: sys -> [part interval]
+sieveSys (wfm, ps)
+    = runWorkflow "in" (full, full, full, full)
+      where
+        full = (1, 4000)
+
+        runWorkflow s pg
+            = go rs pg
+              where
+                rs = fromJust $ m_lookup cmpstring s wfm
+
+              go [] pg = [pg]     || no more tests -- shouldn't happen
+              go (r : rs) pg
+                  = choose dst ++ concatMap (go rs) vfail
+                    where
+                      (dst, pass, fail) = runRuleGroup r pg
+                      vfail             = filter pg_valid [fail]
+                      vpass             = filter pg_valid [pass]
+                      
+                      choose Rejected = []
+                      choose Accepted = vpass
+                      choose (Next s) = concatMap (runWorkflow s) vpass
+
+readSys :: string -> io sys
+readSys fn
+    = go <$>. readFile fn
+      where
+        go input
+            = fromMaybe err m_sys
+              where
+                (m_sys, ps) = parse p_sys $ input
+                err         = error (p_error ps)
+
+day19 :: io ()
+day19
+    = readSys "../inputs/day19.txt" >>=. go
+      where
+        go sys
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = ("part 1: " ++) . showint . sum . map rating . runSys $ sys
+                part2 = ("part 2: " ++) . showint . sum . map ncombs . sieveSys $ sys

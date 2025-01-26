@@ -1,0 +1,39 @@
+|| day05.m
+
+
+%export day05
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+reactWithout :: (maybe char) -> string -> string
+reactWithout removed
+    = foldl step ""
+      where
+        step [] x
+            = [],  if x $matchMaybe removed
+            = [x], otherwise
+
+        step str x
+            = str,     if x $matchMaybe removed
+            = ys,      if x $match y
+            = x : str, otherwise
+              where
+                (y : ys) = str
+
+    x $matchMaybe Nothing = False
+    x $matchMaybe(Just y) = toUpper x ==. toUpper y
+    x $match y            = x ~=. y & toUpper x ==. toUpper y
+
+day05 :: io ()
+day05
+    = readFile "../inputs/day05.input" >>=. (go . hd . lines)
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                allLetters = map decode [code 'A' .. code 'Z']
+                reactW     = length . (converse reactWithout) input . Just
+                part1      = (++) "part 1: " . showint . length . reactWithout Nothing $ input
+                part2      = (++) "part 2: " . showint . min cmpint . map reactW $ allLetters

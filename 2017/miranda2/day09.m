@@ -1,0 +1,53 @@
+|| day09.m
+
+
+%export day09
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+
+element ::= Group [element] | Garbage int
+
+p_element :: parser element
+p_element = (p_group <|> p_garbage) <* p_optional (p_char ',')
+
+p_garbage :: parser element
+p_garbage = p_char '<' *> p_garbageTail 0
+
+p_garbageTail :: int -> parser element
+p_garbageTail count
+    = p_any >>= check
+      where
+        check '>' = p_pure . Garbage $ count
+        check '!' = p_any *> p_garbageTail count
+        check _   = p_garbageTail (count + 1)
+
+p_group :: parser element
+p_group = Group <$> (p_char '{' *> p_many p_element <* p_char '}')
+
+scoreGroup :: int -> element -> (int, int)
+scoreGroup level (Garbage n)  = (0, n)
+scoreGroup level (Group elts)
+    = (level + 1 + score, garbage)
+      where
+        (score, garbage)      = foldr accum (0, 0) . map (scoreGroup (level + 1)) $ elts
+        accum (x, y) (x', y') = (x + x', y + y')
+
+readGroup :: string -> io element
+readGroup fn
+    = go <$>. parse p_group <$>. readFile fn
+      where
+        go (mgroup, ps) = fromMaybe (error (p_error ps)) mgroup
+
+day09 :: io ()
+day09
+    = readGroup "../inputs/day09.input" >>=. (go . scoreGroup 0)
+      where
+        go (score, garbage)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = "part 1: " ++ showint score
+                part2 = "part 2: " ++ showint garbage

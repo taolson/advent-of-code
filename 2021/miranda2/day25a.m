@@ -1,0 +1,54 @@
+%export day25
+
+%import <maybe>
+%import <mirandaExtensions>
+
+
+point == (num, num)
+grid  == [[char]]
+
+|| circular scan right of a list, looking at prev, current, and next elements
+|| to compute the new current and the new next to use in the next iteration.
+|| also routes a state through the computation (used to tally whether a move was done or not)
+cscan :: (** -> * -> * -> * -> (**, *, *)) -> ** -> [*] -> (**, [*])
+cscan f st (a : b : xs)
+    = go [] st a b (xs ++ [a, b])                       || add first two elements to end to allow circular scanning
+      where
+        go cs st p c [] = (st, hd cs : reverse (tl cs)) || cs holds reversed elements, except for the first
+        go cs st p c (n : ns)
+            = go (c' : cs) st' c n' ns
+              where
+                (st', c', n') = f st p c n
+cscan f st xs = undef           || dummy pattern to remove non-exhaustive pattern warning
+
+move :: (bool, grid) -> (bool, grid)
+move (_, g)
+    = (m', g')
+      where
+        ((m', _), g') = cscan doVert (False, True) g
+        doVert (m, init) pr cr nr
+            = ((m3, False), cr2, nr')
+              where
+                (_, [pr', cr'])  = mapAccumL (cscan doHoriz) m [pr, cr], if init
+                                 = (m, [pr, cr]),                        otherwise
+                (m2, nr') = cscan doHoriz m nr          || do the circular horizontal scan on the next row, first
+                (m3, cr2) = mapAccumL doVert' m2 (zip3 pr' cr' nr')
+
+        doHoriz m p c n = (True, p, n), if p ==. '>' & c ==. '.'
+                        = (True, n, n), if c ==. '>' & n ==. '.'
+                        = (m,    c, n), otherwise
+
+        doVert' m (p, c, n) = (True, p), if p ==. 'v' & c ==. '.'
+                            = (True, n), if c ==. 'v' & n ==. '.'
+                            = (m,    c), otherwise
+
+
+readInput :: string -> grid
+readInput fn = lines (read fn)
+
+day25 :: string
+day25
+    = part1
+      where
+        floor = readInput "../inputs/day25.txt"
+        part1 = "part 1: " ++ (shownum . length . takeWhile fst . iterate move) (True, floor)

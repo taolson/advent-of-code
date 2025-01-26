@@ -1,0 +1,81 @@
+|| day19.m
+
+
+%export day19
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <dequeue>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+loc  == (int, int)
+
+dir  ::= L | R | U | D
+
+step :: loc -> dir -> loc
+step (r, c) d
+    = case d of
+        L -> (r, c - 1)
+        R -> (r, c + 1)
+        U -> (r - 1, c)
+        D -> (r + 1, c)
+
+maze == m_map loc char
+
+(!?) :: maze -> loc -> maybe char
+m !? loc = m_lookup cmploc loc m
+
+(!!) :: maze -> loc -> char
+m !! loc = m_findWithDefault cmploc ' ' loc m
+
+findStart :: maze -> loc
+findStart m
+    = pair 0 . fromJust . find isStart $ [0 ..]
+      where
+        isStart c = isJust $ m !? (0, c)
+
+findPath :: maze -> (string, int)
+findPath m
+    = go (findStart m) D dq_empty 0
+      where
+        go loc dir path steps
+            = doStep (m !? loc)
+              where  
+                steps' = steps + 1
+
+                doStep Nothing = (dq_toList path, steps)
+                doStep (Just c)
+                    = go (step loc dir') dir' path' steps'
+                      where
+                        dir'  = turn dir,       if c ==. '+'
+                              = dir,            otherwise
+                        path' = dq_addR c path, if letter c
+                              = path,           otherwise
+
+                turn L = tryStep [U, D] '-'
+                turn R = tryStep [U, D] '-'
+                turn U = tryStep [L, R] '|'
+                turn D = tryStep [L, R] '|'
+
+                || try a step in each of the directions ds, ensuring that the map char after the step isn't fc
+                tryStep ds fc
+                    = fromJust . find (canMove . step loc) $ ds
+                      where
+                        canMove loc = fromMaybef False (~=. fc) (m !? loc)
+
+readMaze :: string -> io maze
+readMaze fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go rows = m_fromList cmploc [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row; ch ~=. ' ']
+
+day19 :: io ()
+day19
+    = readMaze "../inputs/day19.input" >>=. (go . findPath)
+      where
+        go (path, steps)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = "part 1: " ++ path
+                part2 = "part 2: " ++ showint steps

@@ -1,0 +1,78 @@
+|| knotHash.m -- Advent Of Code 2017 Knot Hash
+
+
+%export + -reverseUpTo -hexdigit -showHex -showBinary
+
+%import <mirandaExtensions>
+
+
+knotHash ::= KnotHash [int] int int int
+
+makeKnotHash :: int -> knotHash
+makeKnotHash size = KnotHash [0 .. size - 1] size 0 0
+
+reverseUpTo :: int -> [int] -> [int]
+reverseUpTo length bytes
+    = reverse front ++ back
+      where
+        (front, back) = splitAt length bytes
+
+hashIndex :: knotHash -> int -> int
+hashIndex (KnotHash bytes size position skip) idx
+    = bytes ! idx'
+      where
+        idx' = size - position + idx
+
+hashRound :: knotHash -> int -> knotHash
+hashRound (KnotHash bytes size position skip) length
+    = KnotHash (front ++ back) size position' (skip + 1)
+      where
+        bytes'        = reverseUpTo length bytes
+        idx           = (length + skip) $mod size
+        position'     = (position + idx) $mod size
+        (back, front) = splitAt idx bytes'
+
+denseHash :: knotHash -> [int]
+denseHash (KnotHash bytes size position _)
+    = denseHash' bytes'
+      where
+        (front, back) = splitAt (size - position) bytes
+        bytes'        = back ++ front
+
+      denseHash' [] = []
+      denseHash' xs
+          = foldr (.^.) 0 headXs : denseHash' tailXs
+            where
+              (headXs, tailXs) = splitAt 16 xs
+
+hash :: knotHash -> string -> [int]
+hash kh s
+    = denseHash $ iterate rounds kh ! 64
+      where 
+        lengths   = map code s ++ [17, 31, 73, 47, 23]
+        rounds kh = foldl hashRound kh lengths
+
+hexdigit :: int -> char
+hexdigit n
+    = decode (code '0' + n),          if 0  <= n < 10
+    = decode (code 'a' + n - 10),     if 10 <= n < 16
+    = error "hexdigit: out of range", otherwise
+
+showHex :: int -> string -> string
+showHex n s
+    = hi : lo : s
+      where
+        hi = hexdigit (n $div 16)
+        lo = hexdigit (n $mod 16)
+
+hexString :: [int] -> string
+hexString = foldr showHex ""
+
+showBinary :: int -> string -> string
+showBinary n s
+    = foldr go s [7, 6 .. 0]
+      where
+        go bit st = hexdigit ((n .>>. bit) .&. 1) : st
+
+binaryString :: [int] -> string
+binaryString = foldr showBinary ""

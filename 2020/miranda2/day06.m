@@ -1,0 +1,37 @@
+|| day06.m
+
+
+%export day06
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions> -group
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right
+%import <set>
+
+
+group == [s_set char]
+
+p_eol :: parser char
+p_eol = p_char '\n'
+
+p_group :: parser group
+p_group = (map (s_fromList cmpchar)) <$> p_some (p_some p_letter <* p_eol) <* p_optional p_eol
+
+readGroups :: string -> io [group]
+readGroups fn
+    = go <$>. parse (p_many p_group) <$>. readFile fn
+      where
+        go (mgroups, ps) = fromMaybe (error (p_error ps)) mgroups
+
+day06 :: io ()
+day06
+    = readGroups "../inputs/day06.txt" >>=. go
+      where
+        go groups
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                anyAnswers = map (foldr1 (s_union cmpchar)) groups
+                allAnswers = map (foldr1 (s_intersect cmpchar)) groups
+                part1      = (++) "part 1: " . showint . sum . map s_size $ anyAnswers
+                part2      = (++) "part 2: " . showint . sum . map s_size $ allAnswers

@@ -1,0 +1,79 @@
+|| day06.m
+
+
+%export day06
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <vector>
+%import <state> (>>)/st_right
+
+point == (int, int)
+rect  == (point, point)
+
+grid  ::= Grid (mvector int) int
+
+initGrid :: int -> grid
+initGrid sz
+    = Grid mv sz
+      where
+        mv = v_unsafeThaw $ v_rep (sz * sz) 0
+
+gridToVector :: grid -> st (vector int)
+gridToVector (Grid mv sz) = v_unsafeFreeze mv
+
+gridAdjust :: grid -> rect -> (int -> int) -> st ()
+gridAdjust (Grid mv sz) ((r1, c1), (r2, c2)) f
+    = st_mapM_ adjust [(r, c) | r <- [r1 .. r2]; c <- [c1 .. c2]]
+      where
+        adjust (r, c) = v_modify mv f (r * sz + c)
+
+
+command ::= TurnOn | TurnOff | Toggle
+
+rectOp == (command, rect)
+
+p_point :: parser point
+p_point = p_liftA2 pair p_int (p_char ',' *> p_int) <* p_spaces
+
+p_rect :: parser rect
+p_rect = p_liftA2 pair p_point (p_string "through " *> p_point)
+
+p_on, p_off, p_toggle :: parser command
+p_on     = p_string "turn on "  *> p_pure TurnOn
+p_off    = p_string "turn off " *> p_pure TurnOff
+p_toggle = p_string "toggle "   *> p_pure Toggle
+
+p_rectOp :: parser rectOp
+p_rectOp = p_liftA2 pair (p_on <|> p_off <|> p_toggle) p_rect
+
+runRectOps :: (int -> int) -> (int -> int) -> (int -> int) -> [rectOp] -> vector int
+runRectOps fOn fOff fToggle ops
+    = st_evalState (st_mapM_ doOp ops >> gridToVector g) ()
+      where
+        g = initGrid 1000
+
+        doOp (TurnOn, r)  = gridAdjust g r fOn
+        doOp (TurnOff, r) = gridAdjust g r fOff
+        doOp (Toggle, r)  = gridAdjust g r fToggle
+
+readRectOps :: string -> io [rectOp]
+readRectOps fn
+    = go <$>. parse (p_some p_rectOp <* p_end) <$>. readFile fn
+      where
+        go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
+
+day06 :: io ()
+day06
+    = readRectOps "../inputs/day06.input" >>=. go
+      where
+        decToZero 0 = 0
+        decToZero n = n - 1
+
+        go rectOps
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1   = (++) "part 1: " . showint . v_sum . runRectOps (const 1) (const 0) (1 -) $ rectOps
+                part2   = (++) "part 2: " . showint . v_sum . runRectOps (+ 1)     decToZero (+ 2) $ rectOps

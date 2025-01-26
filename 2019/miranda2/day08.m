@@ -1,0 +1,56 @@
+%export day08
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+layer == [char]
+
+composite :: [layer] -> layer
+composite
+    = foldr (map2 comp) canvas
+      where
+        canvas       = repeat '0'
+        comp '2' bot = bot
+        comp top bot = top
+
+histogram :: string -> m_map char int
+histogram layer
+    = foldl bin m_empty layer
+      where
+        bin hist x = m_insertWith cmpchar (+) x 1 hist
+
+makeLayers :: int -> int -> [char] -> [layer]
+makeLayers width height
+    = (validate . chunk chunkSize)
+      where
+        validate   = filter ((== chunkSize) . length)
+        chunkSize  = width * height
+
+showLayer :: int -> layer -> [string]
+showLayer width layer
+    = [],                                                    if null layer
+    = showLine layer : (showLayer width (drop width layer)), otherwise
+      where
+        showLine      = map printable . take width
+        printable '1' = '*'
+        printable c   = ' '
+
+day08 :: io ()
+day08
+    = readFile "../inputs/day08.input" >>=. go
+      where
+        go input
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                width  = 25
+                height = 6
+                layers = makeLayers width height input
+                histos = map histogram layers
+                l0     = minBy cmpint (m_findWithDefault cmpchar 0 '0') histos
+                ones   = m_findWithDefault cmpchar 0 '1' l0
+                twos   = m_findWithDefault cmpchar 0 '2' l0
+                part1  = "part 1: " ++ showint (ones * twos)
+                part2  = lay ("part 2: " : (showLayer width . composite) layers)

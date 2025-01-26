@@ -1,0 +1,76 @@
+|| day21.m
+
+
+%export day21
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+rpgItem   == (string, int, int, int)
+
+rpg_name   = lensTup4_0
+rpg_cost   = lensTup4_1
+rpg_damage = lensTup4_2
+rpg_armor  = lensTup4_3
+
+emptyItem :: rpgItem
+emptyItem = ("None", 0, 0, 0)
+
+optItem :: [rpgItem] -> [rpgItem]
+optItem xs = emptyItem : xs
+
+(<>) :: rpgItem -> rpgItem -> rpgItem
+(n1, c1, d1, a1) <> (n2, c2, d2, a2) = (n1 ++ ", " ++ n2, c1 + c2, d1 + d2, a1 + a2)
+
+pairs :: [rpgItem] -> [rpgItem]
+pairs xs = [x1 <> x2 | (x1 : xs') <- tails xs; x2 <- xs']
+
+weapons, armor, rings :: [rpgItem]
+
+weapons = [ ("Dagger",       8, 4, 0)
+          , ("Shortsword",  10, 5, 0)
+          , ("Warhammer",   25, 6, 0)
+          , ("Longsword",   40, 7, 0)
+          , ("Greataxe",    74, 8, 0)
+          ]
+
+armor   = [ ("Leather",     13, 0, 1)
+          , ("Chainmail",   31, 0, 2)
+          , ("Splintmail",  53, 0, 3)
+          , ("Bandedmail",  75, 0, 4)
+          , ("Platemail",  102, 0, 5)
+          ]
+
+rings   = [ ("Damage +1",   25, 1, 0)
+          , ("Damage +2",   50, 2, 0)
+          , ("Damage +3",  100, 3, 0)
+          , ("Defense +1",  20, 0, 1)
+          , ("Defense +2",  40, 0, 2)
+          , ("Defense +3",  80, 0, 3)
+          ]
+
+player == (int, rpgItem)
+
+battle :: player -> player -> (string, int)
+battle (hp1, inv1) (hp2, inv2)
+    = (n2, cst),                       if hp1 <= 0
+    = battle (hp2, inv2) (hp1', inv1), otherwise
+      where
+        dmg  = view rpg_damage inv2 - view rpg_armor inv1
+        hp1' = hp1 - max2 cmpint 1 dmg
+        n2   = view rpg_name inv2
+        cst  = max2 cmpint (view rpg_cost inv1) (view rpg_cost inv2)
+
+day21 :: io ()
+day21
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        boss     = (100, ("Boss", 0, 8, 2))
+        trials   = [w <> a <> r | w <- weapons; a <- optItem armor; r <- optItem rings ++ pairs rings]
+        p1Trials = map (pair 100) . sortOn cmpint (view rpg_cost) $ trials
+        p2Trials = map (pair 100) . sortBy (descending cmpint (view rpg_cost)) $ trials
+        part1    = (++) "part 1: " . showint . snd . fromJust . find ((~=$ "Boss") . fst) . map (battle boss) $ p1Trials
+        part2    = (++) "part 2: " . showint . snd . fromJust . find ((==$ "Boss") . fst) . map (battle boss) $ p2Trials

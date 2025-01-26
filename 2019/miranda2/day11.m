@@ -1,0 +1,75 @@
+%export day11
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <avl>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import "intcode"
+
+
+point     == (int, int)
+direction == (int, int)
+
+grid == m_map point int
+
+left :: direction -> direction
+left (x, y) = (-y, x)
+
+right :: direction -> direction
+right (x, y) = (y, -x)
+
+move :: point -> direction -> point
+move (x, y) (dx, dy) = (x + dx, y + dy)
+
+cmpjitState = undef
+showjitState = undef
+
+paintState ::= PaintState jitState! point! point! grid!
+
+paintHull :: program -> int -> grid
+paintHull prog startColor
+    = go (PaintState (jitRun prog [startColor]) (0, 0) (0, 1) m_empty)
+      where
+        go (PaintState t loc dir grid)
+            = grid',                                                                  if isHalt (jitGetRunState t)
+            = go (PaintState (jitContinue (jitPutInput t'' color')) loc' dir' grid'), otherwise
+              where
+                (color, t') = jitGetOutput t
+                (turn, t'') = jitGetOutput t'
+                grid'       = m_insert cmppoint loc color grid
+                dir'        = left dir,  if turn == 0
+                            = right dir, otherwise 
+                loc'        = move loc dir'
+                color'      = m_findWithDefault cmppoint 0 loc' grid
+        
+printGrid :: grid -> string
+printGrid grid
+    = [c | y <- [maxy, maxy - 1 .. miny]; x <- [minx .. maxx]; c <- putColor (x, y)]
+      where
+        keys = m_keys grid
+        minx = min cmpint (map fst keys)
+        miny = min cmpint (map snd keys)
+        maxx = max cmpint (map fst keys)
+        maxy = max cmpint (map snd keys)
+
+        charForColor 0 = " "
+        charForColor 1 = "*"
+        charForColor _ = error "charForColor not 0 or 1"
+
+        putColor (x, y)
+            = c ++ "\n", if x == maxx
+            = c,         otherwise
+              where
+                elt = m_findWithDefault cmppoint 0 (x, y) grid
+                c   = charForColor elt
+
+day11 :: io ()
+day11
+    = readProgram "../inputs/day11.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . m_size . paintHull prog $ 0
+                part2 = (++) "part 2:\n" . printGrid . paintHull prog $ 1

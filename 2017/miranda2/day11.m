@@ -1,0 +1,63 @@
+|| day11.m
+
+
+%export day11
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+
+direction ::= N | NE | SE | S | SW | NW
+
+hexPoint ::= HexPoint int int int
+
+move :: hexPoint -> direction -> hexPoint
+move (HexPoint x y z) dir
+    = case dir of
+        N   -> HexPoint x (y+1) (z-1)
+        NE  -> HexPoint (x+1) y (z-1)
+        SE  -> HexPoint (x+1) (y-1) z
+        S   -> HexPoint x (y-1) (z+1)
+        SW  -> HexPoint (x-1) y (z+1)
+        NW  -> HexPoint (x-1) (y+1) z
+
+distance :: hexPoint -> int
+distance (HexPoint x y z) = (abs x + abs y + abs z) $div 2
+
+walk :: hexPoint -> int -> [direction] -> (int, int)
+walk loc maxDist [] = (distance loc, maxDist)
+walk loc maxDist (dir : rest)
+    = walk loc' maxDist' rest
+      where
+        loc'     = move loc dir
+        maxDist' = max2 cmpint maxDist (distance loc')
+
+
+p_directions :: parser [direction]
+p_directions
+    = p_some (p_direction <* p_optional (p_char ','))
+      where
+        p_direction = (p_string "ne" *> p_pure NE) <|>
+                      (p_string "nw" *> p_pure NW) <|>
+                      (p_string "n"  *> p_pure N)  <|>
+                      (p_string "se" *> p_pure SE) <|>
+                      (p_string "sw" *> p_pure SW) <|>
+                      (p_string "s"  *> p_pure S)
+
+directionsFromFile :: string -> io [direction]
+directionsFromFile fn
+    = go <$>. parse p_directions <$>. readFile fn
+      where
+        go (mdirs, ps) = fromMaybe (error (p_error ps)) mdirs
+
+day11 :: io ()
+day11
+    = directionsFromFile "../inputs/day11.input" >>=. (go . walk (HexPoint 0 0 0) 0)
+      where
+        go (dist, maxDist)
+         = io_mapM_ putStrLn [part1, part2]
+           where
+             part1 = "part 1: " ++ showint dist
+             part2 = "part 2: " ++ showint maxDist

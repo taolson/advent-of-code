@@ -1,0 +1,19 @@
+%export day09
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import "intcode"
+
+
+day09 :: io ()
+day09
+    = readProgram "../inputs/day09.input" >>=. go
+      where
+        go prog
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . doPart $ 1
+                part2 = (++) "part 2: " . doPart $ 2
+        
+                doPart n = showint . fst . jitGetOutput . jitRun prog $ [n]

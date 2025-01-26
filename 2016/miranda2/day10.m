@@ -1,0 +1,142 @@
+|| day10.m
+
+
+%export day10
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <dequeue>
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <state>  (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+ident == int
+
+dest ::= Dbot ident | Dout ident
+
+bot == (ident, [ident], dest, dest)
+
+b_id    = lensTup4_0    || bot id
+b_chips = lensTup4_1    || chips bot is holding
+b_lo    = lensTup4_2    || lo chip destination
+b_hi    = lensTup4_3    || hi chip destination
+
+give == (int, dest)     || chip value, destination
+
+instruction ::= Cbot bot | Cgive give
+
+isGive :: instruction -> bool
+isGive (Cgive _) = True
+isGive _         = False
+
+
+|| parsing
+
+p_dbot, p_dout, p_dest :: parser dest
+p_dbot = Dbot <$> (p_string "bot "    *> p_int) <* p_spaces
+p_dout = Dout <$> (p_string "output " *> p_int) <* p_spaces
+p_dest = p_dbot <|> p_dout
+
+p_bot :: parser bot
+p_bot
+    = p_liftA3 mkBot (p_string "bot " *> p_int) (p_string " gives low to " *> p_dest) (p_string "and high to " *> p_dest) <* p_spaces
+      where
+        mkBot bid lo hi = (bid, [], lo, hi)
+
+p_give :: parser give
+p_give
+    = p_liftA2 mkGive (p_string "value " *> p_int) (p_string " goes to bot " *> p_int) <* p_spaces
+      where
+        mkGive val bid = (val, Dbot bid)
+
+p_instruction :: parser instruction
+p_instruction = (Cbot <$> p_bot) <|> (Cgive <$> p_give)
+
+
+factory == (dequeue give, vector bot, vector int)    || queue of gives to perform, bot vector, output vector
+
+|| dequeue doesn't export cmpdequeue, so don't define cmpfactory
+cmpfactory = undef
+
+|| convert the parsed list of instructions to a factory state
+processInstructions :: [instruction] -> factory
+processInstructions cmds
+    = (giveq, vbots, vouts)
+      where
+        (gives, bots)    = partition isGive cmds
+        (maxBot, maxOut) = foldl getMax (0, 0) bots
+        vbots            = v_rep (maxBot + 1) undef // map stripCbot bots
+        vouts            = v_rep (maxOut + 1) undef
+        giveq            = foldr dq_addR dq_empty . map stripCgive $ gives
+
+        stripCbot  (Cbot bot) = (view b_id bot, bot)
+        stripCbot  _          = undef
+
+        stripCgive (Cgive g)  = g
+        stripCgive _          = undef
+
+        getMax (mb, mo) (Cgive _) = undef
+        getMax (mb, mo) (Cbot (bid, _, lo, hi))
+            = (max2 cmpident mb' bid, mo')
+              where
+                (mb', mo') = getMaxDest lo . getMaxDest hi $ (mb, mo)
+
+                getMaxDest (Dbot bid) (mb, mo) = (max2 cmpident mb bid, mo)
+                getMaxDest (Dout oid) (mb, mo) = (mb, max2 cmpident mo oid)
+
+|| run the factory, performing one give at a time,  until there are no gives left to perform,
+|| and finding the bot for part1 that gives chips 17 and 61
+run :: factory -> (ident, int)
+run (giveq, vbots, vouts)
+    = st_evalState (go giveq Nothing) ()
+      where
+        mbots = v_unsafeThaw vbots      || mutable version of bot vector to allow updates of gives to bots
+        mouts = v_unsafeThaw vouts      || mutable version of output vector to allow updates of gives to outputs
+
+        go giveq mbid
+            = v_unsafeFreeze mouts >>= computeResults mbid, if dq_null giveq    || no more gives to process; compute results
+            = doGive g,                                     otherwise           || perform a give
+              where
+                (g, giveq1) = fromJust $ dq_viewL giveq
+
+                doGive (val, (Dout oid)) = v_unsafeWrite mouts oid val >> go giveq1 mbid        || give to output
+                doGive (val, (Dbot bid))                                                        || give to bot; check if it has both chips
+                    = v_unsafeRead mbots bid >>= addChip
+                      where
+                        addChip bot
+                            = case view b_chips bot of
+                                []  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) >> go giveq1 mbid             || bot now has 1 chip; continue
+                                cs  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) >> distribute val (hd cs) bot || bot has both chips; distribute
+
+                        distribute c1 c2 (_, _, lo, hi)
+                            = send lo minc giveq1 >>= send hi maxc >>= checkPt1 minc maxc       || add new gives to giveq and check part1 solution
+                              where
+                                minc = min2 cmpint c1 c2
+                                maxc = max2 cmpint c1 c2
+
+                        send dst val q = st_pure . dq_addR (val, dst) $ q
+
+                        checkPt1 17 61 q = go q (Just bid)      || found part1 solution; return it
+                        checkPt1 _  _  q = go q mbid            || not found; continue with previous solution value
+
+                computeResults mbid outs = st_pure (fromJust mbid, product . take 3 . v_toList $ outs)
+
+readInstructions :: string -> io [instruction]
+readInstructions fn
+    = go <$>. parse (p_some p_instruction <* p_end) <$>. readFile fn
+      where
+        go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
+
+day10 :: io ()
+day10
+    = readInstructions "../inputs/day10.input" >>=. go
+      where
+        go instructions
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                factory      = processInstructions instructions
+                (pt1, pt2)   = run factory
+                part1 = (++) "part 1: " . showident $ pt1
+                part2 = (++) "part 2: " . showint   $ pt2

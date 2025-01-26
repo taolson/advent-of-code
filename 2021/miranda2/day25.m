@@ -1,0 +1,61 @@
+|| day25a -- added strictness to day25 code to reduce garbage collection due to space leaks
+
+%export day25
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+
+
+point == (int, int)
+grid  == [[char]]
+
+|| circular scan right of a list, looking at prev, current, and next elements
+|| to compute the new current and the new next to use in the next iteration.
+|| also routes a state through the computation (used to tally whether a move was done or not)
+cscan :: (** -> * -> * -> * -> (**, *, *)) -> ** -> [*] -> (**, [*])
+cscan f st (a : b : xs)
+    = go [] st a b (xs ++ [a, b])                       || add first two elements to end to allow circular scanning
+      where
+        go cs st p c []
+            = hcs $seq tcs $seq (st, hcs : tcs) || cs holds reversed elements, except for the first
+              where
+                hcs = hd cs
+                tcs = reverse (tl cs)
+
+        go cs st p c (n : ns)
+            = c' $seq st' $seq n' $seq go (c' : cs) st' c n' ns
+              where
+                (st', c', n') = f st p c n
+cscan f st xs = undef           || dummy pattern to remove non-exhaustive pattern warning
+
+move :: (bool, grid) -> (bool, grid)
+move (_, g)
+    = (m', g')
+      where
+        ((m', _), g') = cscan doVert (False, True) g
+        doVert (m, init) pr cr nr
+            = ((m3, False), cr2, nr')
+              where
+                (_, [pr', cr'])  = mapAccumL (cscan doHoriz) m [pr, cr], if init
+                                 = (m, [pr, cr]),                        otherwise
+                (m2, nr') = cscan doHoriz m nr          || do the circular horizontal scan on the next row, first
+                (m3, cr2) = mapAccumL doVert' m2 (zip3 pr' cr' nr')
+
+        doHoriz m p c n = (True, p, n), if p ==. '>' & c ==. '.'
+                        = (True, n, n), if c ==. '>' & n ==. '.'
+                        = (m,    c, n), otherwise
+
+        doVert' m (p, c, n) = (True, p), if p ==. 'v' & c ==. '.'
+                            = (True, n), if c ==. 'v' & n ==. '.'
+                            = (m,    c), otherwise
+
+
+readInput :: string -> io grid
+readInput fn = lines <$>. readFile fn
+
+day25 :: io ()
+day25
+    = readInput "../inputs/day25.txt" >>=. go
+      where
+        go floor = putStrLn . (++) "part 1: " . showint . length . takeWhile fst . iterate move $ (True, floor)

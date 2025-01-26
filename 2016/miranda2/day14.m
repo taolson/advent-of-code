@@ -1,0 +1,70 @@
+|| day14.m
+
+
+%export day14
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import "md5"
+
+firstConsecutive :: ordI * -> int -> [*] -> maybe *
+firstConsecutive cmp n s
+    = go s
+      where
+        n' = n - 1
+
+        go []       = Nothing
+        go (c : cs) = Just c, if isPrefixOf cmp (rep n' c) cs
+                    = go cs,  otherwise
+
+key ::= Key string char int
+
+keyChar :: key -> char
+keyChar (Key _ c _) = c
+
+keyIndex :: key -> int
+keyIndex (Key _ _ i) = i
+
+findConsecutive :: int -> [(string, int)] -> [key]
+findConsecutive n [] = error "findConsecutive: empty stream"
+findConsecutive n ((randHash, index) : rest)
+    = case firstConsecutive cmpchar n randHash of
+        Nothing -> findConsecutive n rest
+        Just c  -> Key randHash c index : findConsecutive n rest
+
+randStream :: string -> int -> [(string, int)]
+randStream salt stretchCount
+    = [(hashForNonce n, n) | n <- [0 ..]]
+      where
+        hashForNonce n = hd . drop (stretchCount + 1) . iterate (md5Hex . md5Hash) $ salt ++ showint n
+
+keyStream :: string -> int -> [key]
+keyStream salt stretchCount
+    = go (findConsecutive 3 rands) (findConsecutive 5 rands)
+      where
+        rands = randStream salt stretchCount
+
+        go has3 has5
+            = go has3 rest5,        if keyIndex key5 <= keyIndex key3
+            = go rest3 has5,        if keyIndex key5 > keyIndex key3 + 1000
+            = key3 : go rest3 has5, if check key3 has5
+            = go rest3 has5,        otherwise
+              where
+                key3 : rest3 = has3
+                key5 : rest5 = has5
+
+        check key (key5 : rest5)
+            = False,           if keyIndex key5 > keyIndex key + 1000
+            = True,            if keyChar key ==.  keyChar key5
+            = check key rest5, otherwise
+        check key _ = error "keyStream check: empty key stream"
+
+day14 :: io ()
+day14
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        salt  = "ngcjuoqr"
+        part1 = (++) "part 1: " . showint . keyIndex . (! 63) $ keyStream salt 0
+||        part2 = (++) "part 2: " . showint . keyIndex . (! 63) $ keyStream salt 2016
+        part2 = "part2: skipped -- runs too long"

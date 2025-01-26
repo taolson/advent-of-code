@@ -1,0 +1,89 @@
+|| day05.m -- If You Give A Seed A Fertilizer
+
+
+%export day05
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <mirandaExtensions>
+
+
+|| handy operators for min and max on ints
+(|<|) = min2 cmpint
+(|>|) = max2 cmpint
+
+mrange  == (int, int)    || a range, inclusive from lo to hi
+remap   == (mrange, int) || a remapping, source-mrange, offset to to-mrange
+itemMap == [remap]       || a list of disjoint remappings
+
+|| a list of already-mapped ranges, and a list of unmapped ranges
+taggedRanges == ([mrange], [mrange])
+
+|| map an unmapped range of values, splitting the range into 3 parts:
+|| unmapped range below the map lo
+|| mapped range in the map
+|| unmapped range above the map hi
+mapRange :: remap -> mrange -> taggedRanges
+mapRange ((ml, mh), mo) (rl, rh)
+    = (map (mapBoth (+ mo)) . filter nonEmpty $ [inMap], filter nonEmpty [below, above])
+      where
+        below = (rl,              rh |<| (ml - 1))
+        inMap = (rl |>| ml,       rh |<| mh)
+        above = (rl |>| (mh + 1), rh)
+
+        nonEmpty (lo, hi) = lo <= hi
+
+|| map the taggedRanges through a remap, collecting together the
+|| mapped and unmapped portions
+mapTaggedRanges :: remap -> taggedRanges -> taggedRanges
+mapTaggedRanges m (ms, us)
+    = foldl doRange (ms, []) us
+      where
+        doRange (ms, us) r
+            = (ms ++ ms', us ++ us')
+              where
+                (ms', us') = mapRange m r
+
+|| run all of the seed ranges through all the itemMaps and collect the resulting location ranges
+locationsForSeedRanges :: [itemMap] -> [mrange] -> [mrange]
+locationsForSeedRanges ims rs
+    = foldl itemMapRanges rs ims
+      where
+        itemMapRanges rs im
+            = (ms ++ us)        || merge the mapped and unmapped ranges after running through an itemMap
+              where
+                (ms, us) = foldr mapTaggedRanges ([], rs) im
+
+|| make a list of ranges from a list of start, length pairs
+makeRanges :: [int] -> [mrange]
+makeRanges []           = []
+makeRanges (s : l : xs) = (s, s + l - 1) : makeRanges xs
+makeRanges _            = error "makeRanges: odd number of elements"
+
+minOfRanges :: [mrange] -> int
+minOfRanges = min cmpint . map fst
+
+readInput :: string -> io ([int], [itemMap])
+readInput fn
+    = doParse <$>. readFile fn
+      where
+        doParse input
+            = (readSeeds ss, map readMap ms)
+              where
+                (ss : ms) = splitWhen null . lines $ input   || break input up into chunks of lines, first is seeds, rest are maps
+                readSeeds = map intval . tl . split ' ' . hd
+                readMap   = map (mkRemap . map intval . split ' ') . tl
+
+                mkRemap [to, fm, sz] = ((fm, fm + sz - 1), to - fm)
+                mkRemap xs           = error "parsing error"
+
+day05 :: io ()
+day05
+    = readInput "../inputs/day05.txt" >>=. go
+      where
+        go (sds, ims)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                idRange n  = (n, n)
+                process f  = showint . minOfRanges . locationsForSeedRanges ims . f $ sds
+                part1 = "part 1: " ++ process (map idRange)     || make individual idRanges for each seed in sds
+                part2 = "part 2: " ++ process makeRanges        || sds is a list of start, length range pairs for the seeds

@@ -1,0 +1,69 @@
+%export day12
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <bfs>
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <state> (>>)/st_right
+%import <v2>
+
+
+location == v2 int
+grid     == m_map location int
+
+movesFrom :: (int -> int -> bool) -> (location, grid) -> ([location], grid)
+movesFrom tst (loc, g)
+    = (moves, g)
+      where
+        dirs      = concat [[V2 d 0, V2 0 d] | d <- [-1, 1]]
+        moves     = (filter check . map (v2_add loc)) dirs
+        h         = fromMaybe 0 (m_lookup cmplocation loc g)
+
+        check loc
+            = False,               if isNothing mh     || not in grid
+            = tst h (fromJust mh), otherwise           || passes height difference test
+              where
+                mh = m_lookup cmplocation loc g
+
+findPath1 :: location -> location -> grid -> [location]
+findPath1 start end g
+    = path
+      where
+        (path, _) = bfsSolve cmplocation start (_eq cmplocation end) (movesFrom stepUp) g
+        stepUp a b = b <= a + 1
+
+findPath2 :: location -> grid -> [location]
+findPath2 start g
+    = path
+      where
+        (path, _)    = bfsSolve cmplocation start isHeight0 (movesFrom stepDown) g
+        isHeight0 loc = m_findWithDefault cmplocation (-1) loc g == 0
+        stepDown a b  = b >= a - 1
+
+readGrid :: string -> io (grid, location, location)
+readGrid fn
+    = go <$>. lines <$>. readFile fn
+      where
+        go input
+            = error "parse error",           if isNothing ms \/ isNothing me
+            = (g, fromJust ms, fromJust me), otherwise
+              where
+                hlist         = [(V2 r c, x) | (r, row) <- enumerate input; (c, x) <- enumerate row]
+                (g, (ms, me)) = st_foldM ins m_empty hlist (Nothing, Nothing)
+
+        ins m (loc, c)
+            = (st_modify . converse setFst . Just) loc >> ins m (loc, 'a'), if c ==. 'S'
+            = (st_modify . converse setSnd . Just) loc >> ins m (loc, 'z'), if c ==. 'E'
+            = st_pure (m_insert cmplocation loc (code c - code 'a') m),     otherwise
+
+day12 :: io ()
+day12
+    = readGrid "../inputs/day12.txt" >>=. go
+      where
+        go (g, s, e)
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . length . tl . findPath1 s e $ g
+                part2 = (++) "part 2: " . showint . length . tl . findPath2 e   $ g 

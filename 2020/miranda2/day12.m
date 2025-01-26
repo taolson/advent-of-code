@@ -1,0 +1,98 @@
+|| day12.m
+
+
+%export day12
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+
+
+locDir == (int, int)
+
+north, south, east, west :: locDir
+north = ( 0,  1)
+south = ( 0, -1)
+east  = ( 1,  0)
+west  = (-1,  0)
+
+left, right, back :: locDir -> locDir
+left  (x, y) = (-y,  x)
+right (x, y) = ( y, -x)
+back  (x, y) = (-x, -y)
+
+ship ::= Ship locDir locDir
+
+s_loc = Lens getf overf where getf (Ship a b) = a; overf fn (Ship a b) = Ship (fn a) b
+s_tgt = Lens getf overf where getf (Ship a b) = b; overf fn (Ship a b) = Ship a (fn b)
+
+
+initShip1, initShip2 :: ship
+initShip1 =  Ship (0, 0) east
+initShip2 =  Ship (0, 0) (10, 1)
+
+action ::= Move locDir int | Fwd int | Turn (locDir -> locDir)
+
+p_dir :: parser locDir
+p_dir
+    = (p_pure north <* p_char 'N') <|>
+      (p_pure south <* p_char 'S') <|>
+      (p_pure east  <* p_char 'E') <|>
+      (p_pure west  <* p_char 'W')
+
+p_turn :: parser action
+p_turn
+    = p_liftA2 computeTurn (p_char 'L' <|> p_char 'R') (p_string "90" <|> p_string "180" <|> p_string "270")
+      where
+        computeTurn _   "180" = Turn back
+        computeTurn 'L' "90"  = Turn left
+        computeTurn 'R' "90"  = Turn right
+        computeTurn 'L' "270" = Turn right
+        computeTurn 'R' "270" = Turn left
+        computeTurn _   _     = error "p_turn bad parse"
+
+p_action :: parser action
+p_action
+    = (p_pure Move <*> p_dir <*> p_int       <* p_spaces) <|>
+      (p_pure Fwd  <*> (p_char 'F' *> p_int) <* p_spaces) <|>
+      (p_turn <* p_spaces)
+
+
+moveFn == ship -> locDir -> int -> ship
+
+move :: locDir -> locDir -> int -> locDir
+move (x, y) (dx, dy) n = (x + dx * n, y + dy * n)
+
+moveLoc, moveTgt :: moveFn 
+moveLoc ship dir n = over s_loc mv ship where mv l = move l dir n
+moveTgt ship dir n = over s_tgt mv ship where mv t = move t dir n
+
+doAction :: moveFn -> ship -> action -> ship
+doAction movefn ship action
+    = case action of
+        Move dir n -> movefn ship dir n
+        Fwd n      -> over s_loc mv  ship where mv l = move l (view s_tgt ship) n
+        Turn f     -> over s_tgt f ship
+
+distance :: locDir -> int
+distance (x, y) = abs x + abs y
+
+readActions :: string -> io [action]
+readActions fn
+    = go <$>. parse (p_many p_action) <$>. readFile fn
+      where
+        go (ma, ps) = fromMaybe (error (p_error ps)) ma
+
+day12 :: io ()
+day12
+    = readActions "../inputs/day12.txt" >>=. go
+      where
+        go actions
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                ship1 = foldl (doAction moveLoc) initShip1 actions
+                ship2 = foldl (doAction moveTgt) initShip2 actions
+                part1 = (++) "part1: " . showint . distance . view s_loc $ ship1
+                part2 = (++) "part2: " . showint . distance . view s_loc $ ship2

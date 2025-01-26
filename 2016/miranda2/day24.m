@@ -1,0 +1,119 @@
+|| day24.m
+
+
+%export day24
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <dequeue>
+%import <lens>
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+
+
+loc == (int, int)
+dir ::= N | E | S | W
+
+step :: loc -> dir -> loc
+step (x, y) d = case d of
+    N -> (x, y + 1)
+    E -> (x + 1, y)
+    S -> (x, y - 1)
+    W -> (x - 1, y)
+
+maze == (s_set loc, s_set loc, loc, m_map loc (m_map loc int))
+
+m_path   = lensTup4_0
+m_points = lensTup4_1
+m_start  = lensTup4_2
+m_dists  = lensTup4_3
+
+emptyMaze :: maze
+emptyMaze = (s_empty, s_empty, (0, 0), m_empty)
+
+findDistances :: maze -> loc -> m_map loc int
+findDistances maze loc
+    = search (dq_singleton (loc, 0)) m_empty s_empty
+      where
+        start  = view m_start  maze
+        points = view m_points maze
+        path   = view m_path   maze
+
+        search q dists visited
+            = dists, if dq_null q
+            = search q1 dists  visited,  if s_member cmploc loc visited
+            = search q2 dists' visited', if _eq cmploc loc start
+            = search q2 dists' visited', if s_member cmploc loc points
+            = search q2 dists  visited', if s_member cmploc loc path
+            = search q1 dists  visited', otherwise
+              where
+                ((loc, dist), q1) = fromJust $ dq_viewL q
+
+                steps    = map (step loc) [N, E, S, W]
+                stepDist = zip2 steps . repeat $ dist + 1
+                q2       = foldr dq_addR q1 stepDist
+
+                dists'   = m_insert cmploc loc dist dists, if dist > 0
+                         = dists,                          otherwise
+
+                visited' = s_insert cmploc loc visited
+
+findAllDistances :: maze -> maze
+findAllDistances maze
+    = set m_dists distMap maze
+      where
+        locs    = s_toList $ view m_points maze
+        distMap = foldl addDist m_empty $ view m_start maze : locs
+
+        addDist m loc
+            = m_insert cmploc loc (findDistances maze loc) m
+
+pathDistances :: maze -> bool -> [int]
+pathDistances maze returning
+    = map (pathDistance start) . permutations $ locs
+      where
+        start  = view m_start maze
+        locs   = s_toList $ view m_points maze
+        dists  = view m_dists maze
+
+        pathDistance start locs
+            = snd . foldl go (start, 0) $ locs'
+              where
+                locs' = if' returning (locs ++ [start]) locs
+
+                go (prev, tot) next
+                    = case m_lookup cmploc prev dists of
+                        Nothing -> (next, tot)
+                        Just m  -> case m_lookup cmploc next m of
+                                     Nothing -> (next, tot)
+                                     Just d  -> (next, tot + d)
+
+readMaze :: string -> io maze
+readMaze fn
+    = go emptyMaze 0 0 <$>. readFile fn
+      where
+        go maze x y [] = maze
+        go maze x y (c : cs)
+            = go mazePath   x' y  cs, if c ==. '.'
+            = go maze       x' y  cs, if c ==. '#'
+            = go maze       0  y' cs, if c ==. '\n'
+            = go mazeStart  x' y  cs, if c ==. '0'
+            = go mazePoints x' y  cs, otherwise
+              where
+                loc        = (x, y)
+                x'         = x + 1
+                y'         = y + 1
+                mazePath   = over m_path   (s_insert cmploc loc) maze
+                mazeStart  = set  m_start  loc                   maze
+                mazePoints = over m_points (s_insert cmploc loc) maze
+
+day24 :: io ()
+day24
+    = readMaze "../inputs/day24.input" >>=. (go . findAllDistances)
+      where
+        go maze
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . min cmpint $ pathDistances maze False
+                part2 = (++) "part 2: " . showint . min cmpint $ pathDistances maze True

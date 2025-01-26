@@ -1,0 +1,210 @@
+|| day24.m
+
+
+%export day24
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions> -group
+%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <state> (>>=)/st_bind (>>)/st_right
+%import <vector>
+
+
+group == (int, int, int, string, int, [string], [string])
+
+|| lenses for group
+g_units        = lensTup7_0
+g_hitPoints    = lensTup7_1
+g_attackDamage = lensTup7_2
+g_attackType   = lensTup7_3
+g_initiative   = lensTup7_4
+g_weaknesses   = lensTup7_5
+g_immunities   = lensTup7_6
+
+effectivePower :: group -> int
+effectivePower g = view g_units g * view g_attackDamage g
+
+hasQuality :: lens group [string] -> group -> string -> bool
+hasQuality lns = member cmpstring . view lns
+
+damage :: group -> group -> int
+damage g1 g2
+    = effectivePower g1 * weaknessBoost * immunityCancel
+      where
+        attackType = view g_attackType g1
+
+        weaknessBoost
+            = 2, if hasQuality g_weaknesses g2 attackType
+            = 1, otherwise
+
+        immunityCancel
+            = 0, if hasQuality g_immunities g2 attackType
+            = 1, otherwise
+
+
+army    == [group]
+
+unitCount :: army -> int
+unitCount = sum . map (view g_units)
+
+|| select targets for a1 from a2, and return a list of (attacker, target) group indices
+selectTargets :: army -> army -> [(int, int)]
+selectTargets a1 a2
+    = catMaybes . snd . mapAccumL chooseTarget targets $ attackers
+      where
+        attackers   = sortBy attackOrder . enumerate $ a1
+        targets     = enumerate a2
+        attackOrder = mkOrder [effectivePower, view g_initiative]
+
+        mkOrder ts a b
+            = foldr doTest EQ ts where doTest t k = descending cmpint (t . snd) a b $thenCmp k
+
+        chooseTarget tgts (i, ag)
+            = (tgts,  Nothing),      if null tgts \/ ag $damage tg <= 0
+            = (tgts', Just (i, j)),  otherwise
+              where
+                targetOrder     = mkOrder [(ag $damage), effectivePower, view g_initiative]
+                (j, tg) : tgts' = sortBy targetOrder tgts
+
+
+battle :: (army, [(int, int)]) -> (army, [(int, int)]) -> (army, army)
+battle (a1, ts1) (a2, ts2)
+    = st_evalState (st_mapM_ doAttack attacks >> freezeArmies) ()
+      where
+        mv1     = v_unsafeThaw $ v_fromList a1      || mutable vector for indexing / modifying first army groups
+        mv2     = v_unsafeThaw $ v_fromList a2      || mutable vector for indexing / modifying second army groups
+        attacks = sortBy (descending cmpint initiative) $ map (mkAttack mv1 mv2) ts1 ++ map (mkAttack mv2 mv1) ts2
+
+        || make an attack (attacker army vector, attacker index, target army vector, target index)
+        mkAttack va vt (ia, it) = (va, ia, vt, it)
+
+        || get the initiative for an attack group; v_read is in a state monad, but we don't need to control order, here
+        initiative (mv, i, _, _) = view g_initiative $ st_evalState (v_read mv i) ()
+
+        || perform an attack in the st monad and update the army groups vector with the result
+        doAttack (va, ia, vt, it)
+            = st_bind2 (v_read va ia) (v_read vt it) checkUnits
+              where
+                checkUnits ga gt
+                    = st_pure (),        if view g_units ga <= 0
+                    = v_write vt it gt', otherwise
+                      where
+                        units  = view g_units gt
+                        killed = min2 cmpint units $ (damage ga gt) $div (view g_hitPoints gt)
+                        gt'    = set g_units (units - killed) gt
+
+        || freeze the mutable army vectors and return their contents as a list
+        freezeArmies
+            = st_liftA2 removeDeadGroups (v_unsafeFreeze mv1) (v_unsafeFreeze mv2)
+              where
+                removeDeadGroups v1 v2 = mapBoth (filter hasUnits . v_toList) (v1, v2)
+                hasUnits g = view g_units g > 0
+
+
+battleUntilDone :: army -> army -> (army, army)
+battleUntilDone a1 a2
+    = (a1', a2')
+      where
+        (a1', a2', _) = hd . dropWhile notDone . iterate step $ (a1, a2, False)
+
+        notDone (_, _, done) = ~done
+
+        step (a1, a2, _)
+            = (a1', a2', done)
+              where
+                (a1', a2') = battle (a1, selectTargets a1 a2) (a2, selectTargets a2 a1)
+                u1'        = unitCount a1'
+                u2'        = unitCount a2'
+                stalemate  = u1' == unitCount a1 & u2' == unitCount a2
+                done       = u1' == 0 \/ u2' == 0 \/ stalemate
+
+findMaxBoost :: army -> army -> int
+findMaxBoost a1 a2
+    = maxBoost
+      where
+        (_, _, maxBoost)         = hd . dropWhile infectionWins . iterate tryDoubleBoost $ (a1, a2, 1)
+        infectionWins (_ , a, _) = unitCount a > 0
+
+        tryDoubleBoost (_, _, b)
+            = (a1', a2', b')
+              where
+                b'         = b * 2
+                (a1', a2') = battleUntilDone (map (over g_attackDamage (+ b')) a1) a2
+
+|| binary search the range a1 .. a2 to find the minimum boost required to allow the immune system to win
+findMinBoost :: army -> army -> int -> int
+findMinBoost a1 a2 max
+    = go 0 max
+      where
+        go min max
+            = u1,         if max == min                 || binary search complete
+            = go max max, if u2 > 0 & max - min == 1    || try max in the case of odd (max + min) rounding down
+            = go mid max, if u2 > 0                     || immune system loss or stalemate -- increase boost
+            = go min mid, otherwise                     || immune system win -- decrease boost
+              where
+                mid      = (min + max) $div 2
+                (u1, u2) = mapBoth unitCount . battleUntilDone (map (over g_attackDamage (+ mid)) a1) $ a2
+
+        
+|| parsing
+
+qualityType ::= Weak | Immune
+quality     == (qualityType, [string])
+
+isWeak :: quality -> bool
+isWeak (Weak, _) = True
+isWeak _         = False
+
+p_inParens :: parser * -> parser *
+p_inParens p = p_char '(' *> p <* p_char ')'
+
+p_liftA6 f ma mb mc md me mf = p_liftA4 f ma mb mc md <*> me <*> mf
+
+p_wordList :: parser [string]
+p_wordList = p_someSepBy (p_string ", ") p_word
+
+p_immune :: parser quality
+p_immune = pair Immune <$> (p_string "immune to " *> p_wordList)
+
+p_weak :: parser quality
+p_weak = pair Weak <$> (p_string "weak to " *> p_wordList)
+
+p_qualities :: parser [quality]
+p_qualities = p_inParens $ p_someSepBy (p_string "; ") (p_immune <|> p_weak)
+
+p_group :: parser group
+p_group = p_liftA6 mkGroup (p_int <* p_string " units each with ")
+                           (p_int <* p_string " hit points ")
+                           (p_optional (p_qualities <* p_space))
+                           (p_string "with an attack that does " *> p_int <* p_space)
+                           p_word
+                           (p_string " damage at initiative " *> p_int <* p_spaces)
+          where
+            mkGroup nu hp mquals dmg at init
+                = (nu, hp, dmg, at, init, concat wk, concat im)
+                  where
+                    (wk, im) = fromMaybef ([], []) (mapBoth (map snd) . partition isWeak) mquals
+
+p_army :: parser army
+p_army = p_skipUntil p_any (p_char '\n') *> p_some p_group
+
+p_armies :: parser (army, army)
+p_armies = p_liftA2 pair p_army p_army <* p_end
+
+readArmies :: string -> io (army, army)
+readArmies fn
+    = go <$>. parse p_armies <$>. readFile fn
+      where
+        go (marmies, ps) = fromMaybe (error (p_error ps)) marmies
+
+day24 :: io ()
+day24
+    = readArmies "../inputs/day24.input" >>=. go
+      where
+        go (aimm, ainf)
+            = io_mapM_ putStrLn [part1, part2]
+              where 
+                part1 = (++) "part 1: " . showint . uncurry (+) . mapBoth unitCount $ battleUntilDone aimm ainf
+                part2 = (++) "part 2: " . showint . findMinBoost aimm ainf $ findMaxBoost aimm ainf

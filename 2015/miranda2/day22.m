@@ -1,0 +1,172 @@
+|| day22.m
+
+
+%export day22
+
+%import <either>
+%import <heap>
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import "stateEither" (>>=)/ste_bind (<$>)/ste_fmap (<<)/ste_left (>>)/ste_right
+
+
+spellName ::= Missile | Drain | Shield | Poison | Recharge
+spell     ::= Spell spellName int action
+
+|| lenses for spell
+|| Note: spell is a data defn because if it were a typealias there would be a dependency cycle between spell, fightSt, and action
+|| Note: sp_val doubles as both spell cost when casting a spell and effect timer when handling an effect
+sp_name   = Lens getf overf where getf (Spell n v a) = n; overf f (Spell n v a) = Spell (f n) v a
+sp_val    = Lens getf overf where getf (Spell n v a) = v; overf f (Spell n v a) = Spell n (f v) a
+sp_action = Lens getf overf where getf (Spell n v a) = a; overf f (Spell n v a) = Spell n v (f a)
+
+
+|| state passed through rounds of fights
+fightSt == (int, int, int, int, int, int, [spell])
+
+|| lenses for fs
+fs_bossHp  = lensTup7_0
+fs_bossDmg = lensTup7_1
+fs_wizHp   = lensTup7_2
+fs_wizArm  = lensTup7_3
+fs_manna   = lensTup7_4
+fs_spent   = lensTup7_5
+fs_effects = lensTup7_6
+
+|| lift  lens operations into stateEither access
+fs_view lns   fs = (Right $ view lns fs, fs)
+fs_set  lns x fs = (Right (), set lns x fs)
+fs_over lns f fs = (Right (), over lns f fs)
+
+fightResult ::= Win | Loss
+
+|| an action takes a fightSt, performs an operation on it, and returns
+|| either a short-circuited Win / Loss or a (), along with the new fightSt
+action == stateEither fightSt fightResult ()
+
+
+|| sequence the effects, terminating early with a win
+|| decrement the effect timers, removing any effects that have expired
+doEffects :: action
+doEffects
+    = fs_view fs_effects >>= ste_foldM doEffect [] >>= fs_set fs_effects
+      where
+        doEffect newEs e
+            = view sp_action e >> addIfNotExpired t
+              where
+                t = view sp_val e - 1
+
+                addIfNotExpired 0 = ste_pure newEs
+                addIfNotExpired t = ste_pure $ set sp_val t e : newEs
+
+|| buy a spell or fail with a loss if manna not available, or if the spell is
+|| currently in the active effects.  Then cast the spell
+castSpell :: spell -> action
+castSpell sp
+    = (fs_view fs_manna   >>= buy) >>
+      (fs_view fs_effects >>= castIfNotActive)
+      where
+        cost = view sp_val  sp
+        name = view sp_name sp
+
+        buy manna
+            = ste_excpt Loss,            if manna' < 0
+            = fs_set  fs_manna manna' >>
+              fs_over fs_spent (+ cost), otherwise
+              where
+                manna' = manna - cost
+
+        castIfNotActive efs
+            = ste_excpt Loss,           if member cmpspellName activeSpells name
+            = view sp_action sp,        otherwise
+              where
+                activeSpells = map (view sp_name) efs
+
+|| turn a spell into an effect with a timer, and add it to the active effects list
+addEffect :: spell -> action
+addEffect s = fs_over fs_effects (s :)
+
+attackWithDmg :: int -> action
+attackWithDmg dmg
+    = fs_view fs_bossHp >>= doDmg
+      where
+        doDmg hp =
+            fs_set fs_bossHp hp' >> check
+            where
+              hp'   = hp - dmg
+              check = ste_excpt Win, if hp' <= 0
+                    = ste_pure (),   otherwise
+
+defend :: action
+defend
+    = ste_bind3 (fs_view fs_bossDmg) (fs_view fs_wizHp) (fs_view fs_wizArm) go << fs_set fs_wizArm 0
+      where
+        go dmg hp arm
+            = fs_set fs_wizHp hp' >> check
+              where
+                dmg'  = max2 cmpint 1 (dmg - arm)        || boss always does at least 1 dmg
+                hp'   = hp - dmg'
+                check = ste_excpt Loss, if hp' <= 0
+                      = ste_pure (),    otherwise
+
+doHardMode :: bool -> action
+doHardMode False = ste_pure ()
+doHardMode True
+    = fs_view fs_wizHp >>= decr
+      where
+        decr n
+            = ste_excpt Loss,          if n <= 1
+            = fs_set fs_wizHp (n - 1), otherwise
+
+doRound :: bool -> spell -> action
+doRound hard s
+    = doHardMode hard >> doEffects >> castSpell s >>    || wizard's turn
+      doHardMode hard >> doEffects >> defend            || boss' turn
+
+
+|| searchSt adds a win/not win outcome bool to the fightSt
+|| extracted from the result of an action (fightResult or ())
+searchSt == (bool, fightSt)
+
+|| try all spells out, discarding any losses
+trySpells :: bool -> [spell] -> fightSt -> [searchSt]
+trySpells hard spells st
+    = map toSearchSt . filter notLoss . map trySpell $ spells
+      where
+        notLoss (Left Loss, _) = False
+        notLoss _              = True
+
+        toSearchSt (Left Win, fs) = (True,  fs)
+        toSearchSt (_, fs)        = (False, fs)
+
+        trySpell s = ste_runState (doRound hard s) st
+
+cheapestWin :: bool -> [spell] -> fightSt -> int
+cheapestWin hard spells initSt
+    = go (h_singleton (False, initSt))
+      where
+        cmp a b = cmpint (view fs_spent (snd a)) (view fs_spent (snd b))
+
+        go h
+            = error "no win found", if h_null h
+            = view fs_spent st,     if win
+            = go h2,                otherwise
+              where
+                ((win, st), h1) = fromJust $ h_viewMin cmp h
+                h2              = foldr (h_insert cmp) h1 $ trySpells hard spells st
+
+day22 :: io ()
+day22
+    = io_mapM_ putStrLn [part1, part2]
+      where
+        initSt = (51, 9, 50, 0, 500, 0, [])
+        spells = [ Spell Missile   53 $ attackWithDmg 4
+                 , Spell Drain     73 $ attackWithDmg 2 >> fs_over fs_wizHp (+ 2)
+                 , Spell Shield   113 . addEffect . Spell Shield   6 $ fs_set fs_wizArm 7
+                 , Spell Poison   173 . addEffect . Spell Poison   6 $ attackWithDmg 3
+                 , Spell Recharge 229 . addEffect . Spell Recharge 5 $ fs_over fs_manna (+ 101)
+                 ]
+        part1  = (++) "part 1: " . showint . cheapestWin False spells $ initSt
+        part2  = (++) "part 2: " . showint . cheapestWin True  spells $ initSt

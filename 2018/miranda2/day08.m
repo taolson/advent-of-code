@@ -1,0 +1,48 @@
+|| day08.m
+
+
+%export day08
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <maybe>
+%import <mirandaExtensions>
+%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right
+
+
+node ::= Node [node] [int]
+
+metaDataSum :: node -> int
+metaDataSum (Node children md) = sum (map metaDataSum children) + sum md
+
+value :: node -> int
+value (Node [] md) = sum md
+value (Node children md)
+    = sum . map getChild . filter (member cmpint [1 .. length children]) $ md
+      where
+        getChild i = value (children ! (i - 1))
+
+p_intspc :: parser int
+p_intspc = p_int <* p_spaces
+
+p_node :: parser node
+p_node
+    = p_intspc >>= fnc
+      where
+        fnc nc         = p_intspc >>= p_counts nc
+        p_counts nc nm = p_liftA2 Node (p_count nc p_node) (p_count nm p_intspc)
+
+readNode :: string -> io node
+readNode fn
+    = go <$>. parse p_node <$>. readFile fn
+      where
+        go (mnode, ps) = fromMaybe (error (p_error ps)) mnode
+
+day08 :: io ()
+day08
+    = readNode "../inputs/day08.input" >>=. go
+      where
+        go node
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . metaDataSum $ node
+                part2 = (++) "part 2: " . showint . value $ node

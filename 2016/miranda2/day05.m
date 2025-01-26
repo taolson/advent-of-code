@@ -1,0 +1,55 @@
+|| day05.m
+
+
+%export day05
+
+%import <io>
+%import <mirandaExtensions>
+%import "md5"
+%import <vector>
+
+passwordForString :: string -> (md5State -> vector char -> bool) -> (md5State -> int -> int) -> (md5State -> int) -> string
+passwordForString s testFn idxFn digitFn
+    = go (v_rep 8 ' ') 0 0
+      where
+        go digits _     8 = v_toList digits
+        go digits nonce idx
+            = trace (v_toList digits') (go digits' nonce' idx'), if testFn st digits
+            = go digits  nonce' idx,                             otherwise
+              where
+                st      = md5Hash (s ++ showint nonce)
+                nonce'  = nonce $seq nonce + 1
+                idx'    = idx $seq idx + 1
+                digits' = digits $seq digits // [(didx, chr)]
+                          where
+                            didx  = idxFn st idx
+                            digit = digitFn st
+                            chr   = decode (digit + code '0'),      if digit < 10
+                                  = decode (digit - 10 + code 'a'), otherwise
+
+doPart1 :: string -> string
+doPart1 s
+    = passwordForString s testFn idxFn digitFn
+      where
+        testFn  (MD5 a _ _ _) _ = a .&. 0x00f0ffff == 0
+        idxFn   _           idx = idx
+        digitFn (MD5 a _ _ _)   = (a .>>. 16) .&. 0x0f
+
+doPart2 :: string -> string
+doPart2 s
+    = passwordForString s testFn idxFn digitFn
+      where
+        testFn (MD5 a _ _ _) digits
+            = a .&. 0x00f0ffff == 0 & idx < 8 & digits !! idx ==. ' '
+              where
+                idx = (a .>>. 16) .&. 0x0f
+
+        idxFn   (MD5 a _ _ _) idx = (a .>>. 16) .&. 0x0f
+        digitFn (MD5 a _ _ _)     = (a .>>. 28) .&. 0x0f
+
+day05 :: io ()
+day05
+    = io_mapM_ putStrLn  [part1, part2]
+      where
+        part1 = "part 1: " ++ doPart1 "abbhdwsy"
+        part2 = "part 2: " ++ doPart2 "abbhdwsy"

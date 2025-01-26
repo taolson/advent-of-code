@@ -1,0 +1,167 @@
+%export day15
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <lens>
+%import <maybe>
+%import <mirandaExtensions>
+%import <set>
+%import <v2>
+
+
+nspan == v2 int
+
+ns_size :: nspan -> int
+ns_size (V2 a b) = b - a + 1
+
+ns_intersect :: nspan -> nspan -> maybe nspan
+ns_intersect (V2 a b) (V2 c d)
+    = Just (V2 ac bd), if ac <= bd
+    = Nothing,         otherwise
+      where
+        ac = max2 cmpint a c
+        bd = min2 cmpint b d
+
+ns_intersects :: nspan -> nspan -> bool
+ns_intersects a b = isJust $ ns_intersect a b
+
+ns_adjacent :: nspan -> nspan -> bool
+ns_adjacent (V2 a b) (V2 c d)
+    = True,  if b + 1 == c \/ d + 1 == a
+    = False, otherwise
+
+ns_merge :: nspan -> nspan -> nspan
+ns_merge (V2 a b) (V2 c d) = V2 (min2 cmpint a c) (max2 cmpint b d)
+
+ns_delete :: nspan -> nspan -> [nspan]
+ns_delete d f
+    = [V2 fs is', V2 ie' fe], if is > fs & ie < fe
+    = [V2 fs is'],            if is > fs
+    = [V2 ie' fe],            if ie < fe
+    = [],                     otherwise
+      where
+        mi       = ns_intersect d f
+        V2 is ie = fromJust mi
+        V2 fs fe = f
+        is'      = is - 1
+        ie'      = ie + 1
+
+
+nspanSet == s_set nspan
+
+nss_size :: nspanSet -> int
+nss_size = sum . map ns_size . s_toList
+
+|| insert a span into a span set, possibly merging it with existing spans
+nss_insert :: nspan -> nspanSet -> nspanSet
+nss_insert sp ss
+    = doMerge prev,   if isJust mprev & (ns_intersects prev sp \/ ns_adjacent prev sp)
+    = doMerge next,   if isJust mnext & (ns_intersects next sp \/ ns_adjacent next sp)
+    = s_insert cmpnspan sp ss, otherwise
+      where
+        mprev      = s_lookupLE cmpnspan sp ss
+        prev       = fromJust mprev
+        mnext      = s_lookupGE cmpnspan sp ss
+        next       = fromJust mnext
+        doMerge ms = nss_insert (ns_merge ms sp) (s_delete cmpnspan ms ss)
+
+|| delete a span from a span set, possibly splitting existing spans
+nss_delete :: nspan -> nspanSet -> nspanSet
+nss_delete sp ss
+    = s_delete cmpnspan sp ss,                  if s_member cmpnspan sp ss
+    = foldl doSplit ss [mprev, mnext], otherwise
+      where
+        mprev      = s_lookupLE cmpnspan sp ss
+        mnext      = s_lookupGE cmpnspan sp ss
+        doSplit ss msp'
+            = ss,                                   if isNothing msp' \/ ~ns_intersects sp' sp
+            = foldl (converse nss_insert) ss' dsp', otherwise
+              where
+                sp'  = fromJust msp'
+                ss'  = s_delete cmpnspan sp' ss
+                dsp' = ns_delete sp sp'
+
+
+point  == v2 int
+sensor == (point, point, int)    || sensor location, closest beacon, sensor range)
+
+|| lenses for sensor
+sn_loc = lensTup3_0
+sn_bcn = lensTup3_1
+sn_rng = lensTup3_2
+
+|| find the horizontal span of a sensor at row r
+ns_atRow :: int -> sensor -> maybe nspan
+ns_atRow y' (V2 x y, bcn, r)
+    = Nothing,       if b > e
+    = Just (V2 b e), otherwise
+      where
+        vdist = abs (y' - y)
+        b = x - r + vdist
+        e = x + r - vdist
+
+|| collect the set of nspans in a row that cannot contain beacons
+noBeacon :: bool -> int -> [sensor] -> nspanSet
+noBeacon delBeacons r sns
+    = ss', if delBeacons
+    = ss,  otherwise
+      where
+        bcns  = (map (v2_pure . view lensV2_0) . filter (onRow r) . map (view sn_bcn)) sns
+        spans = catMaybes . map (ns_atRow r) $ sns
+        ss    = foldl (converse nss_insert) s_empty spans
+        ss'   = foldl (converse nss_delete) ss bcns
+        onRow r (V2 x y) = r == y
+        
+
+rect == (v2 int, v2 int)        || xlyl, xhyh
+
+splitRect :: rect -> [rect]
+splitRect (V2 xl yl, V2 xh yh)
+    = [(V2 x0 y0, V2 x1 y1) | (x0, x1) <- [(xl, xm), (xm + 1, xh)]; (y0, y1) <- [(yl, ym), (ym + 1, yh)]]
+      where
+        xm = (xl + xh) $div 2
+        ym = (yl + yh) $div 2
+
+ruledOutRect :: rect -> sensor -> bool
+ruledOutRect (V2 xl yl, V2 xh yh) s
+    = all ruledOut [V2 xl yl, V2 xh yl, V2 xl yh, V2 xh yh]
+      where
+        sloc       = view sn_loc s
+        srange     = view sn_rng s
+        ruledOut p = v2_dist p sloc <= srange
+
+findOutlier :: [sensor] -> rect -> maybe point
+findOutlier ss
+    = go
+      where
+        go r = Nothing, if any (ruledOutRect r) ss
+             = Just (fst r), if _eq cmppoint (fst r) (snd r)
+             = (listToMaybe . catMaybes . map go . splitRect) r, otherwise
+
+        listToMaybe []       = Nothing
+        listToMaybe (x : xs) = Just x
+
+tuningFreq :: point -> int
+tuningFreq (V2 x y) = x * 4000000 + y
+
+readSensors :: string -> io [sensor]
+readSensors fn
+    = map (readSensor . splitOneOf cmpchar "=,:") <$>. lines <$>. readFile fn
+      where
+        readSensor xs
+            = triple bcn sns rng
+              where
+                readPoint n = V2 (intval (xs ! n)) (intval (xs ! (n + 2)))
+                bcn         = readPoint 1
+                sns         = readPoint 5
+                rng         = v2_dist bcn sns
+
+day15 :: io ()
+day15
+    = readSensors "../inputs/day15.txt" >>=. go
+      where
+        go sensors
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                grid  = (V2 0 0, V2 4000000 4000000)
+                part1 = (++) "part 1: " . showint . nss_size . noBeacon True 2000000 $ sensors
+                part2 = (++) "part 2: " . showint . tuningFreq . fromJust . findOutlier sensors $ grid

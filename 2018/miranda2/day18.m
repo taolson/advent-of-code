@@ -1,0 +1,97 @@
+|| day18.m
+
+
+%export day18
+
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <map>
+%import <maybe>
+%import <mirandaExtensions>
+
+
+point == (int, int)
+
+element ::= Sand | Yard | Tree
+
+grid == m_map point element
+
+resourceValue :: grid -> int
+resourceValue grid
+    = trees * yards
+      where
+        (trees, yards) = m_foldr tallyResource (0, 0) grid
+
+        tallyResource e (t, y)
+            = case e of
+                Sand -> (t, y)
+                Yard -> (t, y + 1)
+                Tree -> (t + 1, y)
+
+tallyAround :: grid -> point -> (int, int, int)
+tallyAround grid (x, y)
+    = foldl tallyPoint (0, 0, 0) [(px, py) | px <- [x - 1 .. x + 1]; py <- [y - 1 .. y + 1]; px ~= x \/ py ~= y]
+      where
+        tallyPoint (nSand, nYard, nTree) point
+            = fromMaybef (nSand + 1, nYard, nTree) tally (m_lookup cmppoint point grid)
+              where
+                tally e = case e of
+                            Sand -> (nSand + 1, nYard, nTree)
+                            Yard -> (nSand, nYard + 1, nTree)
+                            Tree -> (nSand, nYard, nTree + 1)
+
+generate :: int -> int -> grid -> grid
+generate width height grid
+    = foldl genPoint m_empty [(px, py) | px <- [0 .. width - 1]; py <- [0 .. height - 1]]
+      where
+        genPoint grid' point
+            = m_insert cmppoint point elt grid'
+              where
+                (_, nYard, nTree) = tallyAround grid point
+                value = fromMaybe Sand (m_lookup cmppoint point grid)
+                elt = case value of
+                        Sand -> case nTree >= 3 of
+                                  False -> Sand
+                                  True  -> Tree
+                        Yard -> case nYard == 0 \/ nTree == 0 of
+                                  False -> Yard
+                                  True  -> Sand
+                        Tree -> case nYard >= 3 of
+                                  False -> Tree
+                                  True  -> Yard
+
+toElement :: char -> element
+toElement '.' = Sand
+toElement '|' = Tree
+toElement '#' = Yard
+toElement _   = error "toElement: bad character"
+
+fromElement :: maybe element -> string
+fromElement (Just Tree) = "|"
+fromElement (Just Yard) = "#"
+fromElement _           = "."
+
+addLineToGrid :: grid -> (string, int) -> grid
+addLineToGrid grid (line, y)
+    = foldl addPointToGrid grid $ zip2 (map toElement line) [0 ..]
+      where
+        addPointToGrid grid' (e, x) = m_insert cmppoint (x, y) e grid'
+    
+day18 :: io ()
+day18
+    = readFile "../inputs/day18.input" >>=. (go . lines)
+      where
+        go gridLines
+            = io_mapM_ putStrLn [part1, part2]
+              where
+                height    = #gridLines
+                width     = #(hd gridLines)
+                grid      = foldl addLineToGrid m_empty $ zip2 gridLines [0 ..]
+                grid10    = hd . drop 10 . iterate (generate width height) $ grid
+                grid800   = hd . drop (800 - 10) . iterate (generate width height) $ grid10
+                scores    = take 100 . map resourceValue . iterate (generate width height) $ grid800
+                baseScore = hd scores
+                scoreMap  = fst . foldl ins (m_empty, baseScore) $ tl scores where ins (m, p) n = (m_insert cmpint p n m, n)
+                count     = (1000000000 - 800) $mod m_size scoreMap
+                final     = hd . drop count . iterate (scoreMap !!) $ baseScore where m !! i = fromJust $ m_lookup cmpint i m
+                part1     = (++) "part 1: " . showint . resourceValue $ grid10
+                part2     = (++) "part 2: " . showint $ final
