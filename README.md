@@ -1,4 +1,4 @@
-#Advent of Code in Miranda2
+# Advent of Code in Miranda2
 
 My solutions to all 10 years of Advent of Code, written in Miranda2
 
