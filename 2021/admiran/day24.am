@@ -1,6 +1,8 @@
 || day24 -- Arithmetic Logic Unit
 
 
+%export day24
+
 %import <io>                    (>>=)/io_bind
 %import <map>
 %import <maybe>
@@ -100,8 +102,8 @@ solve part1 xs ys zs
 readInsns :: string -> io [insn]
 readInsns fn = readFile fn >>= lines .> map parseInsn .> io_pure
 
-main :: io ()
-main = readInsns "../inputs/day24.txt" >>= genBlocks .> go
+day24 :: io ()
+day24 = readInsns "../inputs/day24.txt" >>= genBlocks .> go
        where
          go blocks
              = io_mapM_ putStrLn [part1, part2]
