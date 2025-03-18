@@ -4,7 +4,7 @@
 %import <astar>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 point == (int, int)

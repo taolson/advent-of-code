@@ -4,7 +4,7 @@
 %export day01
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 parenVal :: char -> int

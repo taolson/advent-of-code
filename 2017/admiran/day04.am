@@ -4,7 +4,7 @@
 %export day04
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 validPassphrase :: [string] -> bool

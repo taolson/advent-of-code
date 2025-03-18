@@ -4,7 +4,7 @@
 %export day11
 
 %import <io> (>>.)/io_right
-%import <mirandaExtensions>
+%import <base>
 
 
 intTup3 == (int, int, int)

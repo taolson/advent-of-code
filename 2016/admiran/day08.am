@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<*)/p_left (*>)/p_right (<|>)/p_alt
 %import <state> (>>=)/st_bind (<$>)/st_fmap (>>)/st_right
 %import <vector>

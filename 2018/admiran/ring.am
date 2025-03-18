@@ -1,7 +1,7 @@
 || ring.m -- ring for day09
 
 
-%import <mirandaExtensions>
+%import <base>
 
 ring * ::= Ring [*] ! * ! [*] !
 

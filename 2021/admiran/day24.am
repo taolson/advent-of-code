@@ -4,7 +4,7 @@
 %import <io>                    (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <vector>
 
 

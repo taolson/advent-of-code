@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <lens>
-%import <mirandaExtensions>
+%import <base>
 
 
 loc == (int, int)

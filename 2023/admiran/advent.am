@@ -1,5 +1,5 @@
 %import <io> (>>.)/io_right
-%import <mirandaExtensions>
+%import <base>
 %import "day01"
 %import "day02"
 %import "day03"

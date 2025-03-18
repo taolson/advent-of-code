@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 
 || an N-dimensional coordinate with the dimensions in a list

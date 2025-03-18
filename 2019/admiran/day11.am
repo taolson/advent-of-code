@@ -4,7 +4,7 @@
 %import <avl>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import "intcode"
 
 

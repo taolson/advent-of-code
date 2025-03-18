@@ -4,7 +4,7 @@
 %export day05
 
 %import <io>
-%import <mirandaExtensions>
+%import <base>
 %import "md5"
 %import <vector>
 

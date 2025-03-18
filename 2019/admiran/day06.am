@@ -5,7 +5,7 @@
 %import <bfs>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 objId     == string

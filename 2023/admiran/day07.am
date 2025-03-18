@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 card ::= Card int       || card strength

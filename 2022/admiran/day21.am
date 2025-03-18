@@ -4,7 +4,7 @@
 %import <map>
 %import <maybe>
 %import <parser>
-%import <mirandaExtensions>
+%import <base>
 
 
 monkey == string

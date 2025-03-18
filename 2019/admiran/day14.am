@@ -4,7 +4,7 @@
 %import <parser> (<*)/p_left (*>)/p_right
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 chemical       == string

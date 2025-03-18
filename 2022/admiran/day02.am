@@ -1,7 +1,7 @@
 %export day02
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 shape == int            || Rock == 0, Scissors == 1, Paper == 2

@@ -1,4 +1,4 @@
-%import <mirandaExtensions>
+%import <base>
 
 %export day01
 

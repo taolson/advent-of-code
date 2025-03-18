@@ -3,7 +3,7 @@
 
 %export + -reverseUpTo -hexdigit -showHex -showBinary
 
-%import <mirandaExtensions>
+%import <base>
 
 
 knotHash ::= KnotHash [int] int int int

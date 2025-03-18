@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 || a password is a list of 8 integers (0 .. 25, representing the characters 'a' .. 'z'),

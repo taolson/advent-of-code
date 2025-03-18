@@ -8,7 +8,7 @@
 %import <lens>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<*)/p_left (*>)/p_right
 %import <set>
 

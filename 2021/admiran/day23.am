@@ -4,7 +4,7 @@
 %import <heap>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 
 

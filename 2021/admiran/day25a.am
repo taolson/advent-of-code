@@ -1,7 +1,7 @@
 %export day25
 
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 point == (num, num)

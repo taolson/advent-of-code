@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<*)/p_left (*>)/p_right
 %import <v2>
 

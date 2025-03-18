@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 direction ::= U | D | L | R

@@ -4,7 +4,7 @@
 %import <map>
 %import <maybe>
 %import <parser>
-%import <mirandaExtensions>
+%import <base>
 
 
 || resources are a vector of 4 intbers, representing amounts of

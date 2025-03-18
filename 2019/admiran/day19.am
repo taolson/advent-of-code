@@ -4,7 +4,7 @@
 %import "intcode"
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 inBeam :: program -> num -> num -> bool

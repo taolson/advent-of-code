@@ -5,7 +5,7 @@
 
 %import <io>    (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe> (>>=?)/mb_bind (<$>?)/mb_fmap (<|>?)/mb_alt
-%import <mirandaExtensions>
+%import <base>
 
 
 || find all combinations of the packages that match the given weight, starting with the given group size

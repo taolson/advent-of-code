@@ -2,7 +2,7 @@
 
 %import <io> (>>=.)/io_bind
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<$>)/p_fmap (>>)/p_right (<<)/p_left (<|>)/p_alt
 %import "intcode"
 

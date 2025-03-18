@@ -2,7 +2,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 || vector definitions

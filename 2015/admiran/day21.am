@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 rpgItem   == (string, int, int, int)

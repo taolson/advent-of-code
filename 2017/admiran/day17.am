@@ -4,7 +4,7 @@
 %export day17
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 %import <zipper>
 
 buffer ::= Buffer (zipper int) int int || array, size, position

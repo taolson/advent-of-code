@@ -3,7 +3,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 parseStatus ::= Legal | Incomplete | Corrupted
 parseState  ==  (string, string)                || completion stack, input stream

@@ -4,7 +4,7 @@
 %export day25
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 || quick modular exponentiation using squaring

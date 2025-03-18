@@ -45,7 +45,7 @@
 
 %export bignum bn ibn cmpbignum showbignum bn_show bn_0 bn_1 bn_2 bn_is_neg bn_is_zero bn_cmp bn_eq bn_ne bn_gt bn_lt bn_ge bn_le bn_abs bn_neg bn_trunc bn2int bn_frac bn_add bn_sub bn_twice bn_half bn_times bn_mul bn_raise bn_quot bn_div bn_sqr bn_sqrt bn_e bn_pi bn_pi_2 bn_pi_4 bn_2_pi bn_ln bn_exp bn_pow bn_sin bn_cos bn_tan bn_asin bn_acos bn_atan bn_sinh bn_cosh bn_tanh bn_asinh bn_acosh bn_atanh m_is_zero
 
-%import <mirandaExtensions>
+%import <base>
 
 
 || For debugging, check for impossible internal conditions

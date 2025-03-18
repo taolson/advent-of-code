@@ -1,7 +1,7 @@
 %export day16
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 phase :: [int] -> [int]

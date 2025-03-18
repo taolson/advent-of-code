@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <bag>
-%import <mirandaExtensions>
+%import <base>
 
 
 charFreq == (char, int)

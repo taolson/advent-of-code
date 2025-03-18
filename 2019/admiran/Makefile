@@ -1,14 +1,14 @@
-MIRAC := mirac
+AMC := amc
 
 .SUFFIXES:
-.SUFFIXES: .m
+.SUFFIXES: .am
 
 .PHONY: clean
 
 all: advent
 
-.m:
-	$(MIRAC) $<
+.am:
+	$(AMC) $<
 
 clean:
 	rm -f advent *.x2 *.s

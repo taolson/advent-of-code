@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <bag>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 

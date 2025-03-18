@@ -3,7 +3,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <set>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 point == (int, int)

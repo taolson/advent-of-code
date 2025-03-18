@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <dequeue>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 
 dq_take :: int -> dequeue * -> dequeue *

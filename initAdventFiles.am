@@ -1,9 +1,9 @@
 || initAdventFiles.m -- initialize all of the advent files to blank templates
 
 
+%import <base>
 %import <io>                    (>>=)/io_bind
 %import <maybe>
-%import <mirandaExtensions>
 
 fileDigits :: int -> string
 fileDigits n

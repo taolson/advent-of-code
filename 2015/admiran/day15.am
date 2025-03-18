@@ -4,7 +4,7 @@
 %export day15
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 constraint == int -> int -> int -> bool

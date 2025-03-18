@@ -8,7 +8,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import "stateEither" (>>=)/ste_bind (<$>)/ste_fmap (<<)/ste_left (>>)/ste_right
 
 

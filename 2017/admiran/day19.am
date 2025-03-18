@@ -7,7 +7,7 @@
 %import <dequeue>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 loc  == (int, int)
 

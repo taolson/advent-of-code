@@ -4,7 +4,7 @@
 %import <parser> (*>)/p_right (<*)/p_left
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 position == num
 velocity == num

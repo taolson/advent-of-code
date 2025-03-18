@@ -7,7 +7,7 @@
 %import <lens>
 %import <map>
 %import <maybe> (>>=)/mb_bind
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 
 (!!!) :: edgeMap -> edge -> [tile]

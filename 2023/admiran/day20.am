@@ -13,7 +13,7 @@
 %import <lens>
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <state> (>>=)/st_bind (<$>)/st_fmap (<<)/st_left (>>)/st_right
 %import <vector>
 

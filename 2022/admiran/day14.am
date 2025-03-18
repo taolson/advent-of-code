@@ -3,7 +3,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (<$>)/p_fmap
 %import <set>
 %import <maybeState> (>>=)/mst_bind (<<)/mst_left (<|>)/mst_alt

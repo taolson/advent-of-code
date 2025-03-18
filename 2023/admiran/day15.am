@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <map>
-%import <mirandaExtensions>
+%import <base>
 
 label == string
 lens  == (label, int)

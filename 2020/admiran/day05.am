@@ -4,7 +4,7 @@
 %export day05
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 
 
 boardingPass == (int, int)

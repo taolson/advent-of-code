@@ -5,7 +5,7 @@
 
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 (!!!) :: m_map int int -> int -> int
 m !!! i = fromJust (m_lookup cmpint i m)

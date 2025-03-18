@@ -7,7 +7,7 @@
 %import <heap>
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 %import <vector>
 

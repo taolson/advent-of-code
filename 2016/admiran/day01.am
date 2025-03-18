@@ -4,7 +4,7 @@
 %export day01
 
 %import <io>
-%import <mirandaExtensions>
+%import <base>
 %import <set>
 
 point == (int, int)

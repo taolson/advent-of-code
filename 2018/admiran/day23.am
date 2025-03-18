@@ -7,7 +7,7 @@
 %import <astar>
 %import <lens>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 %import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right
 %import <v3>
 

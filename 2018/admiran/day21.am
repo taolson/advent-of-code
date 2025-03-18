@@ -4,7 +4,7 @@
 %export day21
 
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <mirandaExtensions>
+%import <base>
 %import <vector>
 %import <set>
 %import <state> (>>=)/st_bind (<<)/st_left (>>)/st_right

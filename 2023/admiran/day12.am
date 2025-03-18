@@ -7,7 +7,7 @@
 %import <map>
 %import <maybe>
 %import <memo>
-%import <mirandaExtensions>
+%import <base>
 %import <state> (<$>)/st_fmap
 
 

@@ -5,7 +5,7 @@
 
 %import <io> (>>=.)/io_bind
 %import <maybe> (>>=)/mb_bind (<|>)/mb_alt
-%import <mirandaExtensions>
+%import <base>
 
 
 calibration == (maybe char, maybe char)

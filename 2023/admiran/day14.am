@@ -6,7 +6,7 @@
 %import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
 %import <map>
 %import <maybe>
-%import <mirandaExtensions>
+%import <base>
 
 
 loc      == (int, int)
