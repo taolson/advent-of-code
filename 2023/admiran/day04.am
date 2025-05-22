@@ -41,7 +41,7 @@ cardPoints c
 || expand the card values to the list of indicies of the next n elements
 expandCards :: vector card -> vector [int]
 expandCards cv
-    = v_mapWithIndex takeN cv
+    = v_fmapWithIndex takeN cv
       where
         takeN i n = [i + 1 .. i + n]
 
@@ -72,5 +72,5 @@ day04
             = io_mapM_ putStrLn [part1, part2]
               where
                 cards = v_fromList . map readCard . lines $ input
-                part1 = ("part 1: " ++) . showint . v_sum . v_map cardPoints $ cards
-                part2 = ("part 2: " ++) . showint . tallyCards . expandCards $ cards
+                part1 = ("part 1: " ++) . showint . v_sum . v_fmap cardPoints $ cards
+                part2 = ("part 2: " ++) . showint . tallyCards . expandCards  $ cards
