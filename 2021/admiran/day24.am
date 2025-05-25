@@ -104,12 +104,12 @@ readInsns fn = readFile fn >>= lines .> map parseInsn .> io_pure
 
 day24 :: io ()
 day24 = readInsns "../inputs/day24.txt" >>= genBlocks .> go
-       where
-         go blocks
-             = io_mapM_ putStrLn [part1, part2]
-               where
-                 xs    = extractVaryings blocks 5
-                 ys    = extractVaryings blocks 15
-                 zs    = extractVaryings blocks 4
-                 part1 = (++) "part 1: " . showint $ solve True  xs ys zs
-                 part2 = (++) "part 2: " . showint $ solve False xs ys zs
+        where
+          go blocks
+              = io_mapM_ putStrLn [part1, part2]
+                where
+                  xs    = extractVaryings blocks 5
+                  ys    = extractVaryings blocks 15
+                  zs    = extractVaryings blocks 4
+                  part1 = (++) "part 1: " . showint $ solve True  xs ys zs
+                  part2 = (++) "part 2: " . showint $ solve False xs ys zs

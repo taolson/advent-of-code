@@ -13,8 +13,8 @@ genStream (I# m#) (I# n#)
       where
         next n#
             = case n# *# m# of
-                a# -> case a# $mod# 2147483647# of
-                        b# -> Yield (I# n#) b#
+                a# -> case quotrem# a# 2147483647# of
+                        (_, b#) -> Yield (I# n#) b#
 
 match :: (int, int) -> bool
 match (a, b) = a .&. 0xffff == b .&. 0xffff
