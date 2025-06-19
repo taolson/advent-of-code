@@ -105,6 +105,10 @@ makeProgState
 || 5 5  out b   output b3 & 7
 || 3 0  jnz 0   {b0 = b3; a0 = a1}
 ||
+
+|| configuration
+useEmulate = True
+
 || emulate the program running to speed things up
 emulate :: int -> [int]
 emulate n
@@ -120,6 +124,8 @@ emulate n
                  b3 = b2 .^.  c0
 
 || search for an input a that will recreate the program as output
+|| running the match function as a program takes ~7 seconds, while
+|| running it with the emulate function above takes 0.25 secons
 search :: program -> vmSt -> int
 search prog st
     = foldl go (cands, 11) (inits target |> drop 1) |> fst |> min cmpint
@@ -131,9 +137,10 @@ search prog st
             = filter match cand' |> ($pair n + 3)       || try each new cand', filtering the ones that still match, then add 3 to the shift amount
               where
                 cand'    = [(x .<<. n) .|. c | x <- [0 .. 7]; c <- cands]
-|| triggers GC bug                match c  = st_evalState (vm_set vm_a c >> run prog) st |> check
-                match c  = emulate c |> check
                 check xs = isPrefixOf cmpint ts xs
+
+                match c  = emulate c |> check,                                   if useEmulate
+                         = st_evalState (vm_set vm_a c >> run prog) st |> check, otherwise
                 
 day17 :: io ()
 day17
