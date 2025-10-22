@@ -1,7 +1,7 @@
 || advent library
 
 || Advent of Code web site session cookie:
-sessionCookie = "53616c7465645f5fa43ceb3ae937774be114b781b90c76166f478163dc4810d981a95f3000b2b38c4421ef1773510225e338c61294861c70aedaac118205ee5a"
+sessionCookie = "put your session cookie here"
 
 %export output readInput download  <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
 
