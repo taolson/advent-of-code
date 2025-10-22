@@ -1,0 +1,42 @@
+|| advent library
+
+|| Advent of Code web site session cookie:
+sessionCookie = "53616c7465645f5fa43ceb3ae937774be114b781b90c76166f478163dc4810d981a95f3000b2b38c4421ef1773510225e338c61294861c70aedaac118205ee5a"
+
+%export output readInput download  <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
+
+%import <io>
+%import <base>
+%import <maybe>
+%import <state>                 (>>=)/st_bind (<$>)/st_fmap (<*>)/st_apply (<<)/st_left (>>)/st_right
+
+format :: (int, string) -> string
+format (i, s) = "part " ++ showint i ++ ": " ++ s
+
+output :: [string] -> io ()
+output rs = zip2 [1 ..] rs |> io_mapM_ (format .> putStrLn)
+
+|| read the local input file from ../inputs, if present, or download it from adventofcode.com
+readInput :: string -> io string
+readInput s
+    = mtimeFile fn >>= exists
+      where
+        fn = "../inputs/" ++ s ++ ".txt"
+        exists t
+            = readFile fn,             if t > 0
+            = download s fn >>= check, otherwise
+
+        check n
+            = error "download failed", if n ~= 0
+            = readFile fn,             otherwise
+
+download :: string -> string -> io int
+download s dst
+    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
+      where
+        cmd  = "curl"
+        url  = "https://adventofcode.com"
+        year = "2025"
+        opts = "-sS -k -H 'Cookie: session=" ++ sessionCookie ++ "' -o" ++ dst
+        ds   = fromMaybef "0" (intval .> showint) (stripPrefix cmpchar "day" s)
+        src  = intercalate "/" [url, year, "day", ds, "input"]

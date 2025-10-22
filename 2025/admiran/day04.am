@@ -1,14 +1,14 @@
-|| <DAY>.m
+|| day04.m
 
 
-%export <DAY>
+%export day04
 
 %import "adventLib"
 
 
-<DAY> :: io ()
-<DAY>
-    = readFile "../inputs/<DAY>.txt" >>= go
+day04 :: io ()
+day04
+    = readInput "day04" >>= go
       where
         go input
             = output [part1, part2]

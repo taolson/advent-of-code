@@ -29,10 +29,10 @@ initFile template n
     = writeFile fn $ replace "<DAY>" mn template
       where
         mn = "day" ++ fileDigits n
-        fn = mn ++ ".m"
+        fn = mn ++ ".am"
 
 main :: io ()
 main
-    = readFile "template.m" >>= go
+    = readFile "template.am" >>= go
       where
-        go template = io_mapM_ (initFile template) [1 .. 25]
+        go template = io_mapM_ (initFile template) [1 .. 12]

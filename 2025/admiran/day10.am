@@ -1,0 +1,17 @@
+|| day10.m
+
+
+%export day10
+
+%import "adventLib"
+
+
+day10 :: io ()
+day10
+    = readInput "day10" >>= go
+      where
+        go input
+            = output [part1, part2]
+              where
+                part1 = undef
+                part2 = undef
