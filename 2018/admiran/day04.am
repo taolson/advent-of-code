@@ -54,7 +54,7 @@ processGuard m ((_, Begin gid) : es)
 
         doEvents = st_mapM_ addEvent es >> st_get >>= v_unsafeFreeze . snd
 
-        addEvent (ts, Sleep) = st_modify ($setFst (ts_min ts))
+        addEvent (ts, Sleep) = st_modify (setFst (ts_min ts))
         addEvent (ts, Wake)  = st_get >>= incTimes (ts_min ts)
         addEvent _           = error "addEvent got bad event"
 

@@ -54,9 +54,9 @@ readGrid fn
                 (g, (ms, me)) = st_foldM ins m_empty hlist (Nothing, Nothing)
 
         ins m (loc, c)
-            = (st_modify . converse setFst . Just) loc >> ins m (loc, 'a'), if c ==. 'S'
-            = (st_modify . converse setSnd . Just) loc >> ins m (loc, 'z'), if c ==. 'E'
-            = st_pure (m_insert cmplocation loc (code c - code 'a') m),     otherwise
+            = (st_modify . setFst . Just) loc >> ins m (loc, 'a'),      if c ==. 'S'
+            = (st_modify . setSnd . Just) loc >> ins m (loc, 'z'),      if c ==. 'E'
+            = st_pure (m_insert cmplocation loc (code c - code 'a') m), otherwise
 
 day12 :: io ()
 day12
