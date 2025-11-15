@@ -3,7 +3,7 @@
 
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io> (>>=.)/io_bind (<$>.)/io_fmap -time
 %import <lens>
 %import <map>
 %import <maybe>

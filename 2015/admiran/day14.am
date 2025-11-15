@@ -12,11 +12,7 @@ reindeer == (string, int, int, int)
 
 dist :: int -> reindeer -> int
 dist t (n, s, b, r)
-    = (wi * b + min2 cmpint b fi) * s
-      where
-        dt = b + r      || repeating time interval
-        wi = t $div dt  || total intervals traveled
-        fi = t $mod dt  || fraction of an interval traveled
+    = case t $quotrem (b + r) of (wi, fi) -> (wi * b + min2 cmpint b fi) * s
 
 maxDist :: int -> [reindeer] -> int
 maxDist t = max cmpint . map (dist t)

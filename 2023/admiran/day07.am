@@ -23,7 +23,7 @@ cardOrder  = "*23456789TJQKA"
 
 cardFromChar :: char -> card
 cardFromChar c
-    = Card . fromMaybe err . elemIndex cmpchar c $ cardOrder
+    = Card . fromMaybe err . elemIndex (==. c) $ cardOrder
       where
         err = error ("cardFromChar: bad card: " ++ showchar c)
 

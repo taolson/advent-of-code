@@ -53,15 +53,15 @@ pmov from to p
 
 exec :: password -> command -> password
 exec p (Swp i1 i2)    = pswap i1 i2 p
-exec p (SwpLtr c1 c2) = pswap i1 i2 p where Just i1 = elemIndex cmpchar c1 p; Just i2 = elemIndex cmpchar c2 p
+exec p (SwpLtr c1 c2) = pswap i1 i2 p where Just i1 = elemIndex (==. c1) p; Just i2 = elemIndex (==. c2) p
 exec p (Rot i1)       = prot  i1 p
-exec p (RotLtr c)     = prot  idx p   where Just i1 = elemIndex cmpchar c p; idx = i1 + 1 + if' (i1 >= 4) 1 0
+exec p (RotLtr c)     = prot  idx p   where Just i1 = elemIndex (==. c) p; idx = i1 + 1 + if' (i1 >= 4) 1 0
 exec p (Rev i1 i2)    = prev  i1 i2 p
 exec p (Mov i1 i2)    = pmov  i1 i2 p
 exec p (RotRev c)
     = prot (neg (steps $mod #p)) p
       where
-        Just i1 = elemIndex cmpchar c p
+        Just i1 = elemIndex (==. c) p
         steps   = 1,                   if i1 == 0
                 = (i1 + 1) $div 2,     if odd i1
                 = (i1 + 2) $div 2 + 4, otherwise

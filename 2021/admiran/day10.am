@@ -69,7 +69,7 @@ incompleteScore (Incomplete, (ds, cs))
         tally n d = error ("bad delimiter: " ++ [d]), if isNothing mi
                   = n * 5 + i + 1,                    otherwise
                     where
-                      mi = elemIndex cmpchar d ")]}>"
+                      mi = elemIndex (==. d) ")]}>"
                       i  = fromJust mi
 
 incompleteScore pr = 0

@@ -1,13 +1,13 @@
 || advent library
 
 || Advent of Code web site session cookie:
-sessionCookie = "put your session cookie here"
+sessionCookie = "put your cookie here"
 
 %export output readInput download  <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
 
 %import <io>
 %import <base>
-%import <maybe>
+%import <maybe>                 (>>=?)/mb_bind (<|>?)/mb_alt
 %import <state>                 (>>=)/st_bind (<$>)/st_fmap (<*>)/st_apply (<<)/st_left (>>)/st_right
 
 format :: (int, string) -> string
@@ -32,11 +32,12 @@ readInput s
 
 download :: string -> string -> io int
 download s dst
-    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
+||    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
+    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io_pure 0
       where
         cmd  = "curl"
         url  = "https://adventofcode.com"
         year = "2025"
         opts = "-sS -k -H 'Cookie: session=" ++ sessionCookie ++ "' -o" ++ dst
-        ds   = fromMaybef "0" (intval .> showint) (stripPrefix cmpchar "day" s)
+        ds   = s |> dropWhile (not . digit) |> dropWhile (==. '0')
         src  = intercalate "/" [url, year, "day", ds, "input"]

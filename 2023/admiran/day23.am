@@ -145,7 +145,7 @@ readMaze fn
                 start      = findPath 0
                 finish     = findPath maxRow
                 m          = m_fromList cmploc [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row]
-                findPath i = pair i . fromJust . elemIndex cmpchar '.' $ rows ! i
+                findPath i = pair i . fromJust . elemIndex (==. '.') $ rows ! i
 
 day23 :: io ()
 day23

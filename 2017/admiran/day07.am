@@ -53,7 +53,7 @@ totalWeight pMap name
                 groups       = group cmpint . sortBy cmpint $ weights
                 odd          = hd . minBy cmpint length $ groups
                 ref          = hd . maxBy cmpint length $ groups
-                idx          = fromMaybe 0 $ elemIndex cmpint odd weights
+                idx          = fromMaybe 0 $ elemIndex (== odd) weights
                 adjustWeight = ref - odd + view weight (pMap !! (view children prog ! idx))
 
         go (Left adj) = Left adj

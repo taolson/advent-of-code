@@ -22,7 +22,6 @@ valid2 (Password p1 p2 req pass)
       where
         len      = #pass
         valid p  = 0 <= p <= len & pass ! (p - 1) ==. req
-        a $xor b = (a \/ b) & ~(a & b)
 
 p_password :: parser password
 p_password

@@ -19,7 +19,8 @@ m_fmapWithKey' :: (* -> ** -> ***) -> m_map * ** -> m_map * ***
 m_fmapWithKey' f
     = go
       where
-        go AVLLeaf                = AVLLeaf
+        go AVLLeaf = AVLLeaf
+
         go (AVLNode (k, v) l r h)
             = fkv $seq l' $seq r' $seq AVLNode (k, fkv) l' r' h
               where
@@ -59,7 +60,7 @@ coordinates (sz, rm)
     = elt1k + elt2k + elt3k
       where
         elts  = map snd . sortOn cmpint fst . m_elems $ rm
-        idx0  = fromJust . elemIndex cmpint 0 $ elts
+        idx0  = fromJust . elemIndex (== 0) $ elts
         elt1k = elts ! ((idx0 + 1000) $mod sz)
         elt2k = elts ! ((idx0 + 2000) $mod sz)
         elt3k = elts ! ((idx0 + 3000) $mod sz)

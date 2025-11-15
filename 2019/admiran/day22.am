@@ -28,9 +28,9 @@ appendLinear (Linear m a b) (Linear _ c d)
 
 powLinear :: linear -> num -> linear
 powLinear a n
-    = powLinear (recipLinear a) (- n),                        if n <  0
-    = unitLinear (modLinear a),                               if n == 0
-    = a,                                                      if n == 1
+    = powLinear (recipLinear a) (- n),                         if n <  0
+    = unitLinear (modLinear a),                                if n == 0
+    = a,                                                       if n == 1
     = seq a2 (powLinear a2 (n $div 2)),                        if even n
     = seq a2 (appendLinear a (powLinear a2 ((n - 1) $div 2))), otherwise
       where

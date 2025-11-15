@@ -3,7 +3,7 @@
 
 %export day12
 
-%import "adventLib"
+%import "adventLib"     -(|*|)
 %import <lens>
 %import <maybe>
 %import <set>

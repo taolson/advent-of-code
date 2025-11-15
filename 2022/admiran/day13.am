@@ -63,4 +63,4 @@ day13
                 part2   = (++) "part 2: " . showint . product . map (findIndex pkts) $ divPkts
 
         addPair (a, b) xs = a : b : xs
-        findIndex xs x    = fromJust (elemIndex cmppacket x xs) + 1
+        findIndex xs x    = fromJust (elemIndex (_eq cmppacket x) xs) + 1

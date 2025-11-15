@@ -112,7 +112,7 @@ mkDstId n d (modm, srcm, gen)
     = ((mid, idx), (modm, srcm, gen))
       where
         mid = fromMaybe 0 $ m_lookup cmpmodName d modm
-        idx = fromMaybe 0 $ m_lookup cmpmodName d srcm $mb_bind elemIndex cmpmodName n
+        idx = fromMaybe 0 $ m_lookup cmpmodName d srcm $mb_bind elemIndex (==$ n)
         
 makeMod :: (modName, char, modId, [modName]) -> state parseSt module
 makeMod (n, c, mid, dests)
