@@ -1,4 +1,4 @@
-|| day01.m
+|| day01.m -- Secret Entrance
 
 
 %export day01
@@ -6,12 +6,36 @@
 %import "adventLib"
 
 
+parseRotation :: string -> int
+parseRotation ('L' : s) = -intval s
+parseRotation ('R' : s) =  intval s
+parseRotation s         =  error ("bad rotation " ++ s)
+
+turnDial :: int -> int -> int
+turnDial d n = (d + n) $mod 100
+
+|| count the number of times we pass through zero while turning the dial
+countZeros :: (int, int) -> int -> (int, int)
+countZeros (d, z) n
+    = (d', z')
+      where
+        (q, r) = (d + n) $divmod 100
+        d'     = r
+        z'     = z + abs q + corr
+
+        || need to correct the zero count for two cases:
+        || if we are rotating left (n < 0), then:
+        || if the dial was at zero initially, decrement the count
+        || if the dial ends up on zero, increment the count
+        corr = if' (n < 0 & d  == 0) (-1) 0 +
+               if' (n < 0 & d' == 0)   1  0
+
 day01 :: io ()
 day01
-    = readInput "day01" >>= go
+    = readInput "day01" >>= lines .> map parseRotation .> go
       where
-        go input
+        go rots
             = output [part1, part2]
               where
-                part1 = input
-                part2 = undef
+                part1 = scanl turnDial 50 rots |> count (== 0) |> showint
+                part2 = foldl countZeros (50, 0) rots |> snd |> showint
