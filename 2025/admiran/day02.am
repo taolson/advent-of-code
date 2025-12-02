@@ -1,4 +1,4 @@
-|| day02.m
+|| day02.am -- Gift Shop
 
 
 %export day02
@@ -6,12 +6,37 @@
 %import "adventLib"
 
 
+productID == int
+
+invalidID1, invalidID2 :: productID -> bool
+invalidID1 = showint .> split2 .> uncurry (==$)
+
+invalidID2 id
+    = foldr check False [1 .. len $div 2]
+      where
+        s   = showint id
+        len = #s
+
+        isSingleton [_] = True
+        isSingleton _   = False
+
+        check n k = (chunk n s |> nub cmpstring |> isSingleton) \/ k
+
+parseRanges :: string -> [[productID]]
+parseRanges
+    = split ',' .> map (split '-' .> map intval .> mkRange)
+      where
+        mkRange [lo, hi] = [lo .. hi]
+        mkRange _        = error "parse error"
+
 day02 :: io ()
 day02
-    = readInput "day02" >>= go
+    = readInput "day02" >>= parseRanges .> go
       where
-        go input
+        go ranges
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = process invalidID1
+                part2 = process invalidID2
+
+                process p = concatMap (filter p) ranges |> sum |> showint
