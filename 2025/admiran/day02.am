@@ -17,10 +17,7 @@ invalidID2 id
         s   = showint id
         len = #s
 
-        isSingleton [_] = True
-        isSingleton _   = False
-
-        check n k = (chunk n s |> nub cmpstring |> isSingleton) \/ k
+        check n k = (chunk n s |> allEqual cmpstring) \/ k
 
 parseRanges :: string -> [[productID]]
 parseRanges
