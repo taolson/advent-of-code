@@ -12,12 +12,12 @@ invalidID1, invalidID2 :: productID -> bool
 invalidID1 = showint .> split2 .> uncurry (==$)
 
 invalidID2 id
-    = foldr check False [1 .. len $div 2]
+    = any repeats [1 .. len $div 2]
       where
         s   = showint id
         len = #s
 
-        check n k = (chunk n s |> allEqual cmpstring) \/ k
+        repeats n = chunk n s |> allEqual cmpstring
 
 parseRanges :: string -> [[productID]]
 parseRanges
