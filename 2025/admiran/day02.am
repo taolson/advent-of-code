@@ -11,24 +11,13 @@
 %import <maybe>
 
 
-|| represent the product id as a sequence of digits, rather than a number, to allow quick digit length and extraction of first digits
-prodId    == [int]
+prodId    == string
 prodRange == (prodId, prodId)
 
-toProdId :: int -> prodId
-toProdId 0 = [0]
-toProdId n
-    = go [] n
-      where
-        go ds 0 = ds
-        go ds n = case n $quotrem 10 of (q, r) -> go (r : ds) q
-
-fromProdId :: prodId -> int
-fromProdId ds = foldl (\n d -> n * 10 + d) 0 ds
-
-|| used to check for all possible pattern lengths for a given prodId length
-divisors :: int -> [(int, int)]
-divisors n = [(d, n $quot d) | d <- [1 .. n $quot 2]; n $rem d == 0]
+|| divisibility tests used to generate possible pattern lengths
+divisors, evenSplit :: int -> [(int, int)]
+divisors  n = [(d, n $quot d) | d <- [1 .. n $quot 2]; n $rem d == 0]
+evenSplit n = if' (even n) [(n $quot 2, 2)] []
 
 || given a lo, hi pid with equal number of digits, find all invalid ids between them
 || with pattern repetition lengths given by getDivisors
@@ -36,8 +25,8 @@ invalidInEqualRange :: (int -> [(int, int)]) -> prodId -> prodId -> [int]
 invalidInEqualRange getDivisors lo hi
     = getDivisors len |> concatMap checkPatterns |> nub cmpint
       where
-        nLo = fromProdId lo
-        nHi = fromProdId hi
+        nLo = intval lo
+        nHi = intval hi
         len = #lo
 
         || check patterns of d digits replicated reps times
@@ -45,14 +34,14 @@ invalidInEqualRange getDivisors lo hi
             = map (checkId reps) pats |> catMaybes
               where
                 || create a range of d-digit numbers from the first d digits of lo and hi
-                pats = mapBoth (take d .> fromProdId) (lo, hi) |> uncurry range
+                pats = mapBoth (take d .> intval) (lo, hi) |> uncurry range
 
         || create an id by repeating pat reps times, and see if it is in range
         checkId reps pat
             = Just n,  if nLo <= n <= nHi
             = Nothing, otherwise
               where
-                n = toProdId pat |> rep reps |> concat |> fromProdId
+                n = showint pat |> rep reps |> concat |> intval
 
 || split range into two parts, if hi has more digits than lo
 invalidInRange :: (int -> [(int, int)]) -> prodRange -> [int]
@@ -63,12 +52,12 @@ invalidInRange getDivisors (lo, hi)
       where
         nlo   = #lo
         nhi   = #hi
-        nines = rep nlo 9
-        tens  = 1 : rep nlo 0
+        nines = rep nlo '9'
+        tens  = '1' : rep nlo '0'
 
 parseRanges :: string -> [prodRange]
 parseRanges
-    = split ',' .> map (split '-' .> map (filter digit .> map digitVal) .> mkRange)
+    = split ',' .> map (split '-' .> map (filter digit) .> mkRange)
       where
         mkRange [lo, hi] = (lo, hi)
         mkRange _        = error "parse error"
@@ -80,7 +69,7 @@ day02
         go ranges
             = output [part1, part2]
               where
-                part1 = process (\n -> if' (even n) [(n $quot 2, 2)] [])
-                part2 = process (\n -> divisors n)
+                part1 = process evenSplit
+                part2 = process divisors
 
                 process f = concatMap (invalidInRange f) ranges |> sum |> showint
