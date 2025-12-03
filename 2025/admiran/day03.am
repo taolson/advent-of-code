@@ -1,35 +1,30 @@
 || day03.am -- Lobby
+||
+|| The first version of this used memoization of a search with and without using each digit.
+|| This version takes advantage of a look-ahead window to drop any digit if there's a better
+|| one available.
 
 
 %export day03
 
 %import "adventLib"
-%import <map>
-%import <maybe>
-%import <memo>
-%import <state>
 
-
-|| key used in memoized map lookup
-key == (int, string)
-
-|| compare two joltage strings by comparing their integer values
-cmpjolt :: string -> string -> ordering
-cmpjolt a b = cmpint (intval a) (intval b)
 
 computeJoltage :: int -> [char] -> int
-computeJoltage n ds
-    = st_evalState (findBest (n, ds)) (cmpkey, m_empty) |> intval
+computeJoltage nd ds
+    = go len nd ds |> intval
       where
-        findBest = memo findBest'
+        len = #ds
 
-        findBest' (0, ds) = st_pure []
-        findBest' (n, []) = st_pure []
-        findBest' (n, d : ds)
-            = st_liftA2 (max2 cmpjolt) bestWith bestWithout
+        go r 0 ds = []
+        go r n [] = []
+        go r n (d : ds)
+            = go r' n ds,           if canSkip & hasBetter
+            = d : go r' (n - 1) ds, otherwise
               where
-                bestWith    = (d :) <$> findBest (n - 1, ds)
-                bestWithout = findBest (n, ds)
+                r'        = r - 1
+                canSkip   = r > n
+                hasBetter = any (>. d) $ take (r - n) ds
  
 day03 :: io ()
 day03
