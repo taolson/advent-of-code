@@ -1,39 +1,55 @@
-|| day04.am -- Printind Department
+|| day04.am -- Printing Department
+||
+|| the initial version of this solution was a straightforward use of a set of positions  to represent
+|| the grid.  However, since the operation performed here is repeated 3x3 convolutions, the access
+|| pattern is very localized, and we can exploit this by representing the grid as a list of list of
+|| ints, and perform vertical and horizontal scans on groups of 3 rows / columns
 
 
 %export day04
 
 %import "adventLib"
-%import <set>
-%import <v2>
 
-pos  == v2 int
-grid == s_set pos
+
+grid == [[int]]
+tri  == (int, int, int)
+
+focus, sum3 :: tri -> int
+focus (a, b, c) = b
+sum3  (a, b, c) = a + b + c
 
 makeGrid :: string -> grid
-makeGrid s = [V2 r c | (r, row) <- lines s |> enumerate; (c, x) <- enumerate row; x ==. '@'] |> s_fromList cmppos
+makeGrid = lines .> map (map (\c -> if' (c ==. '@') 1 0))
 
-adjacent :: pos -> [pos]
-adjacent (V2 r c) = [V2 (r + dr) (c + dc) | dr, dc <- [-1 .. 1]; dr ~= 0 \/ dc ~= 0]
+|| put a "fence" of zeros around the edges of the grid so the 3x3 convolution works correctly at th edges
+expandGrid :: grid -> grid
+expandGrid g = (repeat 0 : map (\r -> (0 : r) ++ [0]) g) ++ [repeat 0]
 
-countAdjacent :: grid -> pos -> int
-countAdjacent g p
-    = adjacent p |> count isAdj
+|| scan vertically down the rows, grouping 3 rows at a time (top, middle, bottom)
+|| and collect the number of rolls removed and the new grid
+scanV (t : m : b : rs)
+    = case scanH (zip3 t m b) of (n, m') -> 
+      case scanV (m : b : rs) of (s, g') ->
+      (n + s, m' : g')
+
+scanV _ = (0, [])
+
+|| scan horizontally across the 3 rows, extracting the 9 neighbors around mc
+scanH (l : c : r : rs)
+    = case scanH (c : r : rs) of (s, xs) ->
+      case cm == 1 & sum3 l + sum3 c + sum3 r < 5 of
+        False -> (s,     cm : xs)
+        True  -> (s + 1, 0  : xs)
       where
-        isAdj p = s_member cmppos p g
+        cm      = focus c
 
-|| remove the accessible rolls from a grid and return the count
+scanH _ = (0, [])
+
 removeAccessible :: grid -> (int, grid)
-removeAccessible g
-    = s_toList g |> foldl go (0, []) |> mapSnd (s_fromList cmppos)
-      where
-        go s p
-            = mapFst (+ 1) s, if countAdjacent g p < 4
-            = mapSnd (p :) s, otherwise
+removeAccessible g = expandGrid g |> scanV
 
-totalRemovable :: grid -> int
-totalRemovable g
-    = iterate (snd .> removeAccessible) (0, g) |> tl |> map fst |> takeWhile (> 0) |> sum
+totalRemoved :: grid -> int
+totalRemoved g = iterate (snd .> removeAccessible) (0, g) |> tl |> map fst |> takeWhile (> 0) |> sum
 
 day04 :: io ()
 day04
@@ -43,4 +59,4 @@ day04
             = output [part1, part2]
               where
                 part1 = removeAccessible grid |> fst |> showint
-                part2 = totalRemovable grid |> showint
+                part2 = totalRemoved grid |> showint
