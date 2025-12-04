@@ -1,6 +1,6 @@
 || day04.am -- Printing Department
 ||
-|| the initial version of this solution was a straightforward use of a set of positions  to represent
+|| the initial version of this solution was a straightforward use of a set of positions to represent
 || the grid.  However, since the operation performed here is repeated 3x3 convolutions, the access
 || pattern is very localized, and we can exploit this by representing the grid as a list of list of
 || ints, and perform vertical and horizontal scans on groups of 3 rows / columns
@@ -34,14 +34,15 @@ scanV (t : m : b : rs)
 
 scanV _ = (0, [])
 
-|| scan horizontally across the 3 rows, extracting the 9 neighbors around mc
+|| scan horizontally across the 3 rows, checking the focus for a roll, and
+|| removing it if the count of neighbors (plus focus) is < 5
 scanH (l : c : r : rs)
     = case scanH (c : r : rs) of (s, xs) ->
       case cm == 1 & sum3 l + sum3 c + sum3 r < 5 of
         False -> (s,     cm : xs)
         True  -> (s + 1, 0  : xs)
       where
-        cm      = focus c
+        cm = focus c
 
 scanH _ = (0, [])
 
