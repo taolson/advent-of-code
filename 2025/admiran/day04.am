@@ -1,17 +1,46 @@
-|| day04.m
+|| day04.am -- Printind Department
 
 
 %export day04
 
 %import "adventLib"
+%import <set>
+%import <v2>
 
+pos  == v2 int
+grid == s_set pos
+
+makeGrid :: string -> grid
+makeGrid s = [V2 r c | (r, row) <- lines s |> enumerate; (c, x) <- enumerate row; x ==. '@'] |> s_fromList cmppos
+
+adjacent :: pos -> [pos]
+adjacent (V2 r c) = [V2 (r + dr) (c + dc) | dr, dc <- [-1 .. 1]; dr ~= 0 \/ dc ~= 0]
+
+countAdjacent :: grid -> pos -> int
+countAdjacent g p
+    = adjacent p |> count isAdj
+      where
+        isAdj p = s_member cmppos p g
+
+|| remove the accessible rolls from a grid and return the count
+removeAccessible :: grid -> (int, grid)
+removeAccessible g
+    = s_toList g |> foldl go (0, []) |> mapSnd (s_fromList cmppos)
+      where
+        go s p
+            = mapFst (+ 1) s, if countAdjacent g p < 4
+            = mapSnd (p :) s, otherwise
+
+totalRemovable :: grid -> int
+totalRemovable g
+    = iterate (snd .> removeAccessible) (0, g) |> tl |> map fst |> takeWhile (> 0) |> sum
 
 day04 :: io ()
 day04
-    = readInput "day04" >>= go
+    = readInput "day04" >>= makeGrid .> go
       where
-        go input
+        go grid
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = removeAccessible grid |> fst |> showint
+                part2 = totalRemovable grid |> showint
