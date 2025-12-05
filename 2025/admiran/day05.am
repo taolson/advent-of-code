@@ -1,17 +1,64 @@
-|| day05.m
+|| day05.am -- Cafeteria
 
 
 %export day05
 
 %import "adventLib"
+%import <maybe>
 
+
+pid      == int
+pidRange == (pid, pid)
+
+|| custom comparison for pidRange to allow merging
+cmppidRange :: ordI pidRange
+cmppidRange a b
+    = LT, if snd a < fst b - 1
+    = GT, if fst a > snd b + 1
+    = EQ, otherwise
+
+merge :: pidRange -> pidRange -> pidRange
+merge (la, ha) (lb, hb) = (min2 cmpint la lb, max2 cmpint ha hb)
+
+|| insert a pidRange into a sorted list of pidRanges, merging when possible
+insertMerge :: [pidRange] -> pidRange -> [pidRange]
+insertMerge []         r = [r]
+insertMerge (mr : mrs) r
+    = case cmppidRange r mr of
+        EQ -> merge r mr |> insertMerge mrs
+        LT -> r : mr : mrs
+        GT -> mr : insertMerge mrs r
+
+mergeRanges :: [pidRange] -> [pidRange]
+mergeRanges rs = foldl insertMerge [] rs
+
+isFresh :: [pidRange] -> pid -> bool
+isFresh rs p = find (\(lo, hi) -> lo <= p <= hi) rs |> isJust
+
+rangeSize :: pidRange -> int
+rangeSize (lo, hi) = hi - lo + 1
+
+parseInput :: string -> ([pidRange], [pid])
+parseInput s
+    = lines s |> splitWhen null |> parse
+      where
+        err = error "parse error"
+
+        parse [rs, is] = (map parseRanges rs |> mergeRanges, map intval is)
+        parse _        = err
+
+        parseRanges rs
+            = split '-' rs |> map intval |> mkRange
+              where
+                mkRange [lo, hi] = (lo, hi)
+                mkRange _        = err
 
 day05 :: io ()
 day05
-    = readInput "day05" >>= go
+    = readInput "day05" >>= parseInput .> go
       where
-        go input
+        go (ranges, items)
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = count (isFresh ranges) items |> showint
+                part2 = map rangeSize ranges |> sum |> showint
