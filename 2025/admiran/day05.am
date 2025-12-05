@@ -40,18 +40,12 @@ rangeSize (lo, hi) = hi - lo + 1
 
 parseInput :: string -> ([pidRange], [pid])
 parseInput s
-    = lines s |> splitWhen null |> parse
+    = lines s |> splitWhen null |> mkPair |> ((map parseRange .> mergeRanges) *** map intval)
       where
-        err = error "parse error"
+        mkPair [a, b] = (a, b)
+        mkPair _      = error "parse error"
 
-        parse [rs, is] = (map parseRanges rs |> mergeRanges, map intval is)
-        parse _        = err
-
-        parseRanges rs
-            = split '-' rs |> map intval |> mkRange
-              where
-                mkRange [lo, hi] = (lo, hi)
-                mkRange _        = err
+        parseRange rs = split '-' rs |> map intval |> mkPair
 
 day05 :: io ()
 day05
