@@ -1,17 +1,43 @@
-|| day06.m
+|| day06.am -- Trash Compactor
 
 
 %export day06
 
 %import "adventLib"
+%import <maybe>
 
+|| an eqn is a list of ints as strings, and an operator string to perform on them
+eqn == ([string], string)
+
+|| solve an eqn
+solve :: eqn -> int
+solve (ds, op)
+    = map intval ds |> go op
+      where
+        go "+" ns = sum ns
+        go "*" ns = product ns
+        go op  ns = error ("bad operation: " ++ op)
+
+|| organize the input into a list of eqns
+organize1, organize2 :: [string] -> [eqn]
+organize1 = map words .> transpose .> map viewR .> catMaybes
+
+organize2
+    = viewR .> fromJust .> (organizeNums *** words) .> uncurry zip2
+      where
+        organizeNums = transpose .> map stripBlanks .> splitWhen null
+
+        stripBlanks (' ' : xs) = stripBlanks xs
+        stripBlanks xs         = xs
 
 day06 :: io ()
 day06
-    = readInput "day06" >>= go
+    = readInput "day06" >>= lines .> go
       where
         go input
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = process organize1
+                part2 = process organize2
+
+                process f = f input |> map solve |> sum |> showint

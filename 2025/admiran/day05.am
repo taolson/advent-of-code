@@ -12,9 +12,9 @@ pidRange == (pid, pid)
 
 || custom comparison for pidRange to allow merging
 cmppidRange :: ordI pidRange
-cmppidRange a b
-    = LT, if snd a < fst b - 1
-    = GT, if fst a > snd b + 1
+cmppidRange (la, ha) (lb, hb)
+    = LT, if ha < lb - 1
+    = GT, if la > hb + 1
     = EQ, otherwise
 
 merge :: pidRange -> pidRange -> pidRange
