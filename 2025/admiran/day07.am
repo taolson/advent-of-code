@@ -1,17 +1,71 @@
-|| day07.m
+|| day07.am -- Laboratories
 
 
 %export day07
 
 %import "adventLib"
+%import <set>
+%import <maybe>
 
+
+grid     == [[int]]     || column indices of splitters in row
+gridInfo == (grid, int) || grid, startCol, maxRow
+
+parseGrid :: string -> gridInfo
+parseGrid s
+    = (grid, start)
+      where
+        rows  = lines s
+        start = indices 'S' (hd rows) |> hd
+        grid  = map (indices '^') rows
+
+        indices c xs = [n | (n, x) <- enumerate xs; x ==. c]
+
+
+beam == (int, int)      || column, #paths
+
+mergeBeam :: beam -> beam -> beam
+mergeBeam (c, n1) (_, n2) = (c, n1 + n2)
+
+|| split an ordered list of beams with an ordered list of splitter columns,
+|| returning the list of split beams and the list of continuing beams
+splitBeams :: [beam] -> [int] -> ([beam], [beam])
+splitBeams (b : bs) (c : cs)
+    = case cmpint (fst b) c of
+        EQ -> splitBeams bs cs       |> mapFst (b :)    || beam was split
+        LT -> splitBeams bs (c : cs) |> mapSnd (b :)    || beam continues
+        GT -> splitBeams (b : bs) cs                    || try rest of splitters
+splitBeams bs cs = ([], bs)                             || any remaining beams continue
+
+|| merge beams into a single ordered beam list
+mergeBeams :: [beam] -> [beam] -> [beam]
+mergeBeams xs [] = xs
+mergeBeams [] ys = ys
+mergeBeams (x : xs) (y : ys)
+    = case comparing cmpint fst x y of
+        EQ -> mergeBeam x y : mergeBeams xs ys
+        LT -> x : mergeBeams xs (y : ys)
+        GT -> y : mergeBeams (x : xs) ys
+mergeBeams _ _ = undef || added to remove compiler warning
+
+tallySplits :: gridInfo -> ([beam], int)
+tallySplits (grid, start)
+    = foldl scan ([(start, 1)], 0) grid
+      where
+        scan (beams, totSplits) splitters
+            = (beams', totSplits + #splits)
+              where
+                (splits, conts) = splitBeams beams splitters
+                lows            = map (mapFst (subtract 1)) splits
+                highs           = map (mapFst (+ 1)) splits
+                beams'          = mergeBeams conts (mergeBeams lows highs)
 
 day07 :: io ()
 day07
-    = readInput "day07" >>= go
+    = readInput "day07" >>= parseGrid .> tallySplits .> go
       where
-        go input
+        go (beams, splits)
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = splits |> showint
+                part2 = map snd beams |> sum |> showint
