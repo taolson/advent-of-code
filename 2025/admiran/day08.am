@@ -1,17 +1,75 @@
-|| day08.m
+|| day08.am -- Playground
 
 
 %export day08
 
 %import "adventLib"
+%import <map>
+%import <maybe>
+%import <v3>
 
+
+box     == v3 int
+boxPair == (box, box)
+
+square :: int -> int
+square x = x * x
+
+dist :: box -> box -> int
+dist a b = v3_sub a b |> v3_fmap square |> v3_sum
+
+closestPairs :: [box] -> [boxPair]
+closestPairs vs
+    = allPairs |> sortBy (comparing cmpint (uncurry dist))
+      where
+        allPairs = [(a, b) | a : r <- tails vs; b <- r]
+
+cluster :: [boxPair] -> ([[box]], boxPair)
+cluster ps
+    = foldl addPair (m_empty, m_empty, hd ps) ps |> \(m, _, p) -> (m_elems m, p)
+      where
+        addPair (cm, rm, p) (a, b)
+            = (classify $on (\x -> m_lookup cmpbox x rm)) a b
+              where
+                classify Nothing   Nothing   = newCircuit [a, b]        || neither box was already in a circuit
+                classify (Just c)  Nothing   = addCircuit c b           || add box b to circuit of box a
+                classify Nothing   (Just c)  = addCircuit c a           || add box a to circuit of box b
+                classify (Just c1) (Just c2) = mergeCircuits c1 c2      || both boxes are in different circuits; merge them
+
+                newCircuit bs
+                    = (cm', rm', (a, b))
+                      where
+                        new    = if' (m_null cm) 0 (m_last cm |> fst |> (+ 1))
+                        cm'    = m_insert cmpint new bs cm
+                        rm'    = foldl (\m b -> m_insert cmpbox b new m) rm bs
+
+                addCircuit c x
+                    = (cm', rm', (a, b))
+                      where
+                        cm'    = m_insertWith cmpint (++) c [x] cm
+                        rm'    = m_insert cmpbox x c rm
+
+                mergeCircuits c1 c2
+                    = (cm, rm, p),        if c1 == c2
+                    = (cm', rm', (a, b)), otherwise
+                      where
+                        bs  = m_findWithDefault cmpint [] c2 cm
+                        cm' = m_insertWith cmpint (++) c1 bs cm |> m_delete cmpint c2
+                        rm' = foldl (\m b -> m_insert cmpbox b c1 m) rm bs
+
+parseBoxes :: string -> [box]
+parseBoxes
+    = lines .> map (split ',' .> map intval .> mkV3)
+      where
+        mkV3 [x, y, z] = V3 x y z
+        mkV3 _         = error "parse error"
 
 day08 :: io ()
 day08
-    = readInput "day08" >>= go
+    = readInput "day08" >>= parseBoxes .> closestPairs .> go
       where
-        go input
+        go pairs
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = pairs |> take 1000 |> cluster |> fst |> map length |> sortBy (descending cmpint id) |> take 3 |> product |> showint
+                part2 = pairs |> cluster |> snd |> mapBoth viewV3_0 |> uncurry (*) |> showint
