@@ -15,12 +15,24 @@ boxPair == (box, box)
 square :: int -> int
 square x = x * x
 
-dist :: box -> box -> int
-dist a b = v3_sub a b |> v3_fmap square |> v3_sum
+dist :: boxPair -> int
+dist (a, b) = v3_sub a b |> v3_fmap square |> v3_sum
+
+|| since we will be taking only the first part of the sorted distances,
+|| use a lazy qsort to sort the boxPairs so that not all pairs have to be
+|| sorted first.
+qsort :: [boxPair] -> [boxPair]
+qsort [] = []
+qsort (x : xs)
+    = qsort lo ++ [x] ++ qsort hi
+      where
+        d  = dist x
+        lo = filter (\p -> dist p < d) xs
+        hi = filter (\p -> dist p > d) xs
 
 closestPairs :: [box] -> [boxPair]
 closestPairs vs
-    = allPairs |> sortBy (comparing cmpint (uncurry dist))
+    = allPairs |> qsort
       where
         allPairs = [(a, b) | a : r <- tails vs; b <- r]
 
