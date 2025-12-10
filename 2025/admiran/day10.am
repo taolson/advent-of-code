@@ -1,17 +1,73 @@
-|| day10.m
+|| day10.am -- Factory --
 
 
 %export day10
 
 %import "adventLib"
+%import <bfs>
+%import <bitSet>
+%import <maybe>
+%import <parser>        (>>=?)/p_bind (>>?)/p_right (<$>?)/p_fmap (<|>?)/p_alt
 
+
+machine ::= Machine bitSet [bitSet] [int]
+
+p_light :: parser int
+p_light = p_any >>=? check
+          where
+            check '.' = p_pure 0
+            check '#' = p_pure 1
+            check _   = p_fail
+
+p_indicator :: parser bitSet
+p_indicator = mkInd <$>? p_inBrackets (p_some p_light)
+              where
+                mkInd xs = foldr (\x n -> n * 2 + x) 0 xs |> bs_fromInt
+
+p_button :: parser bitSet
+p_button = mkButton <$>? p_inParens p_intlist
+           where
+             mkButton xs = foldl (converse bs_insert) bs_empty xs
+
+p_joltage :: parser [int]
+p_joltage = p_inBraces p_intlist
+
+p_machine :: parser machine
+p_machine = p_liftA3 Machine (p_spaces >>? p_indicator) (p_spaces >>? p_someSepBy p_spaces p_button) (p_spaces >>? p_joltage)
+
+parseMachines :: string -> [machine]
+parseMachines s
+    = case parse (p_some p_machine) s of
+        (mr, ps) -> fromMaybe (error (p_error ps)) mr
+
+|| toggle bits in a bitSet
+toggle :: bitSet -> bitSet -> bitSet
+toggle a b = ((.^.) $on bs_toInt) a b |> bs_fromInt
+
+powerSet :: [*] -> [[*]]
+powerSet []       = [[]]
+powerSet (x : xs) = case powerSet xs of xs' -> xs' ++ map (x :) xs'
+
+|| find the minimum button presses to turn on a machine
+|| Since a button is only used 0 or 1 time (because XOR is its own inverse), use powerSet to generate
+|| all possible button combos, sort on length, then find the first one that results in the goal
+findMinStart :: machine -> int
+findMinStart (Machine goal buttons _)
+    = powerSet buttons |> sortOn cmpint length |> find (foldl toggle goal .> bs_null) |> fromMaybef 0 length
+
+|| BFS here is too slow. We need to find the solution to a set of linear equations to find the number of
+|| button presses of each button that exactly tallys to the joltage requirements.  I wonder if somehow the
+|| Chinese Remainer Theorem could be applicable, here?
+findMinJoltage :: machine -> int
+findMinJoltage (Machine _ buttons goal)
+    = undef
 
 day10 :: io ()
 day10
-    = readInput "day10" >>= go
+    = readInput "day10" >>= parseMachines .> go
       where
-        go input
+        go machines
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = map findMinStart   machines |> sum |> showint
+                part2 = map findMinJoltage machines |> sum |> showint
