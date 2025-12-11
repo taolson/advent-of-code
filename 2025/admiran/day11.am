@@ -1,17 +1,49 @@
-|| day11.m
-
+|| day11.am -- Reactor
 
 %export day11
 
 %import "adventLib"
+%import <map>
+%import <maybe>
+%import <memo>
+%import <state>
 
+devId == string
+graph == m_map devId [devId]
+
+makeGraph :: string -> graph
+makeGraph
+    = lines .> map words .> foldl ins m_empty
+      where
+        ins m (k : vs) = m_insert cmpstring (init k) vs m
+        ins _ _        = error "parse error"
+
+|| count the paths in the graph from start to end, using a memoized lookup
+countPaths :: graph -> devId -> devId -> int
+countPaths g start end
+    = st_evalState (countPaths' start) (cmpstring, m_empty)
+      where
+        countPaths' = memo go
+        go d = st_pure 1,                      if d ==$ end
+             = st_pure 0,                      if isNothing mxs
+             = sum <$> st_mapM countPaths' xs, otherwise
+               where
+                 mxs = m_lookup cmpstring d g
+                 xs  = fromJust mxs
+
+|| count the number of paths from start to end that go through visits (in any order)
+countPathsVisiting :: graph -> devId -> devId -> [devId] -> int
+countPathsVisiting g start end visits
+    = permutations visits |> map traverse |> sum
+      where
+        traverse seq = zip2 (start : seq) (seq ++ [end]) |> map (uncurry (countPaths g)) |> product
 
 day11 :: io ()
 day11
-    = readInput "day11" >>= go
+    = readInput "day11" >>= makeGraph .> go
       where
-        go input
+        go g
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = countPaths g "you" "out" |> showint
+                part2 = countPathsVisiting  g "svr" "out" ["dac", "fft"] |> showint
