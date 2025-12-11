@@ -44,16 +44,17 @@ parseMachines s
 toggle :: bitSet -> bitSet -> bitSet
 toggle a b = ((.^.) $on bs_toInt) a b |> bs_fromInt
 
+|| instead of the standard recursive version of a powerSet, this version
+|| uses combinations to return the powerSet sorted by length
 powerSet :: [*] -> [[*]]
-powerSet []       = [[]]
-powerSet (x : xs) = case powerSet xs of xs' -> xs' ++ map (x :) xs'
+powerSet xs = concatMap (converse combinations xs) [0 .. #xs]
 
 || find the minimum button presses to turn on a machine
 || Since a button is only used 0 or 1 time (because XOR is its own inverse), use powerSet to generate
-|| all possible button combos, sort on length, then find the first one that results in the goal
+|| all possible button combos, then find the first one that results in the goal
 findMinStart :: machine -> int
 findMinStart (Machine goal buttons _)
-    = powerSet buttons |> sortOn cmpint length |> find (foldl toggle goal .> bs_null) |> fromMaybef 0 length
+    = powerSet buttons |> find (foldl toggle goal .> bs_null) |> fromMaybef 0 length
 
 || BFS here is too slow. We need to find the solution to a set of linear equations to find the number of
 || button presses of each button that exactly tallys to the joltage requirements.  I wonder if somehow the
