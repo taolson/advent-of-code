@@ -21,9 +21,9 @@ sum3  (a, b, c) = a + b + c
 makeGrid :: string -> grid
 makeGrid = lines .> map (map (\c -> if' (c ==. '@') 1 0))
 
-|| put a "fence" of zeros around the edges of the grid so the 3x3 convolution works correctly at th edges
+|| put a "fence" of zeros around the edges of the grid so the 3x3 convolution works correctly at the edges
 expandGrid :: grid -> grid
-expandGrid g = (repeat 0 : map (\r -> (0 : r) ++ [0]) g) ++ [repeat 0]
+expandGrid = map (fence 0) .> fence (repeat 0) where fence f x = f : x ++ [f]
 
 || scan vertically down the rows, grouping 3 rows at a time (top, middle, bottom)
 || and collect the number of rolls removed and the new grid

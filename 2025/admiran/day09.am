@@ -1,17 +1,44 @@
-|| day09.m
+|| day09.am -- Movie Theater
 
 
 %export day09
 
 %import "adventLib"
+%import <v2>
 
+
+pos == v2 int
+
+minMax :: int -> int -> (int, int)
+minMax a b = (min2 cmpint a b, max2 cmpint a b)
+
+segment ::= Hseg int int int | Vseg int int int
+
+isHseg :: segment -> bool
+isHseg (Hseg _ _ _) = True
+isHseg _            = False
+
+mkSegment :: pos -> pos -> segment
+mkSegment (V2 r1 c1) (V2 r2 c2)
+    = uncurry (Hseg r1) (minMax c1 c2), if r1 == r2
+    = uncurry (Vseg c1) (minMax r1 r2), otherwise
+
+parseSegments :: string -> ([segment], [segment])
+parseSegments
+    = lines .> map (split ',' .> map intval .> mkV2) .> mkPath .> partition isHseg .> mapBoth (sortBy cmpsegment)
+      where
+        mkPath ps = zipWith mkSegment ps (tl ps ++ [hd ps])
+
+        mkV2 [c, r] = V2 r c
+        mkV2 _      = error "parse error"
 
 day09 :: io ()
 day09
-    = readInput "day09" >>= go
+    = readInput "day09" >>= parseSegments .> go
+||    = readFile "day09.txt" >>= parseSegments .> go
       where
-        go input
+        go (hsegs, vsegs)
             = output [part1, part2]
               where
-                part1 = undef
-                part2 = undef
+                part1 = showlist showsegment hsegs ++ showlist showsegment vsegs
+                part2 = "TBD"

@@ -71,4 +71,4 @@ day10
             = output [part1, part2]
               where
                 part1 = map findMinStart   machines |> sum |> showint
-                part2 = map findMinJoltage machines |> sum |> showint
+                part2 = "TBD" || map findMinJoltage machines |> sum |> showint
