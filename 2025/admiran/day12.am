@@ -1,17 +1,76 @@
-|| day12.m
+|| day12.am -- Christmas Tree Farm
 
 
 %export day12
 
 %import "adventLib"
+%import <maybe>
+%import <parser>        (>>=?)/p_bind (<$>?)/p_fmap (<<?)/p_left (>>?)/p_right
+%import <v2>
 
+
+|| A shape is a 3x3 square which can have "holes" in the edges;
+|| it can be rotated or flipped. There are only 5 shapes, and
+|| they are mostly filled, so it might be best to represent them as
+|| a list of "holes" that are "don't care" when checking for a fit.
+||
+|| We can't brute-force this via a DFS, because the number of shapes to try is
+|| way too big, so there must be an easier way to solve.
+||
+|| Can this be solved in a dynamic-programming fashion?  i.e. is there
+|| a local minimum-area packing between shapes that will always be the
+|| best globally?  Then we can build up a collection of supershapes to
+|| tile with, rather than working directly with smaller shapes.
+||
+|| First, we can do a gross filtering on regions by seeing if the required
+|| number of 3x3 tiles can even fit in the region.  This reduces the number
+|| from 1000 to 433.
+||
+|| Ha, ha, it turns out that that simple filtering comes up with the solution!
+
+
+shape  == ([char], int) || # of used 
+region == (int, int, [int])
+
+p_elem :: parser char
+p_elem = p_spaces >>? p_any >>=? check
+         where
+           check c = p_pure c, if c ==. '#' \/ c ==. '.'
+                   = p_fail,   otherwise
+
+p_id :: parser int
+p_id = p_spaces >>? p_int <<? p_char ':'
+
+p_shape :: parser shape
+p_shape = mkShape <$>? p_spaces >>? p_id >>? p_spaces >>? p_count 9 p_elem
+          where
+            mkShape xs = (xs, #filter (==. '#') xs)
+
+p_region :: parser region
+p_region = p_liftA3 triple (p_spaces >>? p_int) (p_char 'x' >>? p_int) (p_string ": " >>? p_someSepBy (p_char ' ') p_int)
+
+p_input :: parser ([shape], [region])
+p_input = p_liftA2 pair (p_some p_shape) (p_some p_region) <<? p_spaces <<? p_end
+
+parseInput :: string -> ([shape], [region])
+parseInput s
+    = fromMaybe err mr
+      where
+        (mr, ps) = parse p_input s
+        err      = error (p_error ps)
+
+|| filter the regions that are large enough to possibly hold the required shapes, by
+|| tallying the shape tile count times the number of times that shape is needed, and
+|| reporting whether the region's area is large enough
+validRegion :: [shape] -> region -> bool
+validRegion shapes (r, c, ns)
+    = ([snd (shapes ! i) * n | (i, n) <- enumerate ns] |> sum) <= r * c
 
 day12 :: io ()
 day12
-    = readInput "day12" >>= go
+    = readInput "day12" >>= parseInput .> go
       where
-        go input
-            = output [part1, part2]
+        go (shapes, regions)
+            = output [part1]
               where
-                part1 = undef
-                part2 = undef
+                part1 = #filter (validRegion shapes) regions |> showint
