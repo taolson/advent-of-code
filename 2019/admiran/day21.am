@@ -56,9 +56,6 @@ runScript script cmd prog
 
 || parsing
 
-p_inParens :: parser * -> parser *
-p_inParens p = p_char '(' >> p_spaces >> p << p_spaces << p_char ')'
-
 p_term :: parser expr
 p_term = (Var <$> p_letter)               <|>
          (Not <$> (p_char '!' >> p_term)) <|>

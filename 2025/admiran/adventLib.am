@@ -1,7 +1,7 @@
 || advent library
 
 || Advent of Code web site session cookie:
-sessionCookie = "put your cookie here"
+sessionCookie = "your cookie here"
 
 %export output readInput download  <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
 
@@ -32,8 +32,8 @@ readInput s
 
 download :: string -> string -> io int
 download s dst
-||    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
-    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io_pure 0
+    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
+||    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io_pure 0
       where
         cmd  = "curl"
         url  = "https://adventofcode.com"

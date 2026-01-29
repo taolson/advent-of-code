@@ -11,6 +11,7 @@
 %import <base>
 
 m_mapAccumWithKey f s AVLLeaf = (s, AVLLeaf)
+
 m_mapAccumWithKey f s (AVLNode (k, v) l r h)
     = (s3, AVLNode (k, v') l' r' h)
       where

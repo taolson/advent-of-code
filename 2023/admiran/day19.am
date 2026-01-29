@@ -50,9 +50,6 @@ sys         == (m_map string [rule], [part int])
 
 || parsing 
 
-p_inBraces :: parser * -> parser *
-p_inBraces p = p_char '{' >> p << p_char '}'
-
 p_ident :: parser string
 p_ident = p_many p_letter
 

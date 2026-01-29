@@ -57,8 +57,9 @@ findMinStart (Machine goal buttons _)
     = powerSet buttons |> find (foldl toggle goal .> bs_null) |> fromMaybef 0 length
 
 || BFS here is too slow. We need to find the solution to a set of linear equations to find the number of
-|| button presses of each button that exactly tallys to the joltage requirements.  I wonder if somehow the
-|| Chinese Remainer Theorem could be applicable, here?
+|| button presses of each button that exactly tallys to the joltage requirements. Possibly Gaussian
+|| elimination on a linear set of eqns, and then if it is still under-constrained, do a search from there.
+
 findMinJoltage :: machine -> int
 findMinJoltage (Machine _ buttons goal)
     = undef
@@ -70,5 +71,5 @@ day10
         go machines
             = output [part1, part2]
               where
-                part1 = map findMinStart   machines |> sum |> showint
+                part1 = map findMinStart  machines |> sum |> showint
                 part2 = "TBD" || map findMinJoltage machines |> sum |> showint

@@ -1,9 +1,9 @@
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>            (>>=.)/io_bind (<$>.)/io_fmap
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <base>          -shuffle
+%import <parser>        (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 
 shuffle ::= Rev | Cut num | Deal num

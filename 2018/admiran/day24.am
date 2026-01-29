@@ -157,9 +157,6 @@ isWeak :: quality -> bool
 isWeak (Weak, _) = True
 isWeak _         = False
 
-p_inParens :: parser * -> parser *
-p_inParens p = p_char '(' *> p <* p_char ')'
-
 p_liftA6 f ma mb mc md me mf = p_liftA4 f ma mb mc md <*> me <*> mf
 
 p_wordList :: parser [string]

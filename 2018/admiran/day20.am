@@ -51,7 +51,7 @@ expandElt :: (doorMap, roomSet) -> regExElt -> (doorMap, roomSet)
 expandElt (doorMap, starts) (RegExLit dir)
     = (doorMap', starts')
       where
-        startPairs = s_fromList (cmppair cmproom cmproom) . map pairDir . s_toList $ starts where pairDir r = (r, move dir r)
+        startPairs = s_fromList (cmptuple2 cmproom cmproom) . map pairDir . s_toList $ starts where pairDir r = (r, move dir r)
         starts'    = s_fromList cmproom . map snd . s_toList $ startPairs
         doorMap'   = s_foldl addDoor doorMap startPairs
 
@@ -79,10 +79,6 @@ mapRoomDistance doorMap
                 adjacent = m_findWithDefault cmproom [] here doorMap
                 toVisit' = foldl (converse dq_addR) toVisit . zip2 adjacent $ repeat (dist + 1)
                 dm'      = m_insert cmproom here dist dm
-
-p_inParens :: parser * -> parser *
-p_inParens p
-    = p_char '(' *> p <* p_char ')'
 
 p_regExLit :: parser regExElt
 p_regExLit

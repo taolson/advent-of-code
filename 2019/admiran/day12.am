@@ -51,14 +51,11 @@ findRepeat init
 
 || day12 parsing
 
-p_inBrackets :: parser * -> parser *
-p_inBrackets p = p_char '<' *> p <* p_char '>'
-
 p_pos :: parser position
 p_pos = p_any *> p_any *> p_int
 
 p_poslist :: parser [position]
-p_poslist = p_inBrackets (p_manySepBy (p_comma <* p_spaces) p_pos) <* p_spaces
+p_poslist = p_inAngles (p_manySepBy (p_comma <* p_spaces) p_pos) <* p_spaces
 
 makeSystem :: [[position]] -> sys
 makeSystem positions

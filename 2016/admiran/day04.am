@@ -53,9 +53,6 @@ p_room
                 dec = decodeName name ident
                 v   = validChecksum cs ccs
           
-isInfixOf :: ordI * -> [*] -> [*] -> bool
-isInfixOf cmp ts = any (isPrefixOf cmp ts) . tails
-
 findNorthPole :: [room] -> room
 findNorthPole = fromMaybe (error "not found!") . find (isInfixOf cmpchar "northpole" . getDecoded)
 
