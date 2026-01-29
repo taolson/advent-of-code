@@ -11,8 +11,6 @@
 %import <base>
 %import "intcode"
 
-(.>) = converse (.)
-
 point == (int, int)
 
 segType ::= Vert | Horiz | Bot
