@@ -12,13 +12,12 @@
 sequence == (mvector int, int)  || sequence of digits, sequence length
 elf      == int
 
-s_init :: int -> [int] -> sequence
+s_init :: int -> [int] -> st sequence
 s_init sz ds
-    = (st_evalState (init mv) (), #ds)
+    = enumerate ds |> st_mapM_ (\(i, x) -> v_unsafeWrite mv i x) >> st_pure (mv, #ds)
       where
-        mv      = v_unsafeThaw (v_rep sz (-1))
-        init mv = v_unsafeReplace mv (enumerate ds) >> st_pure mv
-        
+        mv  = v_rep sz (-1) |> v_unsafeThaw
+
 s_elfIndex :: sequence -> elf -> st int
 s_elfIndex (s, _) e = v_read s (e - 1)
 
@@ -50,9 +49,9 @@ recipeStep (s, e1, e2)
                         e1'     = (e1 + r1) $mod nDigits + 1
                         e2'     = (e2 + r2) $mod nDigits + 1
 
-stepToSize :: int -> recipeSt -> recipeSt
+stepToSize :: int -> recipeSt -> st recipeSt
 stepToSize sz rst
-    = st_evalState (go rst) ()
+    = go rst
       where
         go rst
             = st_pure rst,           if rstSize rst >= sz
@@ -60,10 +59,9 @@ stepToSize sz rst
               where
                 rstSize ((_, n), _, _) = n
 
-
-findDigits :: [int] -> recipeSt -> int
+findDigits :: [int] -> recipeSt -> st int
 findDigits pat rst
-    = st_evalState (go rst) ()
+    = go rst
       where
         nDigits = #pat
 
@@ -73,7 +71,7 @@ findDigits pat rst
               where
                 ((mv, sz), _, _) = rst
 
-                extractLast = st_mapM (v_read mv) [i | i <- [sz - nDigits - 1 .. sz - 1]]       || extract nDigits + 1 digits
+                extractLast = st_mapM (v_unsafeRead mv) [sz - nDigits - 1 .. sz - 1]       || extract nDigits + 1 digits
 
                 check ds
                     = st_pure (sz - nDigits - 1), if and $ zipWith (==) ds      pat
@@ -88,18 +86,27 @@ mkDigits n
         go ds 0 = ds
         go ds n = go ((n $mod 10) : ds) (n $div 10)
 
-doPart1 :: int -> int -> recipeSt -> string
-doPart1 nds ndrop ((mv, _), _, _)
-    = concatMap showint . st_evalState extract $ ()
-      where
-        extract = st_mapM (v_read mv) [i | i <- [ndrop .. ndrop + nds - 1]]
-
+|| initial version had an out-of-order sequencing bug which was uncovered when a change was made to compiler inlining;
+|| this version forces correct sequential execution by sequencing each major part through the io monad, with each
+|| minor part being independently sequenced via st_evalState
 day14 :: io ()
 day14
-    = io_mapM_ putStrLn [part1, part2]
+    = doInit >>= doSteps >>= doPart1 >>= doPart2
       where
-        input  = 880751
-        initSt = (s_init 22_000_000 [3, 7], 1, 2)       || allocate 22M vector (solution should be < 22M digits)
-        rst1   = stepToSize (input + 10) initSt
-        part1  = (++) "part 1: " . doPart1 10 input $ rst1
-        part2  = (++) "part 2: " . showint . findDigits (mkDigits input) $ rst1
+        input = 880751
+
+        doInit = st_evalState (s_init 22_000_000 [3, 7]) () |> \mv -> io_pure (mv, 1, 2)
+
+        doSteps rst = st_evalState (stepToSize (input + 10) rst) () |> io_pure
+
+        doPart1 rst
+            = st_evalState (st_mapM (v_unsafeRead mv) [ndrop .. ndrop + nds - 1]) () |>
+              concatMap showint |> ("part 1: " ++) |> putStrLn     >>
+              io_pure rst
+              where
+                nds   = 10
+                ndrop = input
+                ((mv, _), _, _) = rst
+
+        doPart2 rst
+            = st_evalState (findDigits (mkDigits input) rst) () |> showint |> ("part 2: " ++) |> putStrLn
