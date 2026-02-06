@@ -72,7 +72,7 @@ processBusy state
                  . over complete (++ [step])
                  . set time time'
                  ) state
-    
+
 processReady :: maybe int -> simState -> simState
 processReady baseTime state
     = state'

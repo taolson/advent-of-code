@@ -67,7 +67,7 @@ showField stars
 
         go [] = []
         go (p : ps)
-            = if' (member cmpposition starPos p) '#' '.' : 
+            = if' (member cmpposition starPos p) '#' '.' :
               if' (viewV2_0 p == lastX) ('\n' : go ps) (go ps)
 
 readStars :: string -> io [star]

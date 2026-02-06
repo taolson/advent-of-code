@@ -22,7 +22,7 @@ isCurve _    = False
 isTurn :: segment -> bool
 isTurn '+' = True
 isTurn _   = False
-   
+
 segmentDirection :: segment -> dir
 segmentDirection '^' = ( 0, -1)
 segmentDirection 'v' = ( 0,  1)

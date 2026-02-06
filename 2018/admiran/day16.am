@@ -36,7 +36,7 @@ makeBinaryInstructions name fn
       ]
       where
         reg (_, a, b, _) r = fn (r !! a) (r !! b)
-        imm (_, a, b, _) r = fn (r !! a) b 
+        imm (_, a, b, _) r = fn (r !! a) b
 
 makeCompareInstructions :: string -> (int -> int -> bool) -> [instruction]
 makeCompareInstructions name fn
@@ -81,7 +81,7 @@ matchInstructions instructions (Sample before op after)
         go (matches, updatedInsts) (inst : rest)
             = go (matches + 1, inst : updatedInsts) rest,                                         if (after !! c) == view effect inst op before
             = go (matches, over possibleOpcodes (// [(opcode, False)]) inst : updatedInsts) rest, otherwise
-        
+
         go _ _ = undef  || added to remove compiler warning
 
 updateMatchState :: matchState -> sample -> matchState

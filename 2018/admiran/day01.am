@@ -23,7 +23,7 @@ findCycle input
         go (n : ns) seen freq
             = freq,                                         if s_member cmpint freq seen
             = go ns (s_insert cmpint freq seen) (freq + n), otherwise
-    
+
 day01 :: io ()
 day01
     = readFile "../inputs/day01.input" >>=. (go . map parseNumber . lines)

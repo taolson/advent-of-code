@@ -71,7 +71,6 @@ step haltTest (ipReg, prog) mregs
               v_modify mregs (+ 1) ipReg >>
               st_pure False
 
-        
 runUntil :: (int -> mregisters -> st bool) -> (int, program) -> mregisters -> st mregisters
 runUntil haltTest info mregs
     = run' False

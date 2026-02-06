@@ -30,7 +30,7 @@ generate rules (Generation plants startIndex generations)
             = [],                                 if pat == 0
             = (rules !! pat') : trimTrailingZeros (go pat' []), otherwise
               where
-                pat' = shiftIn pat 0 
+                pat' = shiftIn pat 0
 
         go pat (x : xs)
             = (rules !! pat') : trimTrailingZeros (go pat' xs)

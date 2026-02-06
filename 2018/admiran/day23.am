@@ -67,7 +67,7 @@ partitionBox (BoundingBox corner edge bots)
       where
         (V3 cx cy cz) = corner
         r             = edge $div 2
-        parts         = [BoundingBox (V3 x y z) r bots | x <- [cx, cx + r]; y <- [cy, cy + r]; z <- [cz, cz + r]]    
+        parts         = [BoundingBox (V3 x y z) r bots | x <- [cx, cx + r]; y <- [cy, cy + r]; z <- [cz, cz + r]]
         cullBots bb   = BoundingBox (b_corner bb) (b_edge bb) $ filter (intersects bb) (b_bots bb)
 
 intersects :: boundingBox -> nanoBot -> bool
@@ -111,7 +111,7 @@ day23
       where
         go nBots
             = io_mapM_ putStrLn [part1, part2]
-              where 
+              where
                 strongest = maxBy cmpint n_radius nBots
                 inRange   = filter (n_contains strongest . n_coord) nBots
                 result    = coordinateWithMostIntersections . boundingBoxEnclosing $ nBots

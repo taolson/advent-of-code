@@ -81,7 +81,7 @@ readEvents fn
     = go <$>. parse (p_some p_event) <$>. readFile fn
       where
         go (mes, ps) = fromMaybef (error (p_error ps)) (sortBy cmptsEvent)  mes
-        
+
 day04 :: io ()
 day04
     = readEvents "../inputs/day04.input" >>=. (go . processEvents)

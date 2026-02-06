@@ -147,7 +147,7 @@ findMinBoost a1 a2 max
                 mid      = (min + max) $div 2
                 (u1, u2) = mapBoth unitCount . battleUntilDone (map (over g_attackDamage (+ mid)) a1) $ a2
 
-        
+
 || parsing
 
 qualityType ::= Weak | Immune
@@ -202,6 +202,6 @@ day24
       where
         go (aimm, ainf)
             = io_mapM_ putStrLn [part1, part2]
-              where 
+              where
                 part1 = (++) "part 1: " . showint . uncurry (+) . mapBoth unitCount $ battleUntilDone aimm ainf
                 part2 = (++) "part 2: " . showint . findMinBoost aimm ainf $ findMaxBoost aimm ainf

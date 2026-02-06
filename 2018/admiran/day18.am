@@ -75,7 +75,7 @@ addLineToGrid grid (line, y)
     = foldl addPointToGrid grid $ zip2 (map toElement line) [0 ..]
       where
         addPointToGrid grid' (e, x) = m_insert cmppoint (x, y) e grid'
-    
+
 day18 :: io ()
 day18
     = readFile "../inputs/day18.input" >>=. (go . lines)
