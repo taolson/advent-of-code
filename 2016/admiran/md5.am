@@ -11,6 +11,9 @@
 || a buffer is a vector of 16 32-bit words
 buffer == vector int
 
+(!?) :: vector * -> int -> *
+(Vector _ p) !? (I# i) = case readArray# p i of x -> x
+
 emptyBuffer :: buffer
 emptyBuffer = v_rep 16 0
 
@@ -87,9 +90,9 @@ md5Add (MD5 a b c d) (MD5 f g h i)
         mask = 0xffffffff
 
 tableS
-    = v_fromList [ 7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22 
-                 , 5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20 
-                 , 4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23 
+    = v_fromList [ 7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22
+                 , 5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20
+                 , 4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23
                  , 6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21
                  ]
 
@@ -112,23 +115,25 @@ tableK
                  , 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
                  ]
 
-|| rotate a 32-bit value left by n bits
-|| most time spent here and in md5Rotate, so written in strict form to
-|| reduce thunk production
-leftRotate :: int -> int -> int
-leftRotate v n
-    = case (1 .<<. n) - 1 of
-        mask -> case (v .>>. (32 - n)) .&. mask of
-                  lo -> case (v .<<. n) .&. 0xffffffff of
-                          hi -> hi .|. lo
-
 || rotate md5State using two additional values e and f, and index i into the MD5 tables
+|| most of the time is spent here, so this is hand-written with low-level word# operations
 md5Rotate :: md5State -> int -> int -> int -> md5State
-md5Rotate (MD5 a b c d) e f i
-    = case tableK !! i + a + e + f of
-        v -> case tableS !! i of
-               n -> case b + leftRotate v n of
-                      a' -> MD5 d a' b c
+md5Rotate (MD5 (I# a) (I# b) c d) (I# e) (I# f) i
+    = case tableK !? i of I# tk ->
+      case tableS !? i of I# n  ->
+      case tk +# a of tk1    ->
+      case tk1 +# e of tk2   ->
+      case tk2 +# f of v   ->
+      case v $bshl# n of v1 ->
+      case v1 $band# 0xffffffff# of vh ->
+      case v1 $bshr# 32# of v2 ->
+      case bnot# 0# of n1 ->
+      case n1 $bshl# n of m1 ->
+      case bnot# m1 of m2 ->
+      case v2 $band# m2 of vl ->
+      case vh $bor# vl of v' ->
+      case v' +# b of a' ->
+      MD5 d (I# a') (I# b) c
 
 || perform a round of 5 stages on the md5State and a buffer
 md5Round :: md5State -> buffer -> md5State
@@ -151,7 +156,7 @@ md5Round st buf
                     = md5Rotate st (e st) f i
                       where
                         e (MD5 _ b c d) = (b .&. c) .|. (complement b .&. d)
-                        f = buf !! i
+                        f = buf !? i
         stage2 st
             = foldl go st [16 .. 31]
               where
@@ -159,7 +164,7 @@ md5Round st buf
                     = md5Rotate st (e st) f i
                       where
                         e (MD5 _ b c d) = (d .&. b) .|. (complement d .&. c)
-                        f = buf !! ((i * 5 + 1) .&. 15)
+                        f = buf !? ((i * 5 + 1) .&. 15)
         stage3 st
             = foldl go st [32 .. 47]
               where
@@ -167,7 +172,7 @@ md5Round st buf
                     = md5Rotate st (e st) f i
                       where
                         e (MD5 _ b c d) = b .^. c .^. d
-                        f = buf !! ((i * 3 + 5) .&. 15)
+                        f = buf !? ((i * 3 + 5) .&. 15)
         stage4 st
             = foldl go st [48 .. 63]
               where
@@ -175,7 +180,7 @@ md5Round st buf
                     = md5Rotate st (e st) f i
                       where
                         e (MD5 _ b c d) = c .^. (b .|. complement d)
-                        f = buf !! ((i * 7) .&. 15)
+                        f = buf !? ((i * 7) .&. 15)
 
 md5Hash :: string -> md5State
 md5Hash s
