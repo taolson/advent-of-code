@@ -75,5 +75,5 @@ day15
         go sequence
             = io_mapM_ putStrLn [part1, part2]
               where
-                part1 = "part 1: " ++ sequence |> map hash |> sum |> showint
-                part2 = "part 2: " ++ sequence |> initialize |> focusingPower |> showint
+                part1 = ("part 1: " ++) . showint . sum . map hash $ sequence
+                part2 = ("part 2: " ++) . showint . focusingPower . initialize $ sequence
