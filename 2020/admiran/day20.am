@@ -62,7 +62,7 @@ revEdge
     = go tileSize 0
       where
         go 0  r _ = r
-        go ts r n = go (ts - 1) (r .<<. 1 + (n .&. 1)) (n .>>. 1)
+        go ts r n = go (ts - 1) ((r .<<. 1) + (n .&. 1)) (n .>>. 1)
 
 rotTile, flipTileH, flipTileV :: tile -> tile
 
@@ -205,7 +205,7 @@ scanMonsters f xs
 || Reading tiles
 
 addBit :: edge -> char -> edge
-addBit e c = e .<<. 1 + if' (c ==. '#') 1 0
+addBit e c = (e .<<. 1) + if' (c ==. '#') 1 0
 
 makeEdge :: string -> edge
 makeEdge = foldl addBit 0

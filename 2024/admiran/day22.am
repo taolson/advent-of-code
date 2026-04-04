@@ -1,5 +1,3 @@
-|| -*- mode: indented-text -*-
-||
 || day22.m -- Monkey Market
 ||
 || initially written with maps and sets to tally the sequence keys and values, but it is much

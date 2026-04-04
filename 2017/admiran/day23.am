@@ -37,11 +37,6 @@ p_regs  = lensTup4_1
 p_pc    = lensTup4_2
 p_muls  = lensTup4_3
 
-|| lift lenses into state
-st_view lns   proc = (view lns proc, proc)
-st_set  lns x proc = ((), set lns x proc)
-st_over lns f proc = ((), over lns f proc)
-
 running :: processor -> bool
 running p
     = case view p_rs p of

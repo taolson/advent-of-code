@@ -47,11 +47,6 @@ scanSt == (s_set pos, mvector bool)
 visit   = lensFst
 seen    = lensSnd
 
-|| lift lens operations into state
-st_view lns   st = (view lns st, st)
-st_over lns f st = ((), over lns f st)
-st_set  lns x st = ((), set  lns x st)
-
 || operations on visit list in scanSt
 nextVisit :: state scanSt (maybe pos)
 nextVisit
