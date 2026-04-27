@@ -3,10 +3,10 @@
 
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
 %import <base>
-%import <parser> (*>)/p_right
+%import <parser>        (>>)/p_right
 
 
 interval == (int, int)
@@ -45,17 +45,17 @@ allowed rs
             = (hi, count + (lo - prevHi - 1))
 
 p_range :: parser interval
-p_range = p_liftA2 pair p_posint (p_char '-' *> p_posint)
+p_range = p_liftA2 pair p_posint (p_char '-' >> p_posint)
 
 readRanges :: string -> io [interval]
 readRanges fn
-    = go <$>. parse (p_someSepBy p_spaces p_range) <$>. readFile fn
+    = readFile fn <&> parse (p_someSepBy p_spaces p_range) <&> go
       where
         go (mrs, ps) = fromMaybe (error (p_error ps)) mrs
 
 day20 :: io ()
 day20
-    = readRanges "../inputs/day20.input" >>=. (go . blackList . sortBy cmpinterval)
+    = readRanges "../inputs/day20.input" >>= (go . blackList . sortBy cmpinterval)
       where
         go bl
             = io_mapM_ putStrLn [part1, part2]

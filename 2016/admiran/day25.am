@@ -3,12 +3,13 @@
 
 %export day25
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <either>
-%import <maybe>
 %import <base>
-%import <parser> (*>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <either>
+%import <io>
+%import <maybe>
+%import <parser>                (<|>)/p_alt
+%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (>>)/st_right
 %import <vector>
 
 
@@ -71,24 +72,24 @@ searchClock prog
         isClock      = and . zipWith (==) (cycle [1, 0])
 
 p_reg :: parser reg
-p_reg = mkReg <$> (p_spaces *> p_letter) where mkReg c = code c - code 'a'
+p_reg = p_spaces p.>> p_letter p.<&> \c -> code c - code 'a'
 
 p_sint :: parser int
-p_sint = p_spaces *> p_int
+p_sint = p_spaces p.>> p_int
 
 p_gen :: parser genOp
-p_gen = (Left <$> p_reg) <|> (Right <$> p_sint)
+p_gen = p_reg p.<&> Left <|> p_sint p.<&> Right
 
 p_cpy, p_inc, p_dec, p_jnz, p_ret, p_out, p_inst :: parser instruction
-p_inc = Inc <$> p_gen
-p_dec = Dec <$> p_gen
-p_ret = Ret <$> p_gen
-p_out = Out <$> p_gen
+p_inc = p_gen p.<&> Inc
+p_dec = p_gen p.<&> Dec
+p_ret = p_gen p.<&> Ret
+p_out = p_gen p.<&> Out
 p_cpy = p_liftA2 Cpy p_gen p_gen
 p_jnz = p_liftA2 Jnz p_gen p_gen
 
 p_inst
-    = p_spaces *> (p_word *>>= doInst) <* p_char '\n'
+    = p_spaces p.>> (p_word p.>>= doInst) p.<< p_char '\n'
       where
         doInst "cpy" = p_cpy
         doInst "inc" = p_inc
@@ -100,12 +101,12 @@ p_inst
        
 readProgram :: string -> io program
 readProgram fn
-    = go <$>. parse (p_some p_inst) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_inst) <&> go
       where
         go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
 
 day25 :: io ()
 day25
-    = readProgram "../inputs/day25.input" >>=. go
+    = readProgram "../inputs/day25.input" >>= go
       where
         go prog = putStrLn . (++) "part 1: " . showint . searchClock $ prog

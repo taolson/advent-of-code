@@ -3,10 +3,10 @@
 
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <heap>
 %import <maybe>
-%import <base>
 %import <set>
 
 

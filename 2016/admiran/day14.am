@@ -3,9 +3,9 @@
 
 %export day14
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>
+%import <maybe>
 %import "md5"
 
 firstConsecutive :: ordI * -> int -> [*] -> maybe *

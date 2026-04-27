@@ -3,10 +3,10 @@
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 
 
 direction ::= U | D | L | R
@@ -83,12 +83,9 @@ codeForSequences pad
                 kpm  = fromJust . m_lookup cmpchar       key $ pad
                 move = fromJust . m_lookup cmpdirection  dir $ kpm
 
-(.=<<) = converse (>>=.)
-
 day02 :: io ()
 day02
-||    = go .=<< map toSequence <$>. lines <$>. readFile "../inputs/day02.input"
-    = readFile "../inputs/day02.input" >>=. (go . map toSequence . lines)
+    = readFile "../inputs/day02.input" >>= lines .> map toSequence .> go
       where
         go seqs
             = io_mapM_ putStrLn [part1, part2]

@@ -3,10 +3,10 @@
 
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <dequeue>
-%import <maybe>
 %import <base>
+%import <dequeue>
+%import <io>
+%import <maybe>
 
 
 makeElfQueue :: int -> int -> dequeue int

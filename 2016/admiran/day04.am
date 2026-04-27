@@ -3,11 +3,11 @@
 
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <bag>
 %import <maybe>
 %import <base>
-%import <parser> (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser>        (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 
 room ::= Room string int string string string bool      || name, ident, checksum, computed, decoded, valid
@@ -58,13 +58,13 @@ findNorthPole = fromMaybe (error "not found!") . find (isInfixOf cmpchar "northp
 
 readRooms :: string -> io [room]
 readRooms fn
-    = go <$>. parse (p_many p_room) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_room) <&> go
       where
         go (mrooms, ps) = fromMaybe (error (p_error ps)) mrooms
 
 day04 :: io ()
 day04
-    = readRooms "../inputs/day04.input" >>=. go
+    = readRooms "../inputs/day04.input" >>= go
       where
         go rooms
             = io_mapM_ putStrLn [part1, part2]

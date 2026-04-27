@@ -3,12 +3,12 @@
 
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <dequeue>
-%import <maybe>
 %import <base>
-%import <vector>
+%import <dequeue>
+%import <io>
+%import <maybe>
 %import <set>
+%import <vector>
 
 || perform a popCount 4 bits at a time
 popCount4 :: vector int

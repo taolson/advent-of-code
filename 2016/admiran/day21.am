@@ -3,10 +3,10 @@
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
 %import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>        (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 password == string
 
@@ -81,23 +81,23 @@ p_command :: parser command
 p_command
     = p_swp <|> p_swpLtr <|> p_rotR <|> p_rotL <|> p_rotLtr <|> p_rev <|> p_mov
       where
-        p_swp    = p_liftA2 Swp    (p_string "swap position " *> p_posint)     (p_string " with position " *> p_posint)
-        p_swpLtr = p_liftA2 SwpLtr (p_string "swap letter " *> p_letter)       (p_string " with letter " *> p_letter)
-        p_rev    = p_liftA2 Rev    (p_string "reverse positions " *> p_posint) (p_string " through " *> p_posint)
-        p_rotR   = Rot <$>         (p_string "rotate right " *> p_posint) <*   p_spaces <* p_word
-        p_rotL   = (Rot . neg) <$> (p_string "rotate left "  *> p_posint) <*   p_spaces <* p_word
-        p_rotLtr = RotLtr <$>      (p_string "rotate based on position of letter " *> p_letter)
-        p_mov    = p_liftA2 Mov    (p_string "move position " *> p_posint)     (p_string " to position " *> p_posint)
+        p_swp    = p_liftA2 Swp    (p_string "swap position " >> p_posint)     (p_string " with position " >> p_posint)
+        p_swpLtr = p_liftA2 SwpLtr (p_string "swap letter " >> p_letter)       (p_string " with letter " >> p_letter)
+        p_rev    = p_liftA2 Rev    (p_string "reverse positions " >> p_posint) (p_string " through " >> p_posint)
+        p_rotR   = Rot <$>         (p_string "rotate right " >> p_posint) <<   p_spaces << p_word
+        p_rotL   = (Rot . neg) <$> (p_string "rotate left "  >> p_posint) <<   p_spaces << p_word
+        p_rotLtr = RotLtr <$>      (p_string "rotate based on position of letter " >> p_letter)
+        p_mov    = p_liftA2 Mov    (p_string "move position " >> p_posint)     (p_string " to position " >> p_posint)
 
 readCommands :: string -> io [command]
 readCommands fn
-    = go <$>. parse (p_someSepBy (p_char '\n') p_command) <$>. readFile fn
+    = readFile fn <&> parse (p_someSepBy (p_char '\n') p_command) <&> go
       where
         go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
 
 day21 :: io ()
 day21
-    = readCommands "../inputs/day21.input" >>=. go
+    = readCommands "../inputs/day21.input" >>= go
       where
         go commands
             = io_mapM_ putStrLn [part1, part2]

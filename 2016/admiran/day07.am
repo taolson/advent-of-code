@@ -3,9 +3,9 @@
 
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <maybe>
 
 
 ip      == string
@@ -57,7 +57,7 @@ supportsSSL s
 
 day07 :: io ()
 day07
-    = readFile "../inputs/day07.input" >>=. (go . lines)
+    = readFile "../inputs/day07.input" >>= lines .> go
       where
         go contents
             = io_mapM_ putStrLn [part1, part2]

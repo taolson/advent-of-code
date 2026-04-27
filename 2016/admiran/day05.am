@@ -3,8 +3,8 @@
 
 %export day05
 
-%import <io>
 %import <base>
+%import <io>
 %import "md5"
 %import <vector>
 

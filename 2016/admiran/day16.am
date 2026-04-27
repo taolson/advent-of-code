@@ -9,8 +9,8 @@
 
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 
 
 || determine the number of the dragon curve that has at least sz bits

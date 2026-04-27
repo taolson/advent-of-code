@@ -3,8 +3,8 @@
 
 %export md5State md5Hash md5Hex
 
-%import <base>
-%import <state> (>>)/st_right
+%import <base>          -(!?)
+%import <state>         (>>)/st_right
 %import <vector>
 
 

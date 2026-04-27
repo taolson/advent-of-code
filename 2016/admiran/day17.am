@@ -3,10 +3,10 @@
 
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <dequeue>
-%import <maybe>
 %import <base>
+%import <dequeue>
+%import <io>
+%import <maybe>
 %import "md5"
 
 

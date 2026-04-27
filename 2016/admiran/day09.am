@@ -3,8 +3,8 @@
 
 %export day09
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io> (>>=)/io_bind
 
 
 decompress1 :: string -> int
@@ -54,7 +54,7 @@ processMarker2 s
 
 day09 :: io ()
 day09
-    = readFile "../inputs/day09.input" >>=. go
+    = readFile "../inputs/day09.input" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

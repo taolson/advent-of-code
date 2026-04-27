@@ -3,8 +3,8 @@
 
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 
 tile ::= S | T  || safe or trap
 

@@ -3,10 +3,10 @@
 
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (<*)/p_left (*>)/p_right
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>        (<<)/p_left (>>)/p_right
 
 
 disc ::= Disc int int int
@@ -18,7 +18,7 @@ d_slots (Disc _ s _) = s
 d_phase (Disc _ _ p) = p
 
 p_disc :: parser disc
-p_disc = p_liftA3 Disc (p_string "Disc #" *> p_int) (p_string " has " *> p_int) (p_string " positions; at time=0, it is at position " *> p_int) <* p_char '.'
+p_disc = p_liftA3 Disc (p_string "Disc #" >> p_int) (p_string " has " >> p_int) (p_string " positions; at time=0, it is at position " >> p_int) << p_char '.'
 
 solveTime :: [disc] -> int
 solveTime
@@ -36,13 +36,13 @@ solveTime
 
 readDiscs :: string -> io [disc]
 readDiscs fn
-    = go <$>. parse (p_someSepBy (p_char '\n') p_disc) <$>. readFile fn
+    = readFile fn <&> parse (p_someSepBy (p_char '\n') p_disc) <&> go
       where
         go (mdiscs, ps) = fromMaybe (error (p_error ps)) mdiscs
 
 day15 :: io ()
 day15
-    = readDiscs "../inputs/day15.input" >>=. go
+    = readDiscs "../inputs/day15.input" >>= go
       where
         go discs2
             = io_mapM_ putStrLn [part1, part2]

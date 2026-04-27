@@ -3,8 +3,8 @@
 
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 triangle == (int, int, int)
@@ -26,11 +26,11 @@ remap ts
         (tsA, tsB, tsC) = unzip3 ts
 
 readInput :: string -> io [triangle]
-readInput fn = toTriangles <$>. map intval <$>. words <$>. readFile fn
+readInput fn = readFile fn <&> words <&> map intval <&> toTriangles
 
 day03 :: io ()
 day03
-    = readInput "../inputs/day03.input" >>=. go
+    = readInput "../inputs/day03.input" >>= go
       where
         go tris
             = io_mapM_ putStrLn [part1, part2]

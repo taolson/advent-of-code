@@ -3,7 +3,7 @@
 
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io> (>>=)/io_bind
 %import <bag>
 %import <base>
 
@@ -21,7 +21,7 @@ dcd f bs = map (fst . f . b_toList) $ bs
 
 day06 :: io ()
 day06
-    = readFile "../inputs/day06.input" >>=. (go . lines)
+    = readFile "../inputs/day06.input" >>= lines .> go
       where
         go wds
             = io_mapM_ putStrLn [part1, part2]

@@ -3,12 +3,12 @@
 
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 
 
@@ -91,7 +91,7 @@ pathDistances maze returning
 
 readMaze :: string -> io maze
 readMaze fn
-    = go emptyMaze 0 0 <$>. readFile fn
+    = readFile fn <&> go emptyMaze 0 0
       where
         go maze x y [] = maze
         go maze x y (c : cs)
@@ -110,7 +110,7 @@ readMaze fn
 
 day24 :: io ()
 day24
-    = readMaze "../inputs/day24.input" >>=. (go . findAllDistances)
+    = readMaze "../inputs/day24.input" >>= (go . findAllDistances)
       where
         go maze
             = io_mapM_ putStrLn [part1, part2]

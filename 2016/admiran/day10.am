@@ -3,13 +3,14 @@
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
-%import <state>  (>>=)/st_bind (>>)/st_right
+%import <parser>                (<&>)/p_rfmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <state>                 (>>=)/st_bind
+%import <state> qualified as st (<&>)/st_rfmap (>>)/st_right
 %import <vector>
 
 ident == int
@@ -35,24 +36,24 @@ isGive _         = False
 || parsing
 
 p_dbot, p_dout, p_dest :: parser dest
-p_dbot = Dbot <$> (p_string "bot "    *> p_int) <* p_spaces
-p_dout = Dout <$> (p_string "output " *> p_int) <* p_spaces
+p_dbot = p_string "bot "    >> p_int <&> Dbot << p_spaces
+p_dout = p_string "output " >> p_int <&> Dout << p_spaces
 p_dest = p_dbot <|> p_dout
 
 p_bot :: parser bot
 p_bot
-    = p_liftA3 mkBot (p_string "bot " *> p_int) (p_string " gives low to " *> p_dest) (p_string "and high to " *> p_dest) <* p_spaces
+    = p_liftA3 mkBot (p_string "bot " >> p_int) (p_string " gives low to " >> p_dest) (p_string "and high to " >> p_dest) << p_spaces
       where
         mkBot bid lo hi = (bid, [], lo, hi)
 
 p_give :: parser give
 p_give
-    = p_liftA2 mkGive (p_string "value " *> p_int) (p_string " goes to bot " *> p_int) <* p_spaces
+    = p_liftA2 mkGive (p_string "value " >> p_int) (p_string " goes to bot " >> p_int) << p_spaces
       where
         mkGive val bid = (val, Dbot bid)
 
 p_instruction :: parser instruction
-p_instruction = (Cbot <$> p_bot) <|> (Cgive <$> p_give)
+p_instruction = p_bot <&> Cbot <|> p_give <&> Cgive
 
 
 factory == (dequeue give, vector bot, vector int)    || queue of gives to perform, bot vector, output vector
@@ -101,14 +102,14 @@ run (giveq, vbots, vouts)
               where
                 (g, giveq1) = fromJust $ dq_viewL giveq
 
-                doGive (val, (Dout oid)) = v_unsafeWrite mouts oid val >> go giveq1 mbid        || give to output
+                doGive (val, (Dout oid)) = v_unsafeWrite mouts oid val st.>> go giveq1 mbid     || give to output
                 doGive (val, (Dbot bid))                                                        || give to bot; check if it has both chips
                     = v_unsafeRead mbots bid >>= addChip
                       where
                         addChip bot
                             = case view b_chips bot of
-                                []  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) >> go giveq1 mbid             || bot now has 1 chip; continue
-                                cs  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) >> distribute val (hd cs) bot || bot has both chips; distribute
+                                []  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) st.>> go giveq1 mbid             || bot now has 1 chip; continue
+                                cs  -> v_unsafeWrite mbots bid (over b_chips (val :) bot) st.>> distribute val (hd cs) bot || bot has both chips; distribute
 
                         distribute c1 c2 (_, _, lo, hi)
                             = send lo minc giveq1 >>= send hi maxc >>= checkPt1 minc maxc       || add new gives to giveq and check part1 solution
@@ -125,13 +126,13 @@ run (giveq, vbots, vouts)
 
 readInstructions :: string -> io [instruction]
 readInstructions fn
-    = go <$>. parse (p_some p_instruction <* p_end) <$>. readFile fn
+    = readFile fn st.<&> parse (p_some p_instruction << p_end) st.<&> go
       where
         go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
 
 day10 :: io ()
 day10
-    = readInstructions "../inputs/day10.input" >>=. go
+    = readInstructions "../inputs/day10.input" >>= go
       where
         go instructions
             = io_mapM_ putStrLn [part1, part2]
