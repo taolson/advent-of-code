@@ -3,18 +3,13 @@
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <v2>
 %import <vector>
 
 
 pos == v2 int
-
-(+@), (-@) :: pos -> pos -> pos
-a +@ b = v2_add a b
-a -@ b = v2_sub a b
-
 
 || a pattern is a list of ON positions and a size
 pattern ::= Pattern [pos] int
@@ -39,7 +34,7 @@ splitN n (Pattern ps sz)
         split block
             = Pattern ps' n
               where
-                ps' = filter inBlock0 . map (-@ block) $ ps
+                ps' = filter inBlock0 . map (($v2_sub) block) $ ps
 
                 inBlock0 (V2 r c) = 0 <= r < n & 0 <= c < n
 
@@ -50,7 +45,7 @@ joinN n pts
       where
         ps' = concat $ zipWith adj pts [V2 r c | r, c <- [0, n]]
 
-        adj (Pattern ps _) block = map (+@ block) ps
+        adj (Pattern ps _) block = map (v2_add block) ps
 
 || transform a pattern with all possible flips and rotations
 allXforms :: pattern -> [pattern]
@@ -139,7 +134,7 @@ onAfterSteps steps (rs2, rs3) p
 
 readRules :: string -> io (rulevec, rulevec)
 readRules fn
-    = go <$>. partition ((== 2) . patSize . fst) <$>. map readRule <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readRule <&> partition (fst .> patSize .> (== 2)) <&> go
       where
         go (p2s, p3s)
             = (rs2, rs3)
@@ -149,7 +144,7 @@ readRules fn
 
 day21 :: io ()
 day21
-    = readRules "../inputs/day21.input" >>=. go
+    = readRules "../inputs/day21.input" >>= go
       where
         go rules
             = io_mapM_ putStrLn [part1, part2]

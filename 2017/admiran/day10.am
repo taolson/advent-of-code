@@ -3,9 +3,9 @@
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>
+%import <maybe>
 %import <parser> 
 %import "knotHash"
 

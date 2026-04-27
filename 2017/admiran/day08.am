@@ -3,9 +3,9 @@
 
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 
 
 reg         == string
@@ -46,7 +46,7 @@ testMap = m_fromList cmpstring
 
 readInstructions :: string -> io [instruction]
 readInstructions fn
-    = map (mkInst . words) <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (words .> mkInst)
       where
         err         = error "parse error"
         doCmd "inc" = makeCommand (+)
@@ -61,7 +61,7 @@ readInstructions fn
      
 day08 :: io ()
 day08
-    = readInstructions "../inputs/day08.input" >>=. (go . foldl execute (0, m_empty))
+    = readInstructions "../inputs/day08.input" >>= foldl execute (0, m_empty) .> go
       where
         go (maxVal, regs)
             = io_mapM_ putStrLn [part1, part2]

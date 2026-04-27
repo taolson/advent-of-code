@@ -3,10 +3,10 @@
 
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 %import <v2>
 
 node == v2 int
@@ -80,7 +80,7 @@ activity2
 
 readGrid :: string -> io (grid, int)
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (g, #rows)
@@ -90,7 +90,7 @@ readGrid fn
 
 day22 :: io ()
 day22
-    = readGrid "../inputs/day22.input" >>=. go
+    = readGrid "../inputs/day22.input" >>= go
       where
         go (g, sz)
             = io_mapM_ putStrLn [part1, part2]

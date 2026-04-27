@@ -3,13 +3,14 @@
 
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (*>)/p_right (<|>)/p_alt
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <parser>                (<|>)/p_alt
+%import <parser> qualified as p (>>)/p_right
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (>>)/st_right
 %import <vector>
 
 
@@ -131,9 +132,9 @@ p_instruction
       p_r  "snd" Snd <|>
       p_r  "rcv" Rcv
       where
-        p_ro s op = p_liftA2 op (p_string s *> p_spaces *> p_reg) (p_spaces *> p_opr)
-        p_oo s op = p_liftA2 op (p_string s *> p_spaces *> p_opr) (p_spaces *> p_opr)
-        p_r  s op = op $p_fmap  (p_string s *> p_spaces *> p_reg)
+        p_ro s op = p_liftA2 op (p_string s p.>> p_spaces p.>> p_reg) (p_spaces p.>> p_opr)
+        p_oo s op = p_liftA2 op (p_string s p.>> p_spaces p.>> p_opr) (p_spaces p.>> p_opr)
+        p_r  s op = op $p_fmap  (p_string s p.>> p_spaces p.>> p_reg)
 
         p_reg = (subtract (code 'a') . code) $p_fmap p_letter
         p_opr = (Reg $p_fmap p_reg) <|> (Imm $p_fmap p_int)
@@ -150,13 +151,13 @@ initProcs n
 
 readProgram :: string -> io program
 readProgram fn
-    = go <$>. parse (p_someSepBy (p_char '\n') p_instruction) <$>. readFile fn
+    = readFile fn <&> parse (p_someSepBy (p_char '\n') p_instruction) <&> go
       where
         go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
 
 day18 :: io ()
 day18
-    = readProgram "../inputs/day18.input" >>=. go
+    = readProgram "../inputs/day18.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

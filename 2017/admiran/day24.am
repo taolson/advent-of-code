@@ -3,8 +3,8 @@
 
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 port      == int
@@ -54,7 +54,7 @@ findChainMaxes cs
 
 readComponents :: string -> io [component]
 readComponents fn
-    = map readComponent <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readComponent
       where
         readComponent      = mkComponent . map intval . split '/'
         mkComponent [a, b] = (a, b)
@@ -62,7 +62,7 @@ readComponents fn
    
 day24 :: io ()
 day24
-    = readComponents "../inputs/day24.input" >>=. (go . findChainMaxes)
+    = readComponents "../inputs/day24.input" >>= findChainMaxes .> go
       where
         go r
             = io_mapM_ putStrLn [part1, part2]

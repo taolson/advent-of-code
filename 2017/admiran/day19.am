@@ -3,11 +3,11 @@
 
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>          -(!?)
 %import <dequeue>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 
 loc  == (int, int)
 
@@ -66,13 +66,13 @@ findPath m
 
 readMaze :: string -> io maze
 readMaze fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows = m_fromList cmploc [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row; ch ~=. ' ']
 
 day19 :: io ()
 day19
-    = readMaze "../inputs/day19.input" >>=. (go . findPath)
+    = readMaze "../inputs/day19.input" >>= (go . findPath)
       where
         go (path, steps)
             = io_mapM_ putStrLn [part1, part2]

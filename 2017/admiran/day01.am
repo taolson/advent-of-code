@@ -3,8 +3,8 @@
 
 %export day01
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 matchesWithDistance :: int -> string -> int
@@ -16,7 +16,7 @@ matchesWithDistance n s
 
 day01 :: io ()
 day01
-    = readFile "../inputs/day01.input" >>=. go
+    = readFile "../inputs/day01.input" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

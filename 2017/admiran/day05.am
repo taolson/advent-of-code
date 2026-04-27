@@ -3,8 +3,8 @@
 
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 %import <vector>
 
 || Note: this had to be written with strict evaluation of everything, because otherwise
@@ -36,7 +36,7 @@ towards3 n
 
 day05 :: io ()
 day05
-    = readFile "../inputs/day05.input" >>=. (go . v_fromList . map intval . words)
+    = readFile "../inputs/day05.input" >>= words .> map intval .> v_fromList .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

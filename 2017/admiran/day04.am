@@ -3,8 +3,8 @@
 
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 validPassphrase :: [string] -> bool
@@ -12,7 +12,7 @@ validPassphrase words = length (nub cmpstring words) == #words
 
 day04 :: io ()
 day04
-    = readFile "../inputs/day04.input" >>=. (go . map words . lines)
+    = readFile "../inputs/day04.input" >>= lines .> map words .> go
       where
         go pass
             = io_mapM_ putStrLn [part1, part2]

@@ -3,10 +3,10 @@
 
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 %import <vector>
 
 
@@ -41,7 +41,7 @@ findLoop seen v cycle
 
 day06 :: io ()
 day06
-    = readFile "../inputs/day06.input" >>=. (go . v_fromList . map intval . words)
+    = readFile "../inputs/day06.input" >>= words .> map intval .> v_fromList .> go
       where
         go memory
             = io_mapM_ putStrLn [part1, part2]

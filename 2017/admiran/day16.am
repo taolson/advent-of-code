@@ -3,11 +3,11 @@
 
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
-%import <base> -group
-%import <parser> (<$>)/p_fmap (*>)/p_right (<|>)/p_alt
-
+%import <base>          -group
+%import <parser>                (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
 
 command ::= Spin int | Exchange int int | Partner char char
 group   ==  [char]
@@ -81,22 +81,22 @@ p_command :: parser command
 p_command
     = p_spin <|> p_exchange <|> p_partner
       where
-        p_spin     = Spin <$> (p_char 's' *> p_int)
-        p_exchange = p_liftA2 Exchange (p_char 'x' *> p_int)    (p_char '/' *> p_int)
-        p_partner  = p_liftA2 Partner  (p_char 'p' *> p_letter) (p_char '/' *> p_letter)
+        p_spin     = p_char 's' >> p_int p.<&> Spin
+        p_exchange = p_liftA2 Exchange (p_char 'x' >> p_int)    (p_char '/' >> p_int)
+        p_partner  = p_liftA2 Partner  (p_char 'p' >> p_letter) (p_char '/' >> p_letter)
 
 p_commands :: parser [command]
 p_commands = p_someSepBy (p_char ',') p_command
 
 readCommands :: string -> io [command]
 readCommands fn
-    = go <$>. parse p_commands <$>. readFile fn
+    = readFile fn <&> parse p_commands <&> go
       where
         go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
 
 day16 :: io ()
 day16
-    = readCommands "../inputs/day16.input" >>=. go
+    = readCommands "../inputs/day16.input" >>= go
       where
         go commands
             = io_mapM_ putStrLn [part1, part2]

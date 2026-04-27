@@ -3,8 +3,8 @@
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 spread :: [int] -> int
@@ -20,11 +20,11 @@ evenDivision xs
             = k,          otherwise
 
 readSheet :: string -> io [[int]]
-readSheet fn = map (map intval . words) <$>. lines <$>. readFile fn
+readSheet fn = readFile fn <&> lines <&> map (words .> map intval)
 
 day02 :: io ()
 day02
-    = readSheet "../inputs/day02.input" >>=. go
+    = readSheet "../inputs/day02.input" >>= go
       where
         go sheet
             = io_mapM_ putStrLn [part1, part2]

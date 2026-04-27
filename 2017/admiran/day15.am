@@ -3,8 +3,8 @@
 
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 %import <stream>
 
 genStream :: int -> int -> stream int word#

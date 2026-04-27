@@ -3,13 +3,13 @@
 
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <either>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>        (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 
 program == (string, int, string, [string])
@@ -59,23 +59,23 @@ totalWeight pMap name
         go (Left adj) = Left adj
 
 p_program :: parser program
-p_program = p_liftA4 mkProg p_word (p_blank *> p_string "(" *> p_int <* p_string ")" <* p_blank) (p_pure "") (p_children <|> p_pure []) <* p_nl
+p_program = p_liftA4 mkProg p_word (p_blank >> p_string "(" >> p_int << p_string ")" << p_blank) (p_pure "") (p_children <|> p_pure []) << p_nl
             where
               mkProg a b c d = (a, b, c, d)
 
-p_children = p_string "->" *> p_blank *> p_someSepBy (p_string "," *> p_blank) p_word
+p_children = p_string "->" >> p_blank >> p_someSepBy (p_string "," >> p_blank) p_word
 p_blank    = p_many (p_char ' ' <|> p_char '\t')
 p_nl       = p_char '\n'
 
 readProgramsFromFile :: string -> io [program]
 readProgramsFromFile fn
-    = go <$>. parse (p_some p_program) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_program) <&> go
       where
         go (mps, ps) = fromMaybe (error (p_error ps)) mps
 
 day07 :: io ()
 day07
-    = readProgramsFromFile "../inputs/day07.input" >>=. (go . buildProgramMap)
+    = readProgramsFromFile "../inputs/day07.input" >>= (go . buildProgramMap)
       where
         go (root, pMap)
             = io_mapM_ putStrLn [part1, part2]

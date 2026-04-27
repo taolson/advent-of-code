@@ -3,10 +3,10 @@
 
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (<*)/p_left
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>        (<<)/p_left
 
 depth == int
 rng   == int
@@ -23,17 +23,17 @@ p_layers :: parser [layer]
 p_layers
     = p_many p_layer
       where
-        p_layer = p_liftA2 pair (p_int <* p_spaces <* p_char ':' <* p_spaces) p_int <* p_char '\n'
+        p_layer = p_liftA2 pair (p_int << p_spaces << p_char ':' << p_spaces) p_int << p_char '\n'
 
 readLayers :: string -> io [layer]
 readLayers fn
-    = go <$>. parse p_layers <$>. readFile fn
+    = readFile fn <&> parse p_layers <&> go
       where
         go (mlayers, ps) = fromMaybe (error (p_error ps)) mlayers
 
 day13 :: io ()
 day13
-    = readLayers "../inputs/day13.input" >>=. go
+    = readLayers "../inputs/day13.input" >>= go
       where
         go layers
             = io_mapM_ putStrLn [part1, part2]

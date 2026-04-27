@@ -3,10 +3,10 @@
 
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>        (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 
 direction ::= N | NE | SE | S | SW | NW
@@ -37,24 +37,24 @@ walk loc maxDist (dir : rest)
 
 p_directions :: parser [direction]
 p_directions
-    = p_some (p_direction <* p_optional (p_char ','))
+    = p_some (p_direction << p_optional (p_char ','))
       where
-        p_direction = (p_string "ne" *> p_pure NE) <|>
-                      (p_string "nw" *> p_pure NW) <|>
-                      (p_string "n"  *> p_pure N)  <|>
-                      (p_string "se" *> p_pure SE) <|>
-                      (p_string "sw" *> p_pure SW) <|>
-                      (p_string "s"  *> p_pure S)
+        p_direction = (p_string "ne" >> p_pure NE) <|>
+                      (p_string "nw" >> p_pure NW) <|>
+                      (p_string "n"  >> p_pure N)  <|>
+                      (p_string "se" >> p_pure SE) <|>
+                      (p_string "sw" >> p_pure SW) <|>
+                      (p_string "s"  >> p_pure S)
 
 directionsFromFile :: string -> io [direction]
 directionsFromFile fn
-    = go <$>. parse p_directions <$>. readFile fn
+    = readFile fn <&> parse p_directions <&> go
       where
         go (mdirs, ps) = fromMaybe (error (p_error ps)) mdirs
 
 day11 :: io ()
 day11
-    = directionsFromFile "../inputs/day11.input" >>=. (go . walk (HexPoint 0 0 0) 0)
+    = directionsFromFile "../inputs/day11.input" >>= walk (HexPoint 0 0 0) 0 .> go
       where
         go (dist, maxDist)
          = io_mapM_ putStrLn [part1, part2]

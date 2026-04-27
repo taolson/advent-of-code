@@ -3,10 +3,10 @@
 
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
 
 
 location == (int, int)

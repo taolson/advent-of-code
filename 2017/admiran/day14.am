@@ -3,11 +3,11 @@
 
 %export day14
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <maybe>
-%import <base>
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <state>         (>>=)/st_bind (>>)/st_right
 %import <vector>
 %import "knotHash"
 
