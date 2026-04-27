@@ -3,10 +3,10 @@
 
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 
 
 constraint == (string, int)
@@ -26,11 +26,11 @@ parseLine
         mkConstraint _      = error "parseLine: bad parse"
 
 readInput :: string -> io [aunt]
-readInput fn = map (m_fromList cmpstring . parseLine) <$>. lines <$>. readFile fn
+readInput fn = readFile fn <&> lines <&> map (parseLine .> m_fromList cmpstring)
 
 day16 :: io ()
 day16
-    = readInput "../inputs/day16.input" >>=. go
+    = readInput "../inputs/day16.input" >>= go
       where
         cs = parseLine "children: 3, cats: 7, samoyeds: 2, pomeranians: 3, akitas: 0, vizslas: 0, goldfish: 5, trees: 3, cars: 2, perfumes: 1"
 

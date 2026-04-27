@@ -3,9 +3,9 @@
 
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
-%import <state> (>>=)/st_bind (<$>)/st_fmap (>>)/st_right
+%import <io>
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap (>>)/st_right
 %import <vector>
 
 point == (int, int)
@@ -61,7 +61,7 @@ step g
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (v_fromList lights, ncols, False)
@@ -71,7 +71,7 @@ readGrid fn
 
 day18 :: io ()
 day18
-    = readGrid "../inputs/day18.input" >>=. go
+    = readGrid "../inputs/day18.input" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

@@ -3,9 +3,9 @@
 
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <io>
+%import <state>         (>>=)/st_bind (>>)/st_right
 %import <vector>
 
 solve :: int -> int -> int -> int

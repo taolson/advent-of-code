@@ -3,8 +3,8 @@
 
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 hexval :: char -> int
@@ -41,7 +41,7 @@ lenDiff f s = abs (#s - #f s)
 
 day08 :: io ()
 day08
-    = readFile "../inputs/day08.input" >>=. (go . lines)
+    = readFile "../inputs/day08.input" >>= lines .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

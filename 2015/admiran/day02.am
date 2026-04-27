@@ -3,8 +3,8 @@
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 box ::= Box int int int
@@ -25,7 +25,7 @@ ribbonRequired (Box l w h)
 
 readBoxes :: string -> io [box]
 readBoxes fn
-    = map readBox <$>. lines <$>. readFile fn
+    = readFile fn <&> lines .> map readBox
       where
         readBox         = mkBox . map intval . splitOneOf cmpchar "( )"
         mkBox [l, w, h] = Box l w h
@@ -33,7 +33,7 @@ readBoxes fn
 
 day02 :: io ()
 day02
-    = readBoxes "../inputs/day02.input" >>=. go
+    = readBoxes "../inputs/day02.input" >>= go
        where
          go boxes
              = io_mapM_ putStrLn [part1, part2]

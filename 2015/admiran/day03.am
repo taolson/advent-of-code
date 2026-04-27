@@ -3,8 +3,8 @@
 
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 %import <set>
 
 
@@ -29,7 +29,7 @@ deliver
 
 day03 :: io ()
 day03
-    = readFile "../inputs/day03.input" >>=. go
+    = readFile "../inputs/day03.input" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

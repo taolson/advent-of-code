@@ -3,12 +3,13 @@
 
 %export day23
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
-%import <maybeState> p_bind2/mst_bind2 p_bind3/mst_bind3
+%import <maybeState>            p_bind2/mst_bind2 p_bind3/mst_bind3
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap 
 %import <vector>
 
 procSt      == (int, int, int)
@@ -59,28 +60,28 @@ run prog
 
 p_reg :: parser regAccessor
 p_reg
-    = (p_any >>= check) <* p_spaces
+    = (p_any p.>>= check) << p_spaces
       where
         check 'a' = p_pure p_ra
         check 'b' = p_pure p_rb
         check _   = p_fail
 
 p_offset :: parser int
-p_offset = p_optional (p_char '+') *> p_int <* p_spaces
+p_offset = p_optional (p_char '+') >> p_int << p_spaces
 
 p_arith, p_jmp, p_cjmp :: parser instruction
 p_arith
-    = p_bind2 (p_word <* p_spaces) p_reg check <* p_spaces
+    = p_bind2 (p_word << p_spaces) p_reg check << p_spaces
       where
         check "hlf" r = p_pure $ hlf r
         check "tpl" r = p_pure $ tpl r
         check "inc" r = p_pure $ inc r
         check _     _ = p_fail
 
-p_jmp = jmp <$> (p_string "jmp " *> p_offset)
+p_jmp = p_string "jmp " >> p_offset p.<&> jmp
 
 p_cjmp
-    = p_bind3 (p_word <* p_spaces) (p_reg <* p_string ", ") p_offset check
+    = p_bind3 (p_word << p_spaces) (p_reg << p_string ", ") p_offset check
       where
         check "jie" r d = p_pure $ jie r d
         check "jio" r d = p_pure $ jio r d
@@ -92,13 +93,13 @@ p_inst = p_arith <|> p_jmp <|> p_cjmp
 
 readProgram :: string -> io program
 readProgram fn
-    = go <$>. parse (p_some p_inst <* p_end) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_inst << p_end) <&> go
       where
         go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
 
 day23 :: io ()
 day23
-    = readProgram "../inputs/day23.input" >>=. go
+    = readProgram "../inputs/day23.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

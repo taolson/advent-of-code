@@ -3,8 +3,8 @@
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 
 
 || list monad

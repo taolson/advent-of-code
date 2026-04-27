@@ -5,11 +5,11 @@
 
 %import <either>
 %import <heap>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>
 %import <lens>
 %import <maybe>
 %import <base>
-%import "stateEither" (>>=)/ste_bind (<$>)/ste_fmap (<<)/ste_left (>>)/ste_right
+%import "stateEither"           (>>=)/ste_bind (<<)/ste_left (>>)/ste_right
 
 
 spellName ::= Missile | Drain | Shield | Poison | Recharge

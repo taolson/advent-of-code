@@ -3,10 +3,10 @@
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <maybe>
-%import <base>
 
 
 rpgItem   == (string, int, int, int)

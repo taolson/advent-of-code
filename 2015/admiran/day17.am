@@ -3,8 +3,8 @@
 
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 canFillExactly :: int -> [int] -> [[int]]
@@ -27,7 +27,7 @@ numOfMinLength xs
             
 day17 :: io ()
 day17
-    = readFile "../inputs/day17.input" >>=. (go . map intval . lines)
+    = readFile "../inputs/day17.input" >>= lines .> map intval .> go
       where
         go cs
             = io_mapM_ putStrLn [part1, part2]

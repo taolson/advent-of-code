@@ -3,12 +3,13 @@
 
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <state>
+%import <state> qualified as st (>>)/st_right
 %import <vector>
-%import <state> (>>)/st_right
 
 point == (int, int)
 rect  == (point, point)
@@ -36,22 +37,22 @@ command ::= TurnOn | TurnOff | Toggle
 rectOp == (command, rect)
 
 p_point :: parser point
-p_point = p_liftA2 pair p_int (p_char ',' *> p_int) <* p_spaces
+p_point = p_liftA2 pair p_int (p_char ',' >> p_int) << p_spaces
 
 p_rect :: parser rect
-p_rect = p_liftA2 pair p_point (p_string "through " *> p_point)
+p_rect = p_liftA2 pair p_point (p_string "through " >> p_point)
 
 p_on, p_off, p_toggle :: parser command
-p_on     = p_string "turn on "  *> p_pure TurnOn
-p_off    = p_string "turn off " *> p_pure TurnOff
-p_toggle = p_string "toggle "   *> p_pure Toggle
+p_on     = p_string "turn on "  >> p_pure TurnOn
+p_off    = p_string "turn off " >> p_pure TurnOff
+p_toggle = p_string "toggle "   >> p_pure Toggle
 
 p_rectOp :: parser rectOp
 p_rectOp = p_liftA2 pair (p_on <|> p_off <|> p_toggle) p_rect
 
 runRectOps :: (int -> int) -> (int -> int) -> (int -> int) -> [rectOp] -> vector int
 runRectOps fOn fOff fToggle ops
-    = st_evalState (st_mapM_ doOp ops >> gridToVector g) ()
+    = st_evalState (st_mapM_ doOp ops st.>> gridToVector g) ()
       where
         g = initGrid 1000
 
@@ -61,13 +62,13 @@ runRectOps fOn fOff fToggle ops
 
 readRectOps :: string -> io [rectOp]
 readRectOps fn
-    = go <$>. parse (p_some p_rectOp <* p_end) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_rectOp << p_end) <&> go
       where
         go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
 
 day06 :: io ()
 day06
-    = readRectOps "../inputs/day06.input" >>=. go
+    = readRectOps "../inputs/day06.input" >>= go
       where
         decToZero 0 = 0
         decToZero n = n - 1

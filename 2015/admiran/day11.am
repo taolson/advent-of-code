@@ -3,9 +3,9 @@
 
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>
+%import <maybe>
 
 
 || a password is a list of 8 integers (0 .. 25, representing the characters 'a' .. 'z'),

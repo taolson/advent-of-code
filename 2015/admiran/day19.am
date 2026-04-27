@@ -3,9 +3,9 @@
 
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
 %import <set>
 
 
@@ -74,14 +74,14 @@ findPathToElectronFast s
 
 readInput :: string -> io (string, [(string, string)])
 readInput fn
-    = go <$>. reverse <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> reverse <&> go
       where
         go (tgt : _ : ms) = (tgt, map parseMapping ms)
         go _              = error "readInput: bad parse"
 
 day19 :: io ()
 day19
-    = readInput "../inputs/day19.input" >>=. go
+    = readInput "../inputs/day19.input" >>= go
       where
         go (tgt, reps)
             = io_mapM_ putStrLn [part1, part2]

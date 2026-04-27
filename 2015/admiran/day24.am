@@ -3,8 +3,8 @@
 
 %export day24
 
-%import <io>    (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe> (>>=?)/mb_bind (<$>?)/mb_fmap (<|>?)/mb_alt
+%import <io>            (>>=)/io_bind
+%import <maybe>         (<&>)/mb_rfmap (<|>)/mb_alt
 %import <base>
 
 
@@ -26,7 +26,7 @@ findBestPartition parts pkgs
             = Just [pkgs],                                 if pn == parts   || final partition matches weight, by definition
             = firstJust . map partitionWithFirst $ cands', otherwise        || find first valid partition from candidates
               where
-                firstJust = foldr (<|>?) Nothing
+                firstJust = foldr (<|>) Nothing
 
                 || find the candidates for this partition (first partition with smallest size)
                 cands  = combsMatchingWeightFrom weight sz pkgs
@@ -35,11 +35,11 @@ findBestPartition parts pkgs
 
                 || given a partition, find all subsequent partitions for it or return Nothing
                 partitionWithFirst cand
-                    = (cand :) <$>? go (pn + 1) (#cand) (filter (not . member cmpint cand) pkgs)
+                    = go (pn + 1) (#cand) (filter (not . member cmpint cand) pkgs) <&> (cand :)
 
 day24 :: io ()
 day24
-    = readFile "../inputs/day24.input" >>=. (go . map intval . lines)
+    = readFile "../inputs/day24.input" >>= lines .> map intval .> go
       where
         go pkgs
             = io_mapM_ putStrLn [part1, part2]
