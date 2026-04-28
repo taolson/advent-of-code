@@ -1,8 +1,7 @@
-%import <base>
-
 %export day01
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 
 
 computeFuel :: (int -> int) -> [int] -> int
@@ -19,7 +18,7 @@ fuelForTotalMass m
 
 day01 :: io ()
 day01
-    = readFile "../inputs/day01.input" >>=. go
+    = readFile "../inputs/day01.input" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

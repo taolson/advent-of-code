@@ -1,12 +1,13 @@
 %export day25
 
 %import <astar>
+%import <base>
 %import <either>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
+%import <io>
+%import <io> qualified as IO    (>>=)/io_bind (>>)/io_right
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser>                (>>=)/p_bind (<<)/p_left (>>)/p_right (<|>)/p_alt
 %import <set>
 %import "intcode"
 
@@ -292,7 +293,7 @@ doWeightCheck state allItems
       where
         try [] = error "not found!"
         try (items : rest)
-            = putStrLn ("trying " ++ showlist showitem items) >>. checkResult
+            = putStrLn ("trying " ++ showlist showitem items) IO.>> checkResult
               where
                 state'   = foldr takeItem state items
                 task'    = e_task state'
@@ -307,13 +308,13 @@ doWeightCheck state allItems
 
 day25 :: io ()
 day25
-    = readProgram "../inputs/day25.input" >>=. go
+    = readProgram "../inputs/day25.input" IO.>>= go
       where
         go prog
-            = progress "buildingGraph ..." graph >>.
-              progress "computing optimal path ..." pathToAllItems >>.
-              progress "getting all items ..." allItems >>.
-              putStrLn ("items collected: " ++ showlist showitem allItems) >>.
+            = progress "buildingGraph ..." graph IO.>>
+              progress "computing optimal path ..." pathToAllItems IO.>>
+              progress "getting all items ..." allItems IO.>>
+              putStrLn ("items collected: " ++ showlist showitem allItems) IO.>>
               doWeightCheck checkpoint' allItems
               where
                 task                 = jitRun prog []
@@ -327,4 +328,4 @@ day25
                 allItems             = s_toList (e_inv checkpoint)
                 checkpoint'          = dropAllItems checkpoint
 
-                progress s x = putStrLn s >>. (x $seq io_pure x)
+                progress s x = putStrLn s IO.>> (x $seq io_pure x)

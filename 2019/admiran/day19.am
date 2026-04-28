@@ -1,10 +1,10 @@
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import "intcode"
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
+%import "intcode"
 
 
 inBeam :: program -> num -> num -> bool
@@ -56,7 +56,7 @@ searchRectangle prog yMax
 
 day19 :: io ()
 day19
-    = readProgram "../inputs/day19.input" >>=. go
+    = readProgram "../inputs/day19.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

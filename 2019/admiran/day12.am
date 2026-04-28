@@ -1,10 +1,10 @@
 %export day12
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <parser> (*>)/p_right (<*)/p_left
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
+%import <parser>        (>>)/p_right (<<)/p_left
 
 position == num
 velocity == num
@@ -52,10 +52,10 @@ findRepeat init
 || day12 parsing
 
 p_pos :: parser position
-p_pos = p_any *> p_any *> p_int
+p_pos = p_any >> p_any >> p_int
 
 p_poslist :: parser [position]
-p_poslist = p_inAngles (p_manySepBy (p_comma <* p_spaces) p_pos) <* p_spaces
+p_poslist = p_inAngles (p_manySepBy (p_comma << p_spaces) p_pos) << p_spaces
 
 makeSystem :: [[position]] -> sys
 makeSystem positions
@@ -67,13 +67,13 @@ makeSystem positions
 
 readSystem :: string -> io sys
 readSystem fn
-    = go <$>. parse (p_many p_poslist <* p_end) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_poslist << p_end) <&> go
       where
         go (mps, ps) = fromMaybef (error (p_error ps)) makeSystem mps
 
 day12 :: io ()
 day12
-     = readSystem "../inputs/day12.input" >>=. go
+     = readSystem "../inputs/day12.input" >>= go
        where
          go syst
              = io_mapM_ putStrLn [part1, part2]

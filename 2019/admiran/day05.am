@@ -1,10 +1,6 @@
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <avl>
-%import <map>
-%import <maybe>
-%import <base>
+%import <io>            (>>=)/io_bind
 %import "intcode"
 
 
@@ -23,7 +19,7 @@ printResults part ((r, i) : rs) = printResults part rs,                         
 
 day05 :: io ()
 day05
-    = readProgram "../inputs/day05.input" >>=. go
+    = readProgram "../inputs/day05.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

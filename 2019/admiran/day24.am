@@ -1,7 +1,7 @@
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
 
 
@@ -93,13 +93,13 @@ bioRating grid
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows = foldl (converse (s_insert cmppoint)) s_empty [(x, y) | (y, row) <- enumerate rows; (x, c) <- enumerate row; c ==. '#']
 
 day24 :: io ()
 day24
-    = readGrid "../inputs/day24.input" >>=. go
+    = readGrid "../inputs/day24.input" >>= go
       where
         go grid
             = io_mapM_ putStrLn [part1, part2]

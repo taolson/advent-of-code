@@ -1,7 +1,7 @@
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 phase :: [int] -> [int]
@@ -25,7 +25,7 @@ phase2 signal
         pSum d ds = (d + hd ds) $mod 10 : ds
 
 day16 :: io ()
-day16 = readFile "../inputs/day16.input" >>=. go
+day16 = readFile "../inputs/day16.input" >>= go
         where
           go input
               = io_mapM_ putStrLn [part1, part2]

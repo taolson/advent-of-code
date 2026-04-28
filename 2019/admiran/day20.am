@@ -1,10 +1,10 @@
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <astar>
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 
 
@@ -148,7 +148,7 @@ solveMaze graph extMap intMap entrance exit recursive
 
 readMaze :: string -> io (maze, [portalTile])
 readMaze fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = foldl addLoc (s_empty, []) [(x, y, c) | (y, row) <- enumerate rows; (x, c) <- enumerate row]
@@ -160,7 +160,7 @@ readMaze fn
 
 day20 :: io ()
 day20
-    = readMaze "../inputs/day20.input" >>=. go
+    = readMaze "../inputs/day20.input" >>= go
       where
         go (maze, portals)
             = io_mapM_ putStrLn [part1, part2]

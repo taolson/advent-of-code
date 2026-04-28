@@ -1,9 +1,9 @@
 %export day21
 
-%import <io> (>>=.)/io_bind
-%import <maybe>
 %import <base>
-%import <parser> (<$>)/p_fmap (>>)/p_right (<<)/p_left (<|>)/p_alt
+%import <io>            (>>=)/io_bind
+%import <maybe>
+%import <parser>        (<&>)/p_rfmap (>>)/p_right (<<)/p_left (<|>)/p_alt
 %import "intcode"
 
 
@@ -57,8 +57,8 @@ runScript script cmd prog
 || parsing
 
 p_term :: parser expr
-p_term = (Var <$> p_letter)               <|>
-         (Not <$> (p_char '!' >> p_term)) <|>
+p_term = p_letter <&> Var             <|>
+         p_char '!' >> p_term <&> Not <|>
          p_inParens p_expr
 
 p_expr :: parser expr
@@ -76,7 +76,7 @@ parseScript s
 
 day21 :: io ()
 day21
-    = readProgram "../inputs/day21.input" >>=. go
+    = readProgram "../inputs/day21.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

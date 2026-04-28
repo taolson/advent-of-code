@@ -1,9 +1,9 @@
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 %import "intcode"
 
 
@@ -29,7 +29,7 @@ findTarget program target
                      = (r, q), otherwise
 day02 :: io ()
 day02
-    = readProgram "../inputs/day02.input" >>=. go
+    = readProgram "../inputs/day02.input" >>= go
       where
         go program
             = io_mapM_ putStrLn [part1, part2]

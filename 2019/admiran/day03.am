@@ -1,8 +1,8 @@
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
 
 
 point == (int, int)
@@ -69,7 +69,7 @@ traceFrom time pos path
 
 readPaths :: string -> io [path]
 readPaths fn
-    = map readPath <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readPath
       where
         readPath          = map readMove . split ','
         readMove []       = error "readMove []"
@@ -82,7 +82,7 @@ readPaths fn
 
 day03 :: io ()
 day03
-    = readPaths "../inputs/day03.input" >>=. go
+    = readPaths "../inputs/day03.input" >>= go
       where
         go paths
             = io_mapM_ putStrLn [part1, part2]

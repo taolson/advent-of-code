@@ -1,10 +1,8 @@
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <avl>
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <map>
 %import "intcode"
 
 
@@ -66,7 +64,7 @@ printGrid grid
 
 day11 :: io ()
 day11
-    = readProgram "../inputs/day11.input" >>=. go
+    = readProgram "../inputs/day11.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

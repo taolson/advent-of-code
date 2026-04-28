@@ -1,7 +1,7 @@
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 point == (int, int)
@@ -84,7 +84,7 @@ vaporize asteroids station
 
 readAsteroidMap :: string -> io asteroidMap
 readAsteroidMap fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = [(x, y) | (y, row) <- enumerate rows; (x, ch) <- enumerate row; ch ==. '#']
@@ -92,7 +92,7 @@ readAsteroidMap fn
                 
 day10 :: io ()
 day10
-    = readAsteroidMap "../inputs/day10.input" >>=. go
+    = readAsteroidMap "../inputs/day10.input" >>= go
       where
         go asteroids
             = io_mapM_ putStrLn [part1, part2]

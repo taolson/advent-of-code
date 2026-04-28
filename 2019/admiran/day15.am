@@ -1,10 +1,9 @@
 %export day15
 
-%import <bfs>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <bfs>
+%import <io>            (>>=)/io_bind
+%import <map>
 %import "intcode"
 
 
@@ -112,7 +111,7 @@ fillMaze tank (MazeState maze b d p)
 
 day15 :: io ()
 day15
-    = readProgram "../inputs/day15.input" >>=. (go . jitReset)
+    = readProgram "../inputs/day15.input" >>= (go . jitReset)
       where
         go t
             = io_mapM_ putStrLn [part1, part2]

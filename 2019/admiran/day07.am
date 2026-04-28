@@ -1,9 +1,7 @@
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
 %import "intcode"
 
 
@@ -27,7 +25,7 @@ runFeedbackSequence prog sig seq
 
 day07 :: io ()
 day07
-    = readProgram "../inputs/day07.input" >>=. go
+    = readProgram "../inputs/day07.input" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

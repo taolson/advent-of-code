@@ -1,11 +1,9 @@
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <avl>
-%import <bfs>
-%import <map>
-%import <maybe>
 %import <base>
+%import <bfs>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 
 
 objId     == string
@@ -50,13 +48,13 @@ orbitalTransfers start stop om
 
 readSpecs :: string -> io [(objId, objId)]
 readSpecs fn
-    = map (mkSpec . split ')') <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (split ')' .> mkSpec)
       where mkSpec [a, b] = (a, b)
             mkSpec xs     = error "parse error"
 
 day06 :: io ()
 day06
-    = readSpecs "../inputs/day06.input" >>=. go
+    = readSpecs "../inputs/day06.input" >>= go
       where
         go orbitSpecs
             = io_mapM_ putStrLn [part1, part2]

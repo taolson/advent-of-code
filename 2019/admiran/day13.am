@@ -1,9 +1,8 @@
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <map>
 %import "intcode"
 
 
@@ -63,7 +62,7 @@ runGame t
         
 day13 :: io ()
 day13
-    = readProgram "../inputs/day13.input" >>=. (go . jitReset)
+    = readProgram "../inputs/day13.input" >>= jitReset .> go
       where
         go t
             = io_mapM_ putStrLn [part1, part2]

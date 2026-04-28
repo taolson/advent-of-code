@@ -1,10 +1,10 @@
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <bfs>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 %import "intcode"
 
 
@@ -180,7 +180,7 @@ runRobot t seq pats
 
 day17 :: io ()
 day17
-    = readProgram "../inputs/day17.input" >>=. (go . jitReset)
+    = readProgram "../inputs/day17.input" >>= jitReset .> go
       where
         go t
             = io_mapM_ putStrLn [part1, part2]
