@@ -34,7 +34,7 @@ splitN n (Pattern ps sz)
         split block
             = Pattern ps' n
               where
-                ps' = filter inBlock0 . map (($v2_sub) block) $ ps
+                ps' = filter inBlock0 . map ($v2_sub block) $ ps
 
                 inBlock0 (V2 r c) = 0 <= r < n & 0 <= c < n
 
@@ -45,7 +45,7 @@ joinN n pts
       where
         ps' = concat $ zipWith adj pts [V2 r c | r, c <- [0, n]]
 
-        adj (Pattern ps _) block = map (v2_add block) ps
+        adj (Pattern ps _) block = map ($v2_add block) ps
 
 || transform a pattern with all possible flips and rotations
 allXforms :: pattern -> [pattern]
