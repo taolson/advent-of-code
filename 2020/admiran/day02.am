@@ -3,10 +3,10 @@
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right
+%import <io>            (>>=.)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>        (<<)/p_left
 
 password ::= Password int int char string
 
@@ -26,14 +26,14 @@ valid2 (Password p1 p2 req pass)
 p_password :: parser password
 p_password
     = p_liftA4 Password
-      (p_posint <* p_char '-')
-      (p_posint <* p_spaces)
-      (p_any <* p_char ':' <* p_spaces)
-      (p_many p_letter <* p_spaces)
+      (p_posint << p_char '-')
+      (p_posint << p_spaces)
+      (p_any << p_char ':' << p_spaces)
+      (p_many p_letter << p_spaces)
 
 readPasswords :: string -> io [password]
 readPasswords fn
-    = go <$>. readFile fn
+    = readFile fn <&> go
       where
         go input
             = fromMaybe err mps

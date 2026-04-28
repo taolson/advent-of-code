@@ -3,10 +3,10 @@
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 
 
 intMap == m_map int int
@@ -43,7 +43,7 @@ joltDistribution
 
 day10 :: io ()
 day10
-    = readFile "../inputs/day10.txt" >>=. (go . map intval . lines)
+    = readFile "../inputs/day10.txt" >>= lines .> map intval .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

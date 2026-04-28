@@ -3,13 +3,14 @@
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base> -(***)
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <avl>
 %import <map>
 %import <maybe>
-%import <base> -(***)
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>        (<<)/p_left (>>)/p_right
 %import <set>
+
 
 (***), (+++), (---) :: s_set ingredient -> s_set ingredient -> s_set ingredient
 (***) = s_intersect  cmpingredient
@@ -72,17 +73,17 @@ solveAllergens
 || Parsing
 
 p_ingredient :: parser string
-p_ingredient = p_some p_letter <* p_spaces
+p_ingredient = p_some p_letter << p_spaces
 
 p_allergens :: parser [string]
-p_allergens = p_string "(contains " *> (p_someSepBy (p_string ", ") p_ingredient) <* p_char ')' <* p_spaces
+p_allergens = p_string "(contains " >> (p_someSepBy (p_string ", ") p_ingredient) << p_char ')' << p_spaces
 
 p_food :: parser ([string], [string])
-p_food = p_liftA2 pair (p_some p_ingredient) p_allergens <* p_spaces
+p_food = p_liftA2 pair (p_some p_ingredient) p_allergens << p_spaces
 
 readFoods :: string -> io [food]
 readFoods fn
-    = go <$>. parse (p_many p_food) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_food) <&> go
       where
         go (mfoods, ps) = fromMaybef (error (p_error ps)) (map mkFood) mfoods
 
@@ -90,7 +91,7 @@ readFoods fn
 
 day21 :: io ()
 day21
-    = readFoods "../inputs/day21.txt" >>=. go
+    = readFoods "../inputs/day21.txt" >>= go
       where
         go foods
             = io_mapM_ putStrLn [part1, part2]

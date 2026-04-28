@@ -3,8 +3,8 @@
 
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 %import <set>
 
 
@@ -74,7 +74,7 @@ toPath _                = []
 
 day24 :: io ()
 day24
-    = readFile "../inputs/day24.txt" >>=. (go . map toPath . lines)
+    = readFile "../inputs/day24.txt" >>= lines .> map toPath .> go
       where
         go paths
             = io_mapM_ putStrLn [part1, part2]

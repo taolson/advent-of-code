@@ -3,10 +3,10 @@
 
 %export day09
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
 %import <dequeue>
+%import <io>            (>>=)/io_bind
+%import <maybe>
 
 
 noMatchSumPair :: int -> [int] -> bool
@@ -39,7 +39,7 @@ findContiguousSum n xs
 
 day09 :: io ()
 day09
-    = readFile "../inputs/day09.txt" >>=. go
+    = readFile "../inputs/day09.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

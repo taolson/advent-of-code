@@ -3,12 +3,12 @@
 
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <avl>
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 
 m_mapAccumWithKey f s AVLLeaf = (s, AVLLeaf)
 
@@ -110,7 +110,7 @@ doRound2 (grid, _)
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = foldl addSeat emptygrid $ gridList
@@ -124,7 +124,7 @@ readGrid fn
 
 day11 :: io ()
 day11
-    = readGrid "../inputs/day11.txt" >>=. (go . addSeen)
+    = readGrid "../inputs/day11.txt" >>= addSeen .> go
       where
         go grid
             = io_mapM_ putStrLn [part1, part2]

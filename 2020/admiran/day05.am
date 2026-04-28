@@ -3,8 +3,8 @@
 
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 boardingPass == (int, int)
@@ -39,7 +39,7 @@ findMissing
 
 day05 :: io ()
 day05
-    = readFile "../inputs/day05.txt" >>=. go
+    = readFile "../inputs/day05.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

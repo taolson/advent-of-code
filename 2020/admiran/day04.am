@@ -3,11 +3,11 @@
 
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>        (<$>)/p_fmap (<<)/p_left (<|>)/p_alt
 
 fieldKey   == string
 fieldValue ::= Valid string | Invalid string
@@ -25,7 +25,7 @@ p_str = p_some (p_noneOf [' ', '\n', ':'])
 
 p_field :: string -> constraint -> parser field
 p_field k c
-    = makeField <$> (p_string k <* p_col) <*> (p_str <* p_sep)
+    = p_liftA2 makeField (p_string k << p_col) (p_str << p_sep)
       where
         makeField k v
             = (k, v')
@@ -79,7 +79,7 @@ p_passportField
     = p_byr <|> p_iyr <|> p_eyr <|> p_hgt <|> p_hcl <|> p_ecl <|> p_pid <|> p_cid
 
 p_passport :: parser passport
-p_passport = m_fromList cmpfieldKey <$> p_some p_passportField <* p_optional p_eol
+p_passport = m_fromList cmpfieldKey <$> p_some p_passportField << p_optional p_eol
 
 check ::= PresentFields | ValidFields
 
@@ -97,13 +97,13 @@ validate check reqd pass
 
 readPassports :: string -> io [passport]
 readPassports fn
-    = go <$>. parse (p_many p_passport) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_passport) <&> go
       where
         go (mpasses, ps) = fromMaybe (error (p_error ps)) mpasses
 
 day04 :: io ()
 day04
-    = readPassports "../inputs/day04.txt" >>=. go
+    = readPassports "../inputs/day04.txt" >>= go
       where
         go passports
             = io_mapM_ putStrLn [part1, part2]

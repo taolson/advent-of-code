@@ -3,11 +3,12 @@
 
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap 
 %import <set>
 %import <vector>
 
@@ -16,8 +17,8 @@ instruction ::= Nop int | Acc int | Jmp int
 program == vector instruction
 
 p_pInt, p_nInt, p_sInt :: parser int
-p_pInt = p_char '+' *> p_posint
-p_nInt = neg <$> (p_char '-' *> p_posint)
+p_pInt = p_char '+' >> p_posint
+p_nInt = p_char '-' >> p_posint p.<&> neg
 p_sInt = p_pInt <|> p_nInt
 
 p_opc :: parser string
@@ -25,7 +26,7 @@ p_opc = p_some p_letter
 
 p_instr :: parser instruction
 p_instr
-    = p_liftA2 makeInstr (p_opc <* p_spaces) (p_sInt <* p_spaces)
+    = p_liftA2 makeInstr (p_opc << p_spaces) (p_sInt << p_spaces)
       where
         makeInstr "nop" = Nop
         makeInstr "acc" = Acc
@@ -85,13 +86,13 @@ findDone prog
 
 readProgram :: string -> io program
 readProgram fn
-    = go <$>. parse (p_some p_instr) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_instr) <&> go
       where
         go (minstrs, ps) = fromMaybef (error (p_error ps)) v_fromList minstrs
 
 day08 :: io ()
 day08
-    = readProgram "../inputs/day08.txt" >>=. go
+    = readProgram "../inputs/day08.txt" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

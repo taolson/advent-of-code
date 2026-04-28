@@ -3,8 +3,8 @@
 
 %export day25
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 
 
 || quick modular exponentiation using squaring

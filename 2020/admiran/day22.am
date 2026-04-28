@@ -3,10 +3,10 @@
 
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <dequeue>
-%import <maybe>
 %import <base>
+%import <dequeue>
+%import <io>            (>>=)/io_bind
+%import <maybe>
 %import <set>
 
 dq_take :: int -> dequeue * -> dequeue *
@@ -98,11 +98,11 @@ playRecursive
                 (d1', d2') = doRoundRecursive d1 d2
 
 computeScore :: deck -> int
-computeScore = sum . zipWith (*) [1 .. ] . reverse . dq_toList
+computeScore d = dq_toList d |> reverse |> zipWith (*) [1 .. ] |> sum
 
 day22 :: io ()
 day22
-    = readFile "../inputs/day22.txt" >>=. (go . readDecks . lines)
+    = readFile "../inputs/day22.txt" >>= lines .> readDecks .> go
       where
         go decks
             = io_mapM_ putStrLn [part1, part2]

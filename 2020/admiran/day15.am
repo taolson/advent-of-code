@@ -3,11 +3,11 @@
 
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <lens>
 %import <base>
+%import <io>
+%import <lens>
 %import <vector>
-%import <state> (>>=)/st_bind (<$>)/st_fmap (<<)/st_left
+%import <state> (>>=)/st_bind (<&>)/st_rfmap (<<)/st_left
 
 
 game ::= Game int (mvector int) int int
@@ -34,7 +34,7 @@ stepGame (Game rounds spoken age last)
                 last' = if' (lookup == 0) 0 (age - lookup)
 
 initGame :: game -> int -> st game
-initGame game n = set g_last n <$> stepGame game
+initGame game n = stepGame game <&> set g_last n
 
 makeGame :: int -> [int] -> st game
 makeGame n = st_foldM initGame (emptyGame n)

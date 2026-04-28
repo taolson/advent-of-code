@@ -3,12 +3,12 @@
 
 %export day12
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
-
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap 
 
 locDir == (int, int)
 
@@ -37,10 +37,10 @@ action ::= Move locDir int | Fwd int | Turn (locDir -> locDir)
 
 p_dir :: parser locDir
 p_dir
-    = (p_pure north <* p_char 'N') <|>
-      (p_pure south <* p_char 'S') <|>
-      (p_pure east  <* p_char 'E') <|>
-      (p_pure west  <* p_char 'W')
+    = (p_pure north << p_char 'N') <|>
+      (p_pure south << p_char 'S') <|>
+      (p_pure east  << p_char 'E') <|>
+      (p_pure west  << p_char 'W')
 
 p_turn :: parser action
 p_turn
@@ -55,9 +55,9 @@ p_turn
 
 p_action :: parser action
 p_action
-    = (p_pure Move <*> p_dir <*> p_int       <* p_spaces) <|>
-      (p_pure Fwd  <*> (p_char 'F' *> p_int) <* p_spaces) <|>
-      (p_turn <* p_spaces)
+    = p_liftA2 Move p_dir p_int     << p_spaces <|>
+      p_char 'F' >> p_int p.<&> Fwd << p_spaces <|>
+      p_turn << p_spaces
 
 
 moveFn == ship -> locDir -> int -> ship
@@ -81,13 +81,13 @@ distance (x, y) = abs x + abs y
 
 readActions :: string -> io [action]
 readActions fn
-    = go <$>. parse (p_many p_action) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_action) <&> go
       where
         go (ma, ps) = fromMaybe (error (p_error ps)) ma
 
 day12 :: io ()
 day12
-    = readActions "../inputs/day12.txt" >>=. go
+    = readActions "../inputs/day12.txt" >>= go
       where
         go actions
             = io_mapM_ putStrLn [part1, part2]

@@ -3,8 +3,8 @@
 
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
 
 point == (int, int)
@@ -20,7 +20,7 @@ treeCount (Grid trees maxX maxY) (slopeX, slopeY)
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = Grid trees maxX maxY
@@ -31,7 +31,7 @@ readGrid fn
 
 day03 :: io ()
 day03
-    = readGrid "../inputs/day03.txt" >>=. go
+    = readGrid "../inputs/day03.txt" >>= go
       where
         go grid
             = io_mapM_ putStrLn [part1, part2]

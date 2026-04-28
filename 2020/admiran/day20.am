@@ -3,11 +3,12 @@
 
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
+%import <io> qualified as IO    (>>=)/io_bind
 %import <lens>
 %import <map>
-%import <maybe> (>>=)/mb_bind
-%import <base>
+%import <maybe>                 (>>=)/mb_bind
 %import <set>
 
 (!!!) :: edgeMap -> edge -> [tile]
@@ -257,7 +258,7 @@ monster
 
 day20 :: io ()
 day20
-    = readFile "../inputs/day20.txt" >>=. go 
+    = readFile "../inputs/day20.txt" IO.>>= go 
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

@@ -3,17 +3,17 @@
 
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>                  -find
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
-%import <base> -find
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
-
+%import <parser>                (<<)/p_left (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
 
 p_busID :: parser (maybe int)
-p_busID = (Just <$> p_int) <|> (const Nothing <$> p_char 'x')
+p_busID = p_int <&> Just <|> p_char 'x' <&> const Nothing
 
 p_schedule :: parser (int, [maybe int])
-p_schedule = p_liftA2 pair (p_int <* p_spaces) (p_someSepBy (p_char ',') p_busID) <* p_spaces
+p_schedule = p_liftA2 pair (p_int << p_spaces) (p_someSepBy (p_char ',') p_busID) << p_spaces
 
 residualAfter :: int -> int -> int
 residualAfter m n
@@ -31,13 +31,13 @@ find (start, step) (n, m)
 
 readSchedule :: string -> io (int, [maybe int])
 readSchedule fn
-    = go <$>. parse p_schedule <$>. readFile fn
+    = readFile fn <&> parse p_schedule <&> go
       where
         go (ms, ps) = fromMaybe (error (p_error ps)) ms
 
 day13 :: io ()
 day13
-    = readSchedule "../inputs/day13.txt" >>=. go
+    = readSchedule "../inputs/day13.txt" >>= go
       where
         addIdx Nothing   _   = Nothing
         addIdx (Just id) idx = Just (id, idx)

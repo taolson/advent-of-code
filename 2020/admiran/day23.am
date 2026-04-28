@@ -3,11 +3,11 @@
 
 %export day23
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>
+%import <maybe>
 %import <vector>
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <state>         (>>=)/st_bind (>>)/st_right
 
 || shorter synonyms for mvector read/write operations
 vrd = v_unsafeRead

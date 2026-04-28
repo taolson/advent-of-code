@@ -3,8 +3,8 @@
 
 %export day01
 
-%import <io>                    (>>=)/io_bind
 %import <base>
+%import <io>                    (>>=)/io_bind
 
 solve2, solve3 :: [int]  -> int
 solve2 xs = hd [a * b     | a : bs <- tails xs; b <- bs; a + b == 2020]

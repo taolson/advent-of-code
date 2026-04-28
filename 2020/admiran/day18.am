@@ -3,11 +3,12 @@
 
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
-%import <map>
 %import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <io>
+%import <io> qualified as IO    (>>=)/io_bind
+%import <map>
+%import <maybe>
+%import <parser>                (>>=)/p_bind (<&>)/p_rfmap (<<)/p_left (>>)/p_right (<|>)/p_alt
 
 
 oper ::= Add | Mul
@@ -26,13 +27,13 @@ prec :: precMap -> oper -> int
 prec m o = m_findWithDefault cmpoper 0 o m
 
 p_oper :: parser oper
-p_oper = (p_pure Add <* p_char '+') <|> (p_pure Mul <* p_char '*') <* p_spaces
+p_oper = (p_pure Add << p_char '+') <|> (p_pure Mul << p_char '*') << p_spaces
 
 p_lit :: parser expr
-p_lit  = Lit <$> p_int
+p_lit  = p_int <&> Lit
 
 p_term, p_expr :: precMap -> parser expr
-p_term pm = (p_lit <|> (p_char '(' *> p_expr pm <* p_char ')')) <* p_spaces
+p_term pm = (p_lit <|> (p_char '(' >> p_expr pm << p_char ')')) << p_spaces
 p_expr pm = p_exp pm [] []
 
 p_exp, p_op, p_reduce, p_final :: precMap -> [expr] -> [oper] -> parser expr
@@ -50,7 +51,7 @@ p_final pm [e] []                   = p_pure e
 p_final pm _   _                    = p_fail
 
 p_exprs :: precMap -> parser [expr]
-p_exprs pm = p_some (p_expr pm <* p_spaces)
+p_exprs pm = p_some (p_expr pm << p_spaces)
 
 readExprs :: precMap -> string -> [expr]
 readExprs pm input
@@ -61,7 +62,7 @@ readExprs pm input
 
 day18 :: io ()
 day18
-    = readFile "../inputs/day18.txt" >>=. go
+    = readFile "../inputs/day18.txt" IO.>>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]
