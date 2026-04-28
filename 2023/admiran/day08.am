@@ -1,10 +1,10 @@
-|| day08.m -- Haunted Wasteland
+|| day08 -- Haunted Wasteland
 
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 
 
 instruction == char
@@ -33,12 +33,12 @@ totalPeriod net moves locs
 
 readInput :: string -> io (string, network)
 readInput fn
-    = (go . splitWhen null . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> splitWhen null <&> go
       where
         go ([moves] : [net])
             = (moves, readNet net)
               where
-                readNet = foldl ins m_empty . map (splitWhen (not . letter))
+                readNet = map (splitWhen (not . letter)) .> foldl ins m_empty
 
                 ins m [k, l, r] = m_insert cmpstring k (l, r) m
                 ins _ _         = error "readInput: parse error"
@@ -46,7 +46,7 @@ readInput fn
 
 day08 :: io ()
 day08
-    = readInput "../inputs/day08.txt" >>=. go
+    = readInput "../inputs/day08.txt" >>= go
       where
         go (moves, net)
             = io_mapM_ putStrLn [part1, part2]

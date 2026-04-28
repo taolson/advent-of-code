@@ -1,14 +1,14 @@
-|| day23.m -- A Long Walk
+|| day23 -- A Long Walk
 
 
 %export day23
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 
 
@@ -136,7 +136,7 @@ longestPath m
 
 readMaze :: string -> io maze
 readMaze fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (m, start, finish)
@@ -149,7 +149,7 @@ readMaze fn
 
 day23 :: io ()
 day23
-    = readMaze "../inputs/day23.txt" >>=. go
+    = readMaze "../inputs/day23.txt" >>= go
       where
         go m
             = io_mapM_ putStrLn [part1, part2]

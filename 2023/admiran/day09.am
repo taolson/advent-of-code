@@ -1,10 +1,10 @@
-|| day09.m -- Mirage Maintenance
+|| day09 -- Mirage Maintenance
 
 
 %export day09
 
-%import <io> (>>=.)/io_bind
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 sequence == [int]
@@ -28,7 +28,7 @@ predictPrev
         extrap xs d = hd xs - d
 
 day09
-    = readFile "../inputs/day09.txt" >>=. go
+    = readFile "../inputs/day09.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

@@ -1,10 +1,10 @@
-|| day18.m -- Lavaduct Lagoon
+|| day18 -- Lavaduct Lagoon
 
 
 %export day18
 
-%import <io> (>>=.)/io_bind
 %import <base>
+%import <io>            (>>=)/io_bind
 %import <v2>
 
 
@@ -97,7 +97,7 @@ shoelaceArea segs
 
 day18 :: io ()
 day18
-    = readFile "../inputs/day18.txt" >>=. go
+    = readFile "../inputs/day18.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

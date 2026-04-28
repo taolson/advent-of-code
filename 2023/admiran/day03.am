@@ -1,13 +1,13 @@
-|| day03.m -- Gear Ratios
+|| day03 -- Gear Ratios
 
 
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser>        (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
 %import <set>
 
 
@@ -63,7 +63,7 @@ p_noise :: parser [char]
 p_noise = p_many (p_space <|> p_char '.')
 
 p_component :: parser component
-p_component =  p_noise >> ((Csym <$> p_sym) <|> (Cpart <$> p_part))
+p_component =  p_noise >> (Csym <$> p_sym <|> Cpart <$> p_part)
 
 || create the list of adjacent locations for a part
 partAdjacencies :: part -> [loc]
@@ -94,7 +94,7 @@ gearRatio pm s
 || read all of the components, then build the schematic
 readSchematic :: string -> io schematic
 readSchematic fn
-    = doParse <$>. readFile fn
+    = readFile fn <&> doParse
       where
         doParse input
             = fromMaybef err mkSchematic mcs
@@ -120,7 +120,7 @@ readSchematic fn
 
 day03 :: io ()
 day03
-    = readSchematic "../inputs/day03.txt" >>=. go
+    = readSchematic "../inputs/day03.txt" >>= go
       where
         go (ps, ss, pm, sm)
             = io_mapM_ putStrLn [part1, part2]

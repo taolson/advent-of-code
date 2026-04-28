@@ -1,12 +1,12 @@
-|| day10.m -- Pipe Maze, using vector for the grid, and the shoelace algorithm for the inside area
+|| day10 -- Pipe Maze, using vector for the grid, and the shoelace algorithm for the inside area
 
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
 %import <set>
 %import <vector>
 
@@ -104,7 +104,7 @@ shoelaceArea loop
 || read the grid and start location
 readGrid :: string -> io (grid, loc)
 readGrid fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (g, s)
@@ -125,7 +125,7 @@ readGrid fn
 
 day10 :: io ()
 day10
-    = readGrid "../inputs/day10.txt" >>=. go
+    = readGrid "../inputs/day10.txt" >>= go
       where
         go (grid, start)
             = io_mapM_ putStrLn [part1, part2]

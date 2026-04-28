@@ -1,11 +1,11 @@
-|| day04v.m -- Scratchcards -- version written using vector instead of map / bag
+|| day04v -- Scratchcards -- version written using vector instead of map / bag
 
 
 %export day04
 
-%import <io> (>>=.)/io_bind
 %import <base>
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <io>
+%import <state>         (>>=)/st_bind (>>)/st_right
 %import <vector>
 
 
@@ -66,7 +66,7 @@ tallyCards ev
 
 day04 :: io ()
 day04
-    = readFile "../inputs/day04.txt" >>=. go
+    = readFile "../inputs/day04.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

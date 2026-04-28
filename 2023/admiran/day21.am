@@ -1,13 +1,13 @@
-|| day21.m -- Step Counter
+|| day21 -- Step Counter
 
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
 %import <set>
 
 
@@ -74,7 +74,7 @@ reachableInf g start steps
 
 readGarden :: string -> io (garden, loc)
 readGarden fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = ((s_fromList cmploc rocks, size), hd starts)
@@ -85,7 +85,7 @@ readGarden fn
         
 day21 :: io ()
 day21
-    = readGarden "../inputs/day21.txt" >>=. go
+    = readGarden "../inputs/day21.txt" >>= go
       where
         go (g, st)
             = io_mapM_ putStrLn [part1, part2]

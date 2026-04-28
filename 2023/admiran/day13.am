@@ -1,11 +1,11 @@
-|| day13.m -- Point of Incidence
+|| day13 -- Point of Incidence
 
 
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
 
 
 grid == [string]
@@ -39,11 +39,11 @@ findMirror f g
     = (mb_fmap (* 100) (f g)) $mb_alt f (transpose g)
 
 readInput :: string -> io [grid]
-readInput fn = (splitWhen null . lines) <$>. readFile fn
+readInput fn = readFile fn <&> lines <&> splitWhen null
 
 day13 :: io ()
 day13
-    = readInput "../inputs/day13.txt" >>=. go
+    = readInput "../inputs/day13.txt" >>= go
       where
         go grids
             = io_mapM_ putStrLn [part1, part2]

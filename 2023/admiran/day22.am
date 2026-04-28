@@ -1,13 +1,13 @@
-|| day22.m -- Sand Slabs
+|| day22 -- Sand Slabs
 
 
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <map>
-%import <base>
-%import <state>
+%import <state>          (>>=)/st_bind (<&>)/st_rfmap
 
 
 coord == (int, int, int)     || z, x, y
@@ -80,7 +80,7 @@ totalDropped bs
 || read the bricks data from a file and sort in order of ascending brick zLo coord
 readBricks :: string -> io [brick]
 readBricks fn
-    = (sortBy cmpbrick . map readBrick . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> map readBrick <&> sortBy cmpbrick
       where
         readBrick s
             = sortBy cmpcoord cubes
@@ -96,7 +96,7 @@ readBricks fn
 
 day22 :: io ()
 day22
-    = readBricks "../inputs/day22.txt" >>=. go
+    = readBricks "../inputs/day22.txt" >>= go
       where
         go bricks
             = io_mapM_ putStrLn [part1, part2]

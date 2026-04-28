@@ -1,4 +1,4 @@
-|| day24.m -- Never Tell Me The Odds
+|| day24 -- Never Tell Me The Odds
 ||
 || Note: this does not run correctly using only native 63-bit ints; works with double-precision floats in Miranda
 ||       solved by using the bignum library (with basic ops limited to 16 digits precision) and modifying v3 to use bignums
@@ -8,11 +8,11 @@
 
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import "v3big"
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
 %import "bignum"
+%import "v3big"
 
 
 position == v3 bignum
@@ -114,7 +114,7 @@ findRockPos sts
 
 readStones :: string -> io [stone]
 readStones fn
-    = (map mkStone . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> map mkStone
       where
         mkV3 s
             = V3 a b c
@@ -128,7 +128,7 @@ readStones fn
 
 day24 :: io ()
 day24
-    = readStones "../inputs/day24.txt" >>=. go
+    = readStones "../inputs/day24.txt" >>= go
       where
         go stones
             = io_mapM_ putStrLn [part1, part2]

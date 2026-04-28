@@ -1,11 +1,11 @@
-|| day07.m -- Camel Cards
+|| day07 -- Camel Cards
 
 
 %export day07
 
-%import <io> (>>=.)/io_bind
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <maybe>
 
 
 card ::= Card int       || card strength
@@ -84,7 +84,7 @@ mapJokers c   = c
 
 day07 :: io ()
 day07
-    = readFile "../inputs/day07.txt" >>=. go
+    = readFile "../inputs/day07.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

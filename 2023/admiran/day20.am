@@ -1,4 +1,4 @@
-|| day20.m -- Pulse Propagation
+|| day20 -- Pulse Propagation
 ||
 || Note: this solution turns out to be overkill: I was assuming that we had to find a periodic count to the state in part 2,
 || so to track it easily I converted the state held in each module to an index into an mvector that was updated
@@ -8,13 +8,13 @@
 
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <dequeue>
+%import <io>
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
-%import <state> (>>=)/st_bind (<$>)/st_fmap (<<)/st_left (>>)/st_right
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap (<<)/st_left (>>)/st_right
 %import <vector>
 
 
@@ -90,7 +90,7 @@ addSrc sn dn (modm, srcm, gen)
 || and collecting a list of sources for Conjunctions
 parseMod :: string -> state parseSt (modName, char, modId, [modName])
 parseMod s
-    = chooseType . splitOneOf cmpchar "-> ," $ s
+    = splitOneOf cmpchar "-> ," s |> chooseType
       where
         chooseType ((c : mn) : dests)
             = go (c : mn) c dests, if c ==. 'b'      || broadcaster
@@ -99,7 +99,7 @@ parseMod s
         chooseType xs = error "parseMod: bad parse"
 
         go mn c dests
-            = mkInfo <$> genId mn << st_mapM (addSrc mn) dests
+            = genId mn <&> mkInfo << st_mapM (addSrc mn) dests
               where
                 mkInfo mid = (mn, c, mid, dests)
 
@@ -123,13 +123,13 @@ makeMod (n, c, mid, dests)
               where              
                 go 'b' = st_pure ("broadcaster", mid, Broadcaster, dsts') 
 
-                go '%' = mkFF <$> allocPulseStId 1
+                go '%' = allocPulseStId 1 <&> mkFF
                          where
                            mkFF pid = (n, mid, (FlipFlop pid), dsts')
 
                 go '&' = getSrcs n >>= (alloc . length)
                          where
-                           alloc sz      = mkConj sz <$> allocPulseStId sz
+                           alloc sz      = allocPulseStId sz <&> mkConj sz
                            mkConj sz pid = (n, mid, (Conjunction pid sz), dsts')
 
                 go _   = error "bad mod type character"
@@ -206,7 +206,7 @@ pushButton :: state rnSt ()
 pushButton
     = rn_over rn_push (+ 1) >> (getBroadcaster >>= send Low) >> runToIdle
       where
-        getBroadcaster = (($pair 0) . view mod_id . fromJust . m_lookup cmpmodName "broadcaster") <$> rn_view rn_net
+        getBroadcaster = rn_view rn_net <&> m_lookup cmpmodName "broadcaster" .> fromJust .> view mod_id <&> ($pair 0)
 
         runToIdle
             = rn_view rn_sigq >>= check
@@ -234,7 +234,7 @@ doPart2 st
 
 readNet :: string -> io rnSt
 readNet fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go specs
             = (net, vm, (v_unsafeThaw vp), dq_empty, dq_empty, 0)
@@ -249,7 +249,7 @@ readNet fn
 
 day20 :: io ()
 day20
-    = readNet "../inputs/day20.txt" >>=. go
+    = readNet "../inputs/day20.txt" >>= go
       where
         go st
             = io_mapM_ putStrLn [part1, part2]

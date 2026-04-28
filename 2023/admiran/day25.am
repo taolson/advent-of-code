@@ -1,15 +1,15 @@
-|| day25.m -- Snoverload
+|| day25 -- Snoverload
 
 
 %export day25
 
 %import <avl>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <bag>
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 
 edge    == (int, int)           || vertex index, weight
@@ -28,11 +28,6 @@ g_delete = m_delete cmpint
 g_anyKey :: graph -> int
 g_anyKey AVLLeaf                = error "g_anyKey: empty graph"
 g_anyKey (AVLNode (k, _) _ _ _) = k
-
-a_isSingleton :: avlTree * -> bool
-a_isSingleton (AVLNode _ AVLLeaf AVLLeaf _) = True
-a_isSingleton t                             = False
-
 
 cutset == b_bag int
 
@@ -133,7 +128,7 @@ addSym (m, n) s
 
 readConnections :: string -> io graph
 readConnections fn
-    = (m_fmap (map ($pair 1) . nub cmpint) . fst . foldl addNode (m_empty, initSym) . map words . lines) <$>. readFile fn
+    = readFile fn <&> lines .> map words .> foldl addNode (m_empty, initSym) .> fst <&> m_fmap (nub cmpint .> map ($pair 1))
       where
         init [] = error "init: []"
         init (x : xs)
@@ -154,6 +149,6 @@ readConnections fn
 
 day25 :: io ()
 day25
-    = readConnections "../inputs/day25.txt" >>=. go
+    = readConnections "../inputs/day25.txt" >>= go
       where
         go = putStrLn . (++) "part 1: " . showint . doPart1

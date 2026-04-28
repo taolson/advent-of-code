@@ -1,10 +1,10 @@
-|| day05.m -- If You Give A Seed A Fertilizer
+|| day05 -- If You Give A Seed A Fertilizer
 
 
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 || handy operators for min and max on ints
@@ -64,7 +64,7 @@ minOfRanges = min cmpint . map fst
 
 readInput :: string -> io ([int], [itemMap])
 readInput fn
-    = doParse <$>. readFile fn
+    = readFile fn <&> doParse
       where
         doParse input
             = (readSeeds ss, map readMap ms)
@@ -78,7 +78,7 @@ readInput fn
 
 day05 :: io ()
 day05
-    = readInput "../inputs/day05.txt" >>=. go
+    = readInput "../inputs/day05.txt" >>= go
       where
         go (sds, ims)
             = io_mapM_ putStrLn [part1, part2]

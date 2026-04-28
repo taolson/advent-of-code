@@ -1,12 +1,13 @@
-|| day02.m -- Cube Conundrum
+|| day02 -- Cube Conundrum
 
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*>)/p_apply (<<)/p_left (>>)/p_right
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
+%import <parser>                (<<)/p_left (>>)/p_right
+%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap
 %import <v3>
 
 
@@ -39,7 +40,7 @@ p_colorCount
         mkCount n _       = error "bad color"
 
 p_subset :: parser rgb
-p_subset = foldl v3_add (v3_pure 0) <$> (p_spaces >> p_someSepBy (p_char ',') p_colorCount)
+p_subset = p_spaces >> p_someSepBy (p_char ',') p_colorCount p.<&> foldl v3_add (v3_pure 0)
 
 p_game :: parser game
 p_game = p_liftA2 pair (p_string "Game " >> p_int) (p_char ':' >> p_someSepBy (p_char ';') p_subset) << p_spaces
@@ -49,7 +50,7 @@ p_games = p_someSepBy p_spaces p_game
 
 readGames :: string -> io [game]
 readGames fn
-    = doParse <$>. readFile fn
+    = readFile fn <&> doParse
       where
         doParse input
             = fromMaybe err mgs
@@ -59,7 +60,7 @@ readGames fn
 
 day02 :: io ()
 day02
-    = readGames "../inputs/day02.txt" >>=. go
+    = readGames "../inputs/day02.txt" >>= go
       where
         go games
             = io_mapM_ putStrLn [part1, part2]

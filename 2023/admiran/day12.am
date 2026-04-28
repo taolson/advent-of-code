@@ -1,14 +1,14 @@
-|| day12m.m -- Hot Springs -- memoized version
+|| day12m -- Hot Springs -- memoized version
 
 
 %export day12
 
-%import <io> (>>=.)/io_bind
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
 %import <memo>
-%import <base>
-%import <state> (<$>)/st_fmap
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap
 
 
 spring          == char
@@ -42,7 +42,7 @@ findCombos' ((s0 : ss), qa)
 
                 || tally is written as a sum of a list, but the list will only contain 0 or 1 elements;
                 || this list comprehension is used to simplify filtering out the bad cases
-                tally = sum <$> st_mapM findCombos xs
+                tally = st_mapM findCombos xs <&> sum
                         where
                           xs = [(rest, qrest) |
                                 (header, dot : rest) <- [splitAt (q - 1) srest];        || header is the match for (q - 1) broken springs
@@ -73,7 +73,7 @@ processLine2 str
 
 day12 :: io ()
 day12
-    = readFile "../inputs/day12.txt" >>=. go
+    = readFile "../inputs/day12.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

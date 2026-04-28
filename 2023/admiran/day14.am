@@ -1,12 +1,12 @@
-|| day14.m -- Parabolic Reflector Dish
+|| day14 -- Parabolic Reflector Dish
 
 
 %export day14
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap (>>)/io_right
 %import <map>
 %import <maybe>
-%import <base>
 
 
 loc      == (int, int)
@@ -73,7 +73,7 @@ findCycle limit rocks
 
 readInput :: string -> io ([rock], loc)
 readInput fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (rocks, (mx, my))
@@ -84,7 +84,7 @@ readInput fn
 
 day14 :: io ()
 day14
-    = readInput "../inputs/day14.txt" >>=. go
+    = readInput "../inputs/day14.txt" >>= go
       where
         go (rocks, limit)
             = io_mapM_ putStrLn [part1, part2]

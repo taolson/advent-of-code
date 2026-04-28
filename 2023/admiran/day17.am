@@ -1,13 +1,13 @@
-|| day17.m -- Clumsy Crucible
+|| day17 -- Clumsy Crucible
 
 
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <heap>
 %import <lens>
 %import <maybe>
-%import <base>
 %import <set>
 %import <vector>
 
@@ -103,7 +103,7 @@ solve g (dirMax, dirMin) start finish
 
 readMap :: string -> io (grid int)
 readMap fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = Grid v w h
@@ -114,7 +114,7 @@ readMap fn
 
 day17 :: io ()
 day17
-    = readMap "../inputs/day17.txt" >>=. go
+    = readMap "../inputs/day17.txt" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

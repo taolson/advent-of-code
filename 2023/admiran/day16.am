@@ -1,4 +1,4 @@
-|| day16.m -- The Floor Will Be Lava
+|| day16 -- The Floor Will Be Lava
 ||
 || part 2 needs to be solved with memoization; need to figure out how to split up paths through the grid
 || problem is that following a beam will eventually encounter a visited beam state, but we might not want
@@ -6,14 +6,14 @@
 
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
-%import <state> (>>=)/st_bind
-%import <v2> (<+>)/v2_add
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap
+%import <v2>            (<+>)/v2_add
 
 
 loc  == v2 int
@@ -94,7 +94,7 @@ energizedCount gs b
     = s_size . view gs_visited . st_execState (go [b]) $ gs
       where
         go []       = st_pure ()
-        go (b : bs) = interact b >>= go . (++ bs)
+        go (b : bs) = interact b >>= (++ bs) .> go
 
 || find the maximum energized, starting the beam at any location on the perimeter
 maxEnergized :: gridSt -> int
@@ -110,7 +110,7 @@ maxEnergized gs
 
 readGrid :: string -> io (grid, int, int)
 readGrid fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = (g, width, height)
@@ -121,7 +121,7 @@ readGrid fn
 
 day16 :: io ()
 day16
-    = readGrid "../inputs/day16.txt" >>=. go
+    = readGrid "../inputs/day16.txt" >>= go
       where
         go (g, w, h)
             = io_mapM_ putStrLn [part1, part2]

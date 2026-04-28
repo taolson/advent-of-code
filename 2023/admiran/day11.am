@@ -1,11 +1,11 @@
-|| day11.m -- Cosmic Expansion
+|| day11 -- Cosmic Expansion
 
 
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <lens>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <lens>
 
 
 loc == (int, int)
@@ -42,14 +42,14 @@ shortestPaths gxs
 
 readGalaxies :: string -> io galaxies
 readGalaxies fn
-    = (go . lines) <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = [(x, y) | (y, cs) <- enumerate rows; (x, c) <- enumerate cs; c ==. '#']
 
 day11 :: io ()
 day11
-    = readGalaxies "../inputs/day11.txt" >>=. go
+    = readGalaxies "../inputs/day11.txt" >>= go
       where
         go gxs
             = io_mapM_ putStrLn [part1, part2]

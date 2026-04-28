@@ -1,14 +1,15 @@
-|| day19.m -- Aplenty
+|| day19 -- Aplenty
 
 
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
+%import <io> qualified as IO    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (>>)/p_right (<<)/p_left
+%import <parser>                (>>=)/p_bind (<&>)/p_rfmap (>>)/p_right (<<)/p_left
 
 
 interval == (int, int)
@@ -83,7 +84,7 @@ p_part
 
 p_destination :: parser destination
 p_destination
-    = mkDest <$> p_ident
+    = p_ident <&> mkDest
       where
         mkDest "A" = Accepted
         mkDest "R" = Rejected
@@ -182,7 +183,7 @@ sieveSys (wfm, ps)
 
 readSys :: string -> io sys
 readSys fn
-    = go <$>. readFile fn
+    = readFile fn IO.<&> go
       where
         go input
             = fromMaybe err m_sys
@@ -192,7 +193,7 @@ readSys fn
 
 day19 :: io ()
 day19
-    = readSys "../inputs/day19.txt" >>=. go
+    = readSys "../inputs/day19.txt" IO.>>= go
       where
         go sys
             = io_mapM_ putStrLn [part1, part2]

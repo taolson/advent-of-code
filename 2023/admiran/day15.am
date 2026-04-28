@@ -1,11 +1,12 @@
-|| day15.m -- Lens Library
+|| day15 -- Lens Library
 
 
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
+
 
 label == string
 lens  == (label, int)
@@ -66,11 +67,11 @@ focusingPower
         boxPower (i, xs) = (i + 1) * sum [(j + 1) * fl | (j, (lbl, fl)) <- enumerate xs]
 
 readSequence :: string -> io [string]
-readSequence fn = (split ',' . concat . lines) <$>. readFile fn
+readSequence fn = readFile fn <&> lines <&> concat <&> split ','
 
 day15 :: io ()
 day15
-    = readSequence "../inputs/day15.txt" >>=. go
+    = readSequence "../inputs/day15.txt" >>= go
       where
         go sequence
             = io_mapM_ putStrLn [part1, part2]

@@ -1,11 +1,11 @@
-|| day06.m -- Wait For It
+|| day06 -- Wait For It
 
 
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap (>>.)/io_right
 %import <base>
-%import <state>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+
 
 race == (int, int)      || race time, best distance
 
@@ -56,19 +56,19 @@ pairs _            = error "pairs: odd length list"
 
 readRaces :: string -> io [race]
 readRaces fn
-    = (zip . map (map intval . tl . words) . lines) <$>. readFile fn
+    = readFile fn <&> lines .> map (words .> tl .> map intval) <&> zip
       where
         zip [a, b] = zip2 a b
         zip _      = error "zip: bad input"
 
 removeKerning :: string -> io race
 removeKerning fn
-    = (hd . pairs . map (intval . concat . tl . words) . lines) <$>. readFile fn
+    = readFile fn <&> lines .> map (words .> tl .> concat .> intval) .> pairs <&> hd
 
 day06 :: io ()
 day06
-    = io_mapM_ (>>=. putStrLn) [part1, part2]   || part1 and part2 are io strings, so we need to bind them to putStrLn
+    = io_sequence_ [part1, part2]
       where
         input = "../inputs/day06.txt"
-        part1 = (("part 1: " ++) . showint . product . map waysToWin) <$>. readRaces input
-        part2 = (("part 2: " ++) . showint . computeWins) <$>. removeKerning input
+        part1 = readRaces input >>= map waysToWin .> product .> showint .> ("part 1" ++) .> putStrLn
+        part2 = removeKerning input >>= computeWins .> showint .> ("part 2: " ++) .> putStrLn
