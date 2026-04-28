@@ -3,11 +3,11 @@
 
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right
+%import <parser>        (<<)/p_left (>>)/p_right
 
 
 point == (int, int)
@@ -75,20 +75,20 @@ doPart2 grid maxTotalDist
         gridPoints = [(x, y) | x <- [minX grid .. maxX grid]; y <- [minY grid .. maxY grid]]
 
 p_point :: parser point
-p_point = p_liftA2 pair p_int (p_char ',' *> p_spaces *> p_int) <* p_spaces
+p_point = p_liftA2 pair p_int (p_char ',' >> p_spaces >> p_int) << p_spaces
 
 p_points :: parser [point]
 p_points = p_some p_point
 
 readPoints :: string -> io [point]
 readPoints fn
-    = go <$>. parse p_points <$>. readFile fn
+    = readFile fn <&> parse p_points <&> go
       where
         go (mpoints, ps) = fromMaybe (error (p_error ps)) mpoints
 
 day06 :: io ()
 day06
-    = readPoints "../inputs/day06.input" >>=. (go . makeGrid)
+    = readPoints "../inputs/day06.input" >>= makeGrid .> go
       where
         go grid
             = io_mapM_ putStrLn [part1, part2]

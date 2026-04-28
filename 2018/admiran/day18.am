@@ -3,10 +3,10 @@
 
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 
 
 point == (int, int)
@@ -78,7 +78,7 @@ addLineToGrid grid (line, y)
 
 day18 :: io ()
 day18
-    = readFile "../inputs/day18.input" >>=. (go . lines)
+    = readFile "../inputs/day18.input" >>= lines .> go
       where
         go gridLines
             = io_mapM_ putStrLn [part1, part2]

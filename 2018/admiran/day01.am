@@ -3,8 +3,8 @@
 
 %export day01
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind
 %import <set>
 
 parseNumber :: string -> int
@@ -26,7 +26,7 @@ findCycle input
 
 day01 :: io ()
 day01
-    = readFile "../inputs/day01.input" >>=. (go . map parseNumber . lines)
+    = readFile "../inputs/day01.input" >>= lines .> map parseNumber .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

@@ -3,9 +3,9 @@
 
 %export day25
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <maybe>
 
 v4 ::= V4 int int int int
 
@@ -23,7 +23,7 @@ makeConstellations
 
 readVecs :: string -> io [v4]
 readVecs fn
-    = map mkVec <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map mkVec
       where
         mkVec = check . map numval . split ','
 
@@ -32,5 +32,4 @@ readVecs fn
 
 day25 :: io ()
 day25
-    = readVecs "../inputs/day25.input" >>=.
-      (putStrLn . (++) "part 1: " . showint . length . makeConstellations)
+    = readVecs "../inputs/day25.input" >>= makeConstellations .> length .> showint .> ("part 1: " ++) .> putStrLn

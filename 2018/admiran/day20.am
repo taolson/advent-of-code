@@ -3,12 +3,13 @@
 
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <dequeue>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap 
 %import <set>
 
 
@@ -82,7 +83,7 @@ mapRoomDistance doorMap
 
 p_regExLit :: parser regExElt
 p_regExLit
-    = RegExLit <$> (p_any >>= fdir)
+    = p_any p.>>= fdir p.<&> RegExLit
       where
         fdir 'N' = p_pure North
         fdir 'E' = p_pure East
@@ -91,23 +92,23 @@ p_regExLit
         fdir _   = p_fail
 
 p_regExAlt :: parser regExElt
-p_regExAlt = RegExAlt <$> p_inParens (p_someSepBy (p_char '|') p_regExSeq)
+p_regExAlt = p_inParens (p_someSepBy (p_char '|') p_regExSeq) p.<&> RegExAlt
 
 p_regExSeq :: parser regExSeq
 p_regExSeq = p_many (p_regExLit <|> p_regExAlt)
 
 p_regExProg :: parser regExSeq
-p_regExProg = p_char '^' *> p_regExSeq <* p_char '$'
+p_regExProg = p_char '^' >> p_regExSeq << p_char '$'
 
 readRegEx :: string -> io regExSeq
 readRegEx fn
-    = go <$>. parse p_regExProg <$>. readFile fn
+    = readFile fn <&> parse p_regExProg <&> go
       where
         go (mreg, ps) = fromMaybe (error (p_error ps)) mreg
 
 day20 :: io ()
 day20
-    = readRegEx "../inputs/day20.input" >>=. go
+    = readRegEx "../inputs/day20.input" >>= go
       where
         go regex
             = io_mapM_ putStrLn [part1, part2]

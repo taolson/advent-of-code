@@ -3,11 +3,11 @@
 
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 %import <vector>
 %import <set>
-%import <state> (>>=)/st_bind (<<)/st_left (>>)/st_right
+%import <state>         (>>=)/st_bind (<<)/st_left (>>)/st_right
 
 %import "day19"
 
@@ -53,7 +53,7 @@ optimize (ipReg, prog)
 
 day21 :: io ()
 day21
-    = readProgram "../inputs/day21.input" >>=. (go . optimize)
+    = readProgram "../inputs/day21.input" >>= optimize .> go
       where
         go info
             = io_mapM_ putStrLn [part1, part2]

@@ -3,10 +3,10 @@
 
 %export day14
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>
 %import <vector>
-%import <state> (>>=)/st_bind (<$>)/st_fmap (>>)/st_right
+%import <state>         (>>=)/st_bind (>>)/st_right
 
 
 sequence == (mvector int, int)  || sequence of digits, sequence length

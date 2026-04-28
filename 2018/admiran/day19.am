@@ -3,13 +3,14 @@
 
 %export +       || most parts are re-used by day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right
+%import <parser>                (<<)/p_left
+%import <parser> qualified as p (>>)/p_right
 %import <vector>
-%import <state> (>>=)/st_bind (<$$>)/st_fmap (>>)/st_right
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (>>)/st_right
 
 
 registers   == vector int
@@ -59,7 +60,7 @@ step haltTest (ipReg, prog) mregs
       exec
       where
         fetch ip
-            = check <$$> haltTest ip mregs
+            = haltTest ip mregs <&> check
               where
                 check doHalt
                     = Nothing,           if doHalt \/ ip < 0 \/ ip >= v_length prog
@@ -88,13 +89,13 @@ run info regs
         noHalt _ _ s = (False, s)
 
 p_val :: parser int
-p_val = p_int <* p_spaces
+p_val = p_int << p_spaces
 
 p_opName :: parser string
-p_opName = p_some p_letter <* p_spaces
+p_opName = p_some p_letter << p_spaces
 
 p_ipReg :: parser int
-p_ipReg = p_string "#ip" *> p_spaces *> p_val
+p_ipReg = p_string "#ip" >> p_spaces >> p_val
 
 p_inst :: parser instruction
 p_inst
@@ -121,13 +122,13 @@ factorSum n
 
 readProgram :: string -> io (int, program)
 readProgram fn
-    = go <$>. parse p_prog <$>. readFile fn
+    = readFile fn <&> parse p_prog <&> go
       where
         go (ms, ps) = fromMaybe (error (p_error ps)) ms
 
 day19 :: io ()
 day19
-    = readProgram "../inputs/day19.input" >>=. go
+    = readProgram "../inputs/day19.input" >>= go
       where
         go info
             = io_mapM_ putStrLn [part1, part2]

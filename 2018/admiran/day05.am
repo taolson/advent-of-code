@@ -3,9 +3,9 @@
 
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <maybe>
 
 reactWithout :: (maybe char) -> string -> string
 reactWithout removed
@@ -28,7 +28,7 @@ reactWithout removed
 
 day05 :: io ()
 day05
-    = readFile "../inputs/day05.input" >>=. (go . hd . lines)
+    = readFile "../inputs/day05.input" >>= lines .> hd .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

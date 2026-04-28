@@ -3,8 +3,8 @@
 
 %export day09
 
-%import <io> (>>.)/io_right
 %import <base>
+%import <io>            (>>)/io_right
 %import "ring"
 
 
@@ -38,7 +38,7 @@ play (Game circle scores marbleCount lastMarble)
 
 day09 :: io ()
 day09
-    = putStrLn part1 >>. putStrLn part2
+    = putStrLn part1 >> putStrLn part2
       where
         part1 = (++) "part 1: " . showint . play $ makeGame 411 72059
         part2 = (++) "part 2: " . showint . play $ makeGame 411 (72059 * 100)

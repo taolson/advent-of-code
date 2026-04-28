@@ -3,11 +3,11 @@
 
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (<*)/p_left (*>)/p_right
+%import <parser>        (<<)/p_left (>>)/p_right
 %import <v2>
 
 
@@ -37,10 +37,10 @@ area (lo, hi) = v2_product $ v2_sub hi lo
 
 
 p_v2int :: parser (v2 int)
-p_v2int =  p_liftA2 V2 (p_char '<' *> p_spaces *> p_int) (p_char ',' *> p_spaces *> p_int <* p_char '>')
+p_v2int =  p_liftA2 V2 (p_char '<' >> p_spaces >> p_int) (p_char ',' >> p_spaces >> p_int << p_char '>')
 
 p_star :: parser star
-p_star = p_liftA2 Star (p_string "position=" *> p_v2int <* p_spaces) (p_string "velocity=" *> p_v2int <* p_spaces)
+p_star = p_liftA2 Star (p_string "position=" >> p_v2int << p_spaces) (p_string "velocity=" >> p_v2int << p_spaces)
 
 findLocalMinimum :: (* -> int) -> [*] -> (*, int)
 findLocalMinimum f [] = error "findLocalMinimum []"
@@ -72,13 +72,13 @@ showField stars
 
 readStars :: string -> io [star]
 readStars fn
-    = go <$>. parse (p_some p_star) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_star) <&> go
       where
         go (mstars, ps) = fromMaybe (error (p_error ps)) mstars
 
 day10 :: io ()
 day10
-    = readStars "../inputs/day10.input" >>=. go
+    = readStars "../inputs/day10.input" >>= go
       where
         go stars
             = io_mapM_ putStrLn [part1, part2]

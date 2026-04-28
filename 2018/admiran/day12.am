@@ -3,11 +3,12 @@
 
 %export day12
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*)/p_left (*>)/p_right (<|>)/p_alt
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
 %import <vector>
 
 
@@ -69,36 +70,36 @@ warpToGeneration rules gen genNo
 
 p_ruleElt :: parser int
 p_ruleElt
-    = toInt <$> (p_char '.' <|> p_char '#')
+    = (p_char '.' <|> p_char '#') p.<&> toInt
       where
         toInt '#' = 1
         toInt _   = 0
 
 p_rule :: parser (int, int)
 p_rule
-    = p_liftA2 mkRule (p_some p_ruleElt <* p_string " => ") p_ruleElt <* p_spaces
+    = p_liftA2 mkRule (p_some p_ruleElt << p_string " => ") p_ruleElt << p_spaces
       where
         mkRule inp out = (foldl toInt 0 inp, out)
         toInt n b      = (n .<<. 1) .|. b
 
 p_rules :: parser rules
-p_rules = (v_rep 32 0 //) <$> p_some p_rule
+p_rules = p_some p_rule p.<&> (v_rep 32 0 //)
 
 p_initial :: parser plants
-p_initial = p_string "initial state: " *> p_some p_ruleElt
+p_initial = p_string "initial state: " >> p_some p_ruleElt
 
 p_initAndRules :: parser (plants, rules)
-p_initAndRules = p_liftA2 pair p_initial (p_spaces *> p_rules)
+p_initAndRules = p_liftA2 pair p_initial (p_spaces >> p_rules)
 
 readInitAndRules :: string -> io (plants, rules)
 readInitAndRules fn
-    = go <$>. parse p_initAndRules <$>. readFile fn
+    = readFile fn <&> parse p_initAndRules <&> go
       where
         go (mres, ps) = fromMaybe (error (p_error ps)) mres
 
 day12 :: io ()
 day12
-    = readInitAndRules "../inputs/day12.input" >>=. go
+    = readInitAndRules "../inputs/day12.input" >>= go
       where
         go (init, rules)
             = io_mapM_ putStrLn [part1, part2]

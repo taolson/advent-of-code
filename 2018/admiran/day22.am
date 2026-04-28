@@ -3,13 +3,13 @@
 
 %export day22
 
-%import <io> (>>.)/io_right
+%import <base>
+%import <io>
 %import <astar>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
-%import <state> (>>=)/st_bind (<$>)/st_fmap (<<)/st_left (>>)/st_right
+%import <state>         (>>=)/st_bind (<$>)/st_fmap (<<)/st_left (>>)/st_right
 
 
 region == (int, int)
@@ -99,7 +99,7 @@ findPath start goal cache
 
 day22 :: io ()
 day22
-    = putStrLn part1 >>. putStrLn part2
+    = putStrLn part1 >> putStrLn part2
       where
         (risk, giCache) = st_runState riskLevel m_empty
         bestPath        = st_evalState (findPath (origin, Torch) (target, Torch)) giCache

@@ -3,9 +3,9 @@
 
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
 %import <base>
+%import <io>            (>>=)/io_bind
+%import <map>
 
 
 boxId ::= BoxId string [int]
@@ -39,7 +39,7 @@ allPairs (x : xs) = map ($pair x) xs ++ allPairs xs
 
 day02 :: io ()
 day02
-    = readFile "../inputs/day02.input" >>=. (go . map parseId . lines)
+    = readFile "../inputs/day02.input" >>= lines .> map parseId .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

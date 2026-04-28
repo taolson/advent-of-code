@@ -3,12 +3,13 @@
 
 %export day23
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <astar>
 %import <lens>
 %import <maybe>
 %import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right
+%import <parser>                (<<)/p_left (>>)/p_right
+%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap 
 %import <v3>
 
 
@@ -94,20 +95,20 @@ coordinateWithMostIntersections bb
 
 p_bot :: parser nanoBot
 p_bot
-    = (p_string "pos=<" *> p_intlist) >>= checkList
+    = (p_string "pos=<" >> p_intlist) p.>>= checkList
       where
-        checkList [x, y, z] = NanoBot (V3 x y z) <$> (p_string ">, r=" *> p_int <* p_spaces)
+        checkList [x, y, z] = p_string ">, r=" >> p_int p.<&> NanoBot (V3 x y z) << p_spaces
         checkList _         = p_fail
 
 readBots :: string -> io [nanoBot]
 readBots fn
-    = go <$>. parse (p_some p_bot) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_bot) <&> go
       where
         go (mbots, ps) = fromMaybe (error (p_error ps)) mbots
 
 day23 :: io ()
 day23
-    = readBots "../inputs/day23.input" >>=. go
+    = readBots "../inputs/day23.input" >>= go
       where
         go nBots
             = io_mapM_ putStrLn [part1, part2]

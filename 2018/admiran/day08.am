@@ -3,10 +3,11 @@
 
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
 %import <base>
-%import <parser> (>>=)/p_bind (<$>)/p_fmap (<*)/p_left (*>)/p_right
+%import <parser>                (<<)/p_left
+%import <parser> qualified as p (>>=)/p_bind
 
 
 node ::= Node [node] [int]
@@ -22,24 +23,24 @@ value (Node children md)
         getChild i = value (children ! (i - 1))
 
 p_intspc :: parser int
-p_intspc = p_int <* p_spaces
+p_intspc = p_int << p_spaces
 
 p_node :: parser node
 p_node
-    = p_intspc >>= fnc
+    = p_intspc p.>>= fnc
       where
-        fnc nc         = p_intspc >>= p_counts nc
+        fnc nc         = p_intspc p.>>= p_counts nc
         p_counts nc nm = p_liftA2 Node (p_count nc p_node) (p_count nm p_intspc)
 
 readNode :: string -> io node
 readNode fn
-    = go <$>. parse p_node <$>. readFile fn
+    = readFile fn <&> parse p_node <&> go
       where
         go (mnode, ps) = fromMaybe (error (p_error ps)) mnode
 
 day08 :: io ()
 day08
-    = readNode "../inputs/day08.input" >>=. go
+    = readNode "../inputs/day08.input" >>= go
       where
         go node
             = io_mapM_ putStrLn [part1, part2]

@@ -3,12 +3,13 @@
 
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <parser>                (<&>)/p_rfmap (<*>)/p_apply (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <state>                 (>>=)/st_bind
+%import <state> qualified as st (>>)/st_right (<&>)/st_rfmap
 %import <vector>
 
 gid        == int
@@ -30,20 +31,20 @@ tsEvent == (timestamp, event)
 
 p_timestamp :: parser timestamp
 p_timestamp = p_liftA4 mkTime
-                  (p_char '[' *> p_int)
-                  (p_char '-' *> p_int)
-                  (p_char '-' *> p_int)
-                  (p_char ' ' *> p_int) <*> (p_char ':' *> p_int <* p_char ']') <* p_spaces
+                  (p_char '[' >> p_int)
+                  (p_char '-' >> p_int)
+                  (p_char '-' >> p_int)
+                  (p_char ' ' >> p_int) <*> (p_char ':' >> p_int << p_char ']') << p_spaces
               where
                 mkTime y mo d h mn = (y, mo, d, h, mn)
 
 p_begin, p_sleep, p_wake :: parser event
-p_begin = Begin <$> (p_string "Guard #" *> p_int <* p_string " begins shift")
-p_sleep = p_pure Sleep <* p_string "falls asleep"
-p_wake  = p_pure Wake  <* p_string "wakes up"
+p_begin = p_string "Guard #" >> p_int <&> Begin << p_string " begins shift"
+p_sleep = p_pure Sleep << p_string "falls asleep"
+p_wake  = p_pure Wake  << p_string "wakes up"
 
 p_event :: parser tsEvent
-p_event = p_liftA2 pair p_timestamp (p_begin <|> p_sleep <|> p_wake) <* p_spaces
+p_event = p_liftA2 pair p_timestamp (p_begin <|> p_sleep <|> p_wake) << p_spaces
 
 processGuard :: guardMap -> [tsEvent] -> guardMap
 processGuard m ((_, Begin gid) : es)
@@ -52,7 +53,7 @@ processGuard m ((_, Begin gid) : es)
         vs     = st_evalState doEvents initSt
         initSt = (0, v_unsafeThaw . m_findWithDefault cmpgid (v_rep 60 0) gid $ m)
 
-        doEvents = st_mapM_ addEvent es >> st_get >>= v_unsafeFreeze . snd
+        doEvents = st_mapM_ addEvent es st.>> st_get >>= v_unsafeFreeze . snd
 
         addEvent (ts, Sleep) = st_modify (setFst (ts_min ts))
         addEvent (ts, Wake)  = st_get >>= incTimes (ts_min ts)
@@ -78,13 +79,13 @@ strategy f gm
 
 readEvents :: string -> io [tsEvent]
 readEvents fn
-    = go <$>. parse (p_some p_event) <$>. readFile fn
+    = readFile fn st.<&> parse (p_some p_event) st.<&> go
       where
         go (mes, ps) = fromMaybef (error (p_error ps)) (sortBy cmptsEvent)  mes
 
 day04 :: io ()
 day04
-    = readEvents "../inputs/day04.input" >>=. (go . processEvents)
+    = readEvents "../inputs/day04.input" >>= processEvents .> go
       where
         go gm
             = io_mapM_ putStrLn [part1, part2]

@@ -3,12 +3,13 @@
 
 %export day24
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base> -group
+%import <io>
 %import <lens>
 %import <maybe>
-%import <base> -group
-%import <parser> (<$>)/p_fmap (<*>)/p_apply (<*)/p_left (*>)/p_right (<|>)/p_alt
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <parser>                (<&>)/p_rfmap (<*>)/p_apply (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <state>                 (>>=)/st_bind
+%import <state> qualified as st (<&>)/st_rfmap (>>)/st_right
 %import <vector>
 
 
@@ -71,7 +72,7 @@ selectTargets a1 a2
 
 battle :: (army, [(int, int)]) -> (army, [(int, int)]) -> (army, army)
 battle (a1, ts1) (a2, ts2)
-    = st_evalState (st_mapM_ doAttack attacks >> freezeArmies) ()
+    = st_evalState (st_mapM_ doAttack attacks st.>> freezeArmies) ()
       where
         mv1     = v_unsafeThaw $ v_fromList a1      || mutable vector for indexing / modifying first army groups
         mv2     = v_unsafeThaw $ v_fromList a2      || mutable vector for indexing / modifying second army groups
@@ -163,21 +164,21 @@ p_wordList :: parser [string]
 p_wordList = p_someSepBy (p_string ", ") p_word
 
 p_immune :: parser quality
-p_immune = pair Immune <$> (p_string "immune to " *> p_wordList)
+p_immune = p_string "immune to " >> p_wordList <&> pair Immune
 
 p_weak :: parser quality
-p_weak = pair Weak <$> (p_string "weak to " *> p_wordList)
+p_weak = p_string "weak to " >> p_wordList <&> pair Weak
 
 p_qualities :: parser [quality]
 p_qualities = p_inParens $ p_someSepBy (p_string "; ") (p_immune <|> p_weak)
 
 p_group :: parser group
-p_group = p_liftA6 mkGroup (p_int <* p_string " units each with ")
-                           (p_int <* p_string " hit points ")
-                           (p_optional (p_qualities <* p_space))
-                           (p_string "with an attack that does " *> p_int <* p_space)
+p_group = p_liftA6 mkGroup (p_int << p_string " units each with ")
+                           (p_int << p_string " hit points ")
+                           (p_optional (p_qualities << p_space))
+                           (p_string "with an attack that does " >> p_int << p_space)
                            p_word
-                           (p_string " damage at initiative " *> p_int <* p_spaces)
+                           (p_string " damage at initiative " >> p_int << p_spaces)
           where
             mkGroup nu hp mquals dmg at init
                 = (nu, hp, dmg, at, init, concat wk, concat im)
@@ -185,20 +186,20 @@ p_group = p_liftA6 mkGroup (p_int <* p_string " units each with ")
                     (wk, im) = fromMaybef ([], []) (mapBoth (map snd) . partition isWeak) mquals
 
 p_army :: parser army
-p_army = p_skipUntil p_any (p_char '\n') *> p_some p_group
+p_army = p_skipUntil p_any (p_char '\n') >> p_some p_group
 
 p_armies :: parser (army, army)
-p_armies = p_liftA2 pair p_army p_army <* p_end
+p_armies = p_liftA2 pair p_army p_army << p_end
 
 readArmies :: string -> io (army, army)
 readArmies fn
-    = go <$>. parse p_armies <$>. readFile fn
+    = readFile fn st.<&> parse p_armies st.<&> go
       where
         go (marmies, ps) = fromMaybe (error (p_error ps)) marmies
 
 day24 :: io ()
 day24
-    = readArmies "../inputs/day24.input" >>=. go
+    = readArmies "../inputs/day24.input" >>= go
       where
         go (aimm, ainf)
             = io_mapM_ putStrLn [part1, part2]

@@ -3,7 +3,8 @@
 
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>
+%import <io> qualified as IO    (>>=)/io_bind
 %import <avl>
 %import <either>
 %import <lens>
@@ -51,8 +52,8 @@ Fail  >>= f = Fail
 Del   >>= f = Del
 Res x >>= f = f x
 
-(<$>) :: (* -> **) -> actionResult * -> actionResult **
-f <$> ma = ma >>= (Res . f)
+(<&>) :: actionResult * -> (* -> **) -> actionResult **
+m <&> f = m >>= f .> Res
 
 a_bind2 :: actionResult * -> actionResult ** -> (* -> ** -> actionResult ***) -> actionResult ***
 a_bind2 ma mb f
@@ -108,7 +109,7 @@ step strike walls
                 k'          = findGoal k
                 target      = selTarget . sortOn cmpint (view u_hp . snd) . filter (member cmploc (adjacencies k') . fst) $ m_toList enemies
 
-                doPast      = m_insert cmploc k' unit <$> fromMaybef (Res past) doStrike target
+                doPast      = fromMaybef (Res past) doStrike target <&> m_insert cmploc k' unit
                               where
                                 doStrike t = doAction strike t past
 
@@ -168,7 +169,7 @@ doPart2 cave
 
 readCave :: (species -> int) -> string -> io cave
 readCave initialHP fn
-    = uncurry Cave <$>. (s_fromList cmploc *** m_fromList cmploc) <$>. partitionEithers <$>. parseCave <$>. lines <$>. readFile fn
+    = readFile fn IO.>>= lines .> parseCave .> partitionEithers .> (s_fromList cmploc *** m_fromList cmploc) .> uncurry Cave .> io_pure
       where
         parseCave s = [elt | Just elt <- [classify (y, x) c | (y, row) <- enumerate s; (x, c) <- enumerate row]]
 
@@ -179,7 +180,7 @@ readCave initialHP fn
 
 day15 :: io ()
 day15
-    = readCave (const 200) "../inputs/day15.input" >>=. go
+    = readCave (const 200) "../inputs/day15.input" IO.>>= go
       where
         go cave
            = io_mapM_ putStrLn [part1, part2]

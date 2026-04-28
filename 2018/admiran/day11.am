@@ -3,8 +3,8 @@
 
 %export day11
 
-%import <io> (>>.)/io_right
 %import <base>
+%import <io>            (>>)/io_right
 
 
 intTup3 == (int, int, int)
@@ -56,7 +56,7 @@ findMaxPower summedPowers size blockSize
 
 day11 :: io ()
 day11
-    = putStrLn part1 >>. putStrLn part2
+    = putStrLn part1 >> putStrLn part2
       where
         results = map (findMaxPower summedPowers 300) [1 .. 300]
         part1   = (++) "part 1: " . showintTup3 . snd . hd . drop 2 $ results

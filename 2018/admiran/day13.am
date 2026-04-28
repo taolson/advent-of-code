@@ -3,10 +3,10 @@
 
 %export day13
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 
 
 loc        == (int, int)
@@ -120,7 +120,7 @@ readTrack rows
 
 day13 :: io ()
 day13
-    = readFile "../inputs/day13.input" >>=. (go . readTrack . lines)
+    = readFile "../inputs/day13.input" >>= lines .> readTrack .> go
       where
         go track
             = io_mapM_ putStrLn [part1, part2]
