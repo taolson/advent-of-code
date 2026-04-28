@@ -1,11 +1,12 @@
-|| day03.m -- Mull It Over
+|| day03 -- Mull It Over
 
 
 %export day03
 
 %import "adventLib"
 %import <maybe>
-%import <parser>        (>>=?)/p_bind (<$>?)/p_fmap (<<?)/p_left (>>?)/p_right (<|>?)/p_alt
+%import <parser>                (<:>)/p_cons (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap (<<)/p_left (>>)/p_right
 
 
 insn ::= Mul int int | Do | Dont
@@ -23,9 +24,9 @@ p_range lo hi p
       where
         go n = p_next,                if n < lo || don't have required minimum, yet
              = p_pure [],             if n > hi || finished
-             = p_next <|>? p_pure [], otherwise || have required amount; continue or terminate
+             = p_next <|> p_pure [], otherwise || have required amount; continue or terminate
                where
-                 p_next = p $p_cons go (n + 1)
+                 p_next = p <:> go (n + 1)
 
 || parse a number from 1 to 3 digits long
 || Note: this turned out to be overkill; the input didn't
@@ -33,19 +34,19 @@ p_range lo hi p
 || However, i'll leave it as it doesn't alter the performance,
 || and may be useful in the future.
 p_num :: parser int
-p_num = intval <$>? p_range 1 3 p_digit
+p_num = p_range 1 3 p_digit p.<&> intval
 
 p_mul, p_dont, p_do, p_insn :: parser insn
-p_mul  = p_liftA2 Mul  (p_string "mul(" >>? p_num) (p_comma >>? p_num) <<? p_char ')'
-p_do   = p_pure   Do   <<? p_string "do()"
-p_dont = p_pure   Dont <<? p_string "don't()"
-p_insn = p_mul <|>? p_do <|>? p_dont
+p_mul  = p_liftA2 Mul  (p_string "mul(" p.>> p_num) (p_comma p.>> p_num) p.<< p_char ')'
+p_do   = p_pure   Do   p.<< p_string "do()"
+p_dont = p_pure   Dont p.<< p_string "don't()"
+p_insn = p_mul <|> p_do <|> p_dont
 
 p_program :: parser program
 p_program
-    = (p_insn $p_cons p_program) <|>?   || try an insn
-      (p_any >>? p_program)      <|>?   || or skip a character
-      p_pure []                         || or end of input
+    = p_insn <:> p_program       <|>   || try an insn
+      p_any p.>> p_program       <|>   || or skip a character
+      p_pure []                        || or end of input
 
 parseProgram:: string -> program
 parseProgram input

@@ -1,4 +1,4 @@
-|| day21.m -- Keypad Conundrum
+|| day21 -- Keypad Conundrum
 
 
 %export day21
@@ -113,7 +113,7 @@ sequenceCost s
 
 complexity :: string -> state agent int
 complexity s
-    = tally <$> sequenceCost s
+    = sequenceCost s <&> tally
       where
         tally cst = cst * numCode
         numCode   = filter digit s |> intval

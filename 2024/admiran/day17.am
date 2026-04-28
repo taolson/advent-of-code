@@ -1,4 +1,4 @@
-|| day17.m -- Chronospatial Computer
+|| day17 -- Chronospatial Computer
 
 
 %export day17
@@ -67,12 +67,12 @@ run prog
         fetch = vm_view vm_pc >>= check
                 where
                   check pc
-                      = Just <$> readInsn, if 0 <= pc < v_length prog
+                      = readInsn <&> Just, if 0 <= pc < v_length prog
                       = st_pure Nothing,   otherwise
                         where readInsn = st_pure (v_unsafeIndex prog pc) << vm_set vm_pc (pc + 1)
 
         decode (Just opc) (Just opr) = (v_unsafeIndex insDecoder opc) opr >> run prog   || got an insn; decode and exec, then continue
-        decode _          _          = dq_toList <$> vm_view vm_out                     || end of program; gen output
+        decode _          _          = vm_view vm_out <&> dq_toList                     || end of program; gen output
 
 makeProgState :: string -> (program, vmSt)
 makeProgState

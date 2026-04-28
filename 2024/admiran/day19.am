@@ -1,4 +1,4 @@
-|| day19.m -- Linen Layout
+|| day19 -- Linen Layout
 
 
 %export day19
@@ -17,7 +17,7 @@ waysToMakePattern ts
       where
         ways [] = st_pure 1
         ways p
-            = sum <$> st_mapM (waysToMakePattern ts) prefixes
+            = st_mapM (waysToMakePattern ts) prefixes <&> sum
               where
                 prefixes    = map tryPrefix ts |> catMaybes
                 tryPrefix t = stripPrefix cmpchar t p

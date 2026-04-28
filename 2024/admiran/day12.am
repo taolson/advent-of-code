@@ -1,9 +1,9 @@
-|| day12.m -- Garden Groups
+|| day12 -- Garden Groups
 
 
 %export day12
 
-%import "adventLib"     -(|*|)
+%import "adventLib"     -(!?) -(|*|)
 %import <lens>
 %import <maybe>
 %import <set>
@@ -59,7 +59,7 @@ nextVisit
 isSeen, notSeen :: gridInfo -> pos -> state scanSt bool
 isSeen (_, _, nc) (V2 r c) = st_view seen >>= ($v_read (r * nc + c))
 
-notSeen gi p = not <$> isSeen gi p
+notSeen gi p = isSeen gi p <&> not
 
 setSeen :: gridInfo -> pos -> state scanSt ()
 setSeen (_, _, nc) (V2 r c) = st_view seen >>= set where set v = v_write v (r * nc + c) True

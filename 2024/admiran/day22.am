@@ -1,4 +1,4 @@
-|| day22.m -- Monkey Market
+|| day22 -- Monkey Market
 ||
 || initially written with maps and sets to tally the sequence keys and values, but it is much
 || faster (20x!) to convert the sequences into hashed keys, and pre-allocate a local and global

@@ -1,11 +1,11 @@
-|| day09.m -- Disk Fragmenter
+|| day09 -- Disk Fragmenter
 ||
 || version which uses a vector of heaps for the free list
 
 %export day09
 
 %import "adventLib"
-%import <maybe>         (>>=?)/mb_bind
+%import <maybe>
 %import <heap>
 %import <vector>
  

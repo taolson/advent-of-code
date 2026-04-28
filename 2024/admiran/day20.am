@@ -1,12 +1,13 @@
-|| day20.m -- Race Condition
+|| day20 -- Race Condition
 
 
 %export day20
 
 %import "adventLib"
-%import <maybe>         (<$>?)/mb_fmap (<|>?)/mb_alt
+%import <maybe>
+%import <maybe> qualified as mb (<&>)/mb_rfmap (<|>)/mb_alt
 %import <set>
-%import <v2>            (|+|)/v2_add
+%import <v2>                    (|+|)/v2_add
 %import <vector>
 
 
@@ -46,7 +47,7 @@ mazePath (vm, width, start, end)
                 exp   = [p' | d <- dirs; p' <- [p |+| d]; _ne cmppos p' p; mazeAt p' ~=. '#']
 
                 mazeAt (V2 r c) = vm !! (r * width + c)
-                tryNext p' k    = ((p :) <$>? dfs seen' p') <|>? k
+                tryNext p' k    = dfs seen' p' mb.<&> (p :) mb.<|> k
                         
 || find the number of unique cheats possible within the specified cheat times that save at least save steps
 || this trick was mentioned in the advent of code subreddit: instead of trying to scan a manhattan-distance

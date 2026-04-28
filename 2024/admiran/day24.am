@@ -1,11 +1,12 @@
-|| day24.m -- Crossed Wires
+|| day24 -- Crossed Wires
 
 
 %export day24
 
 %import "adventLib"
 %import <map>
-%import <maybe>         (<|>?)/mb_alt
+%import <maybe>
+%import <maybe> qualified as mb (<|>)/mb_alt
 %import <set>
 %import <state>
 
@@ -171,8 +172,8 @@ verify circuit refs xs zs
 
                 || check T gate connectivity from P or C, depending upon which we know is not swapped
                 checkT (mp, g, mc)
-                    = st_pure (g, mp),        if i == 0              || T == P in stage 0
-                    = checkFrom (mp <|>? mc), otherwise
+                    = st_pure (g, mp),          if i == 0              || T == P in stage 0
+                    = checkFrom (mp mb.<|> mc), otherwise
                       where
                         checkFrom Nothing = st_pure (g, Nothing)        || both p and c swapped -- can't find T!
                         checkFrom (Just x)
@@ -197,7 +198,7 @@ verify circuit refs xs zs
 
                 || generate the C' signal from g or t, depending upon which we know is not swapped
                 genC (mg, mt)
-                    = genFrom (mg <|>? mt)
+                    = genFrom (mg mb.<|> mt)
                       where
                         genFrom Nothing  = st_pure Nothing
                         genFrom (Just x)

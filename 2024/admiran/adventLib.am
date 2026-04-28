@@ -1,11 +1,11 @@
 || advent library
 
 
-%export + <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
+%export + <io> <base> (>>=) (<&>) (<*>) (<<) (>>)
 
-%import <io>
 %import <base>
-%import <state>                 (>>=)/st_bind (<$>)/st_fmap (<*>)/st_apply (<<)/st_left (>>)/st_right
+%import <io>
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (<*>)/st_apply (<<)/st_left (>>)/st_right
 
 
 format :: (int, string) -> string
