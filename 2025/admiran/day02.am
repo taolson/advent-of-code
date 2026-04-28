@@ -1,4 +1,4 @@
-|| day02.am -- Gift Shop
+|| day02 -- Gift Shop
 ||
 || The first version of this was a brute-force solution, trying the full range by chunking into pieces and comparing for equality
 || This version inverts that; it creates the possible patterns from the prodIds, then checks that the pattern is in range

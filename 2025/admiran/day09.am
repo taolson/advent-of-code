@@ -1,11 +1,12 @@
-|| day09.am -- Movie Theater
+|| day09 -- Movie Theater
 
 
 %export day09
 
 %import "adventLib"
 %import <lens>
-%import <maybe>
+%import <map>
+%import <maybe>         (>>=?)/mb_bind (<|>?)/mb_alt
 %import <v2>
 %import <vector>
 
@@ -18,101 +19,113 @@ minMax a b
         _  -> (a, b)
 
 pos  == v2 int
-
-rect ::= Rect int int int int
-
-r_t (Rect t b l r) = t  || top
-r_b (Rect t b l r) = b  || bottom
-r_l (Rect t b l r) = l  || left
-r_r (Rect t b l r) = r  || right
-
-|| make a rectangle from two opposite corners
-makeRect :: pos -> pos -> rect
-makeRect (V2 r1 c1) (V2 r2 c2)
-    = case minMax r1 r2 of (t, b) ->
-      case minMax c1 c2 of (l, r) ->
-      Rect t b l r
+rect == v2 pos
 
 area :: rect -> int
-area (Rect t b l r) = (b - t + 1) * (r - l + 1)
+area (V2 (V2 r1 c1) (V2 r2 c2))
+    = width * height
+      where
+        width  = abs (c2 - c1) + 1
+        height = abs (r2 - r1) + 1
+
+diagCorners :: rect -> rect
+diagCorners (V2 (V2 r1 c1) (V2 r2 c2)) = V2 (V2 r1 c2) (V2 r2 c1)
 
 segT ::= Horiz | Vert
-seg  == (segT, int, int, int)
+seg  == (segT, int, int, int, bool)
 
-s_t (t, a, l, h) = t    || seg type
-s_a (t, a, l, h) = a    || seg anchor (row, if seg is Horiz, col, if seg is Vert)
-s_l (t, a, l, h) = l    || seg range lo
-s_h (t, a, l, h) = h    || seg range hi
+s_t (t, a, l, h, d) = t || seg type
+s_a (t, a, l, h, d) = a || seg anchor (row, if seg is Horiz, col, if seg is Vert)
+s_l (t, a, l, h, d) = l || seg range lo
+s_h (t, a, l, h, d) = h || seg range hi
+s_d (t, a, l, h, d) = d || seg direction (False = l -> h, True = h -> l)
 
-isHoriz (Horiz, _, _, _) = True
-isHoriz _                = False
+isHoriz :: seg -> bool
+isHoriz (Horiz, _, _, _, _) = True
+isHoriz _                   = False
 
 makeSeg :: pos -> pos -> seg
 makeSeg (V2 r1 c1) (V2 r2 c2)
-    = mkSeg Horiz r1 (minMax c1 c2), if r1 == r2
-    = mkSeg Vert  c1 (minMax r1 r2), otherwise
+    = mkSeg Horiz r1 (minMax c1 c2) (c1 > c2) , if r1 == r2
+    = mkSeg Vert  c1 (minMax r1 r2) (r1 > r2) , otherwise
       where
-        mkSeg t a (l, h) = (t, a, l, h)
+        mkSeg t a (l, h) d = (t, a, l, h, d)
 
-edges :: rect -> [seg]
-edges (Rect t b l r) = [(Horiz, t, l, r), (Vert, r, t, b), (Horiz, b, l, r), (Vert, l, t, b)]
+segInfo == (m_map pos (seg, seg), vector seg, vector seg)
+
+cmap :: segInfo -> m_map pos (seg, seg)
+cmap (cm, _, _) = cm
 
 || read the path, then break into horiz/vert segs, sort each and group on common anchor value, and create vectors
-|| return the corners and the horiz/vert group vectors
-parseSegs :: string -> ([pos], vector [seg], vector [seg])
+|| return the corner map and the sorted horiz/vert vectors
+parseSegs :: string -> segInfo
 parseSegs
-    = lines .> map (split ',' .> map intval .> mkV2) .> mkSegs
+    = lines .> map (split ',' .> map intval .> mkV2) .> mkPath .> sortSegs
       where
         mkV2 [c, r] = V2 r c    || example diagram shows input values as c, r, but we canonicalize to r, c
         mkV2 _      = error "parse error"
 
-        mkSegs xs = mkPath xs |> mkParts |> \(hs, vs) -> (xs, hs, vs)
-        mkPath xs = zipWith makeSeg xs (tl xs ++ [hd xs])
-        mkParts   = sortBy cmpseg .> span isHoriz .> mapBoth (groupBy ((==) $on s_a) .> v_fromList)
-
-|| count the number of crossings of segs starting at index i until we reach or exceed a seg with anchor value lim
-countCrossings :: vector [seg] -> int -> int -> int -> int
-countCrossings vs x i lim
-    = trace ("countCrossings " ++ showint x ++ " " ++ showint i ++ " " ++ showint lim) $ go 0 i
-      where
-        len = v_length vs
-
-        go cross i = undef, if trace (showint cross ++ " " ++ showint i) False
-        go cross i
-            = trace ("done") cross,                         if i >= len \/ anchor > lim
-            = cross' $seq go cross' (i + 1), otherwise
+        mkPath ps
+            = zip2 ps (tl ps ++ [hd ps]) |> mapAccumL go m_empty |> mapFst (m_fmap partHV)
               where
-                segs   = vs !! i
-                anchor = hd segs |> s_a
-                cross' = cross + 1, if any covers segs
-                       = cross,     otherwise
+                go m (p1, p2)
+                    = (m', s)
+                      where
+                        s  = makeSeg p1 p2
+                        m' = m_insertWith cmppos (++) p1 [s] m |> m_insertWith cmppos (++) p2 [s]
 
-        covers s = s_l s <= x <= s_h s
+                partHV [s1, s2] = (s1, s2), if isHoriz s1
+                                = (s2, s1), otherwise
+                partHV _        = unreachable
 
-|| a valid rect has all corners inside polygon and edges that don't cross other polygon edges
-|| where "inside" is determined by counting the number of segs crossed by traversing up / left
-|| (odd = in, even = out). If nearest seg anchor == start scan, then it is in.
-validRect :: vector [seg] -> vector [seg] -> rect -> bool
-validRect hs vs r
-    = trace ("validRect " ++ showrect r) $ all checkSeg $ edges r
+        sortSegs (m, xs) = (m, hs, vs) where (hs, vs) = sortBy cmpseg xs |> span isHoriz |> mapBoth v_fromList
+
+|| check if segment is entirely inside polygon by checking that the segment extends towards
+|| the inside of the polygon from the anchor seg, and that no polygon segments cross over
+|| the seg
+
+{|
++--------+
+|        |
+|        |
++---+    +-----+
+    |          |
+    +----------+
+
+|}
+
+checkSegInside :: vector seg -> seg -> seg -> bool
+checkSegInside vs as s
+    = undef
+
+|| check if a rect is entirely inside the polygon, by checking that all edge segments are inside
+inside :: segInfo -> rect -> bool
+inside (cm, hs, vs) (V2 k1 k2)
+    = checkSegInside vs v1 (makeSeg k1 d1) &
+      checkSegInside hs h1 (makeSeg k1 d2) &
+      checkSegInside vs v2 (makeSeg k2 d2) &
+      checkSegInside hs h2 (makeSeg k2 d1)
       where
-        checkSeg s
-            = process vs s, if isHoriz s
-            = process hs s, otherwise
-              where
-                process vx (_, a, l, r) = odd (countCrossings vx a 0 l) & countCrossings vx a l r == 0
+        V2 d1 d2 = diagCorners (V2 k1 k2)
+        (h1, v1) = m_lookup cmppos k1 cm |> fromJust
+        (h2, v2) = m_lookup cmppos k2 cm |> fromJust
 
-|| 1527936636 is too low
+findMaxArea :: (rect -> bool) -> [rect] -> int
+findMaxArea test rs
+    = foldl go 0 rs
+      where
+        go ma r = if' (test r) (area r |> max2 cmpint ma) ma
+
+|| 1539238860 is answer
 day09 :: io ()
 day09
 ||    = readInput "day09" >>= parseSegs .> go
     = readFile "day09.txt" >>= parseSegs .> go
       where
-        go (corners, hsegs, vsegs)
+        go si
             = output [part1, part2]
               where
-                rects   = [makeRect a b | a : bs <- tails corners; b <- bs]                
-                valid   = filter (validRect hsegs vsegs) rects
-                process = map area .> max cmpint .> showint
-                part1   = process rects
-                part2   = trace (showlist showrect valid) $ process valid
+                corners = cmap si |> m_keys
+                rects   = [V2 a b | a : bs <- tails corners; b <- bs]                
+                part1   = findMaxArea (const True) rects |> showint
+                part2   = findMaxArea (inside si)  rects |> showint

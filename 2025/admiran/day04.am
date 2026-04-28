@@ -1,4 +1,4 @@
-|| day04.am -- Printing Department
+|| day04 -- Printing Department
 ||
 || the initial version of this solution was a straightforward use of a set of positions to represent
 || the grid.  However, since the operation performed here is repeated 3x3 convolutions, the access

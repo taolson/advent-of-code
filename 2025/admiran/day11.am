@@ -26,7 +26,7 @@ countPaths g start end
         countPaths' = memo go
         go d = st_pure 1,                      if d ==$ end
              = st_pure 0,                      if isNothing mxs
-             = sum <$> st_mapM countPaths' xs, otherwise
+             = st_mapM countPaths' xs <&> sum, otherwise
                where
                  mxs = m_lookup cmpstring d g
                  xs  = fromJust mxs

@@ -3,12 +3,11 @@
 || Advent of Code web site session cookie:
 sessionCookie = "your cookie here"
 
-%export output readInput download  <io> <base> (>>=) (<$>) (<*>) (<<) (>>)
+%export output readInput download  <io> <base> (>>=) (<&>) (<*>) (<<) (>>)
 
 %import <io>
 %import <base>
-%import <maybe>                 (>>=?)/mb_bind (<|>?)/mb_alt
-%import <state>                 (>>=)/st_bind (<$>)/st_fmap (<*>)/st_apply (<<)/st_left (>>)/st_right
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (<*>)/st_apply (<<)/st_left (>>)/st_right
 
 format :: (int, string) -> string
 format (i, s) = "part " ++ showint i ++ ": " ++ s

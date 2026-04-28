@@ -1,4 +1,4 @@
-|| day03.am -- Lobby
+|| day03 -- Lobby
 ||
 || The first version of this used memoization of a search with and without using each digit.
 || This version takes advantage of a look-ahead window to drop any digit if there's a better
