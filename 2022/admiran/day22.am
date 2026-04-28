@@ -1,10 +1,10 @@
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <v2>
 
 
@@ -119,7 +119,7 @@ passwd (V2 row col, dir) = 1000 * row + 4 * col + facingVal dir
 
 readInput :: string -> io (grid, edgeMap, int, [move])     || grid, edgeMap, cube size, moves
 readInput fn
-    = parse StartRow (m_empty, m_empty, m_empty, 1, 1, 0, 0) <$>. readFile fn           || note: grid indicies start at 1
+    = readFile fn <&> parse StartRow (m_empty, m_empty, m_empty, 1, 1, 0, 0)
       where
         parse StartRow st ('\n' : xs) = parse Moves st xs                               || empty line separates grid from moves
         parse StartRow st (' ' : xs)  = parse StartRow (over p_col (+ 1) st) xs         || look for left edge of grid
@@ -173,7 +173,7 @@ readInput fn
 
 day22 :: io ()
 day22
-    = readInput "../inputs/day22.txt" >>=. go
+    = readInput "../inputs/day22.txt" >>= go
       where
         go (g, em, cs, ms)
             = io_mapM_ putStrLn [part1, part2]

@@ -3,10 +3,10 @@
 %export day20
 
 %import <avl>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 
 
 idx   == int
@@ -67,7 +67,7 @@ coordinates (sz, rm)
 
 day20 :: io ()
 day20
-    = readFile "../inputs/day20.txt" >>=. (go . map intval . lines)
+    = readFile "../inputs/day20.txt" >>= lines .> map intval .> go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

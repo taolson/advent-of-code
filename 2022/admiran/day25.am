@@ -1,8 +1,7 @@
 %export day25
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 snafu == int
@@ -37,6 +36,6 @@ showSnafu n
 
 day25 :: io ()
 day25
-    = readFile "../inputs/day25.txt" >>=. go
+    = readFile "../inputs/day25.txt" >>= go
       where
         go = putStrLn . (++) "part 1: " . showSnafu . sum . map snafuVal . lines

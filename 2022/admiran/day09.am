@@ -1,11 +1,10 @@
 %export day09
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <lens>
-%import <maybe>
 %import <base>
+%import <io>
+%import <lens>
 %import <set>
-%import <state>
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap
 %import <v2>
 
 
@@ -36,7 +35,7 @@ simulate n ss
 
 readMoves :: string -> io [step]
 readMoves fn
-    = concatMap readMove <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> concatMap readMove
       where
         readMove (d : ' ' : xs) = rep (intval xs) (moveDir d)
         readMove xs             = error "parse error"
@@ -48,7 +47,7 @@ readMoves fn
 
 day09 :: io ()
 day09
-    = readMoves "../inputs/day09.txt" >>=. go
+    = readMoves "../inputs/day09.txt" >>= go
       where
         go moves
             = io_mapM_ putStrLn [part1, part2]

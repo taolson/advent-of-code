@@ -1,12 +1,11 @@
 %export day12
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <bfs>
-%import <lens>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
-%import <state> (>>)/st_right
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap (>>)/st_right
 %import <v2>
 
 
@@ -44,7 +43,7 @@ findPath2 start g
 
 readGrid :: string -> io (grid, location, location)
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go input
             = error "parse error",           if isNothing ms \/ isNothing me
@@ -60,7 +59,7 @@ readGrid fn
 
 day12 :: io ()
 day12
-    = readGrid "../inputs/day12.txt" >>=. go
+    = readGrid "../inputs/day12.txt" >>= go
       where
         go (g, s, e)
             = io_mapM_ putStrLn [part1, part2]

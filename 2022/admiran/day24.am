@@ -1,12 +1,11 @@
 %export day24
 
 %import <astar>
-%import <avl>
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <v2>
 
 
@@ -60,7 +59,7 @@ solve g t start goal
 || (mapping a +t / -t mod size to the list of initial cols/rows to get the position at time t).
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go input
             = (over gd_rows (+ 1) . over gd_cols (+ 1)) g
@@ -81,7 +80,7 @@ readGrid fn
 
 day24 :: io ()
 day24
-    = readGrid "../inputs/day24.txt" >>=. go
+    = readGrid "../inputs/day24.txt" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

@@ -1,12 +1,13 @@
 %export day14
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <io>                            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
+%import <maybeState>                    (<<)/mst_left (<|>)/mst_alt
+%import <maybeState> qualified as ms    (<&>)/mst_rfmap (>>=)/mst_bind
 %import <base>
-%import <parser> (<$>)/p_fmap
+%import <parser>
 %import <set>
-%import <maybeState> (>>=)/mst_bind (<<)/mst_left (<|>)/mst_alt
 %import <v2>
 
 
@@ -15,22 +16,22 @@ cave  == (s_set point, int)
 
 || parsing
 p_point :: parser point
-p_point = p_liftA2 V2 (p_int $p_left p_char ',') p_int
+p_point = p_liftA2 V2 (p_int << p_char ',') p_int
 
 p_path :: parser [point]
 p_path
-    = mkPath <$> p_someSepBy (p_string " -> ") p_point
+    = p_someSepBy (p_string " -> ") p_point ms.<&> mkPath
       where
         mkPath ps      = (concatMap mkSeg . zip2 ps) (tl ps)
         mkSeg (p1, p2) = takeWhile (_ne cmppoint p2) (iterate (v2_add delta) p1) ++ [p2] where delta = v2_signum (v2_sub p2 p1)
 
 pourSand :: bool -> point -> cave -> int
 pourSand noFloor source (s, my)
-    = (subtract (s_size s) . s_size . snd . dfs source) s
+    = dfs source s |> snd |> s_size |> subtract (s_size s)
       where
         dfs p
             = mst_fail,                                             if noFloor & y > my
-            = (mst_get >>= checkBlocked) <|> checkPaths, otherwise
+            = (mst_get ms.>>= checkBlocked) <|> checkPaths, otherwise
               where
                 V2 x y   = p
                 y'       = y + 1
@@ -45,7 +46,7 @@ pourSand noFloor source (s, my)
 || read the cave from the input, returning it and the maximum y value processed
 readCave :: string -> io cave
 readCave fn
-    = go <$>. parse (p_manySepBy p_spaces p_path) <$>. readFile fn
+    = readFile fn <&> parse (p_manySepBy p_spaces p_path) <&> go
       where
         go (pr, ps)       = fromMaybef (error $ p_error ps) mkCave pr
         mkCave            = foldl insCave (s_empty, -1) . concat
@@ -53,7 +54,7 @@ readCave fn
 
 day14 :: io ()
 day14
-    = readCave "../inputs/day14.txt" >>=. go
+    = readCave "../inputs/day14.txt" >>= go
       where
         go cave
             = io_mapM_ putStrLn [part1, part2]

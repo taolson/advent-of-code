@@ -1,10 +1,11 @@
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <parser>
-%import <base>
+%import <parser>                (<<)/p_left (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
 
 
 monkey == string
@@ -14,30 +15,30 @@ expr ::= Int int | Monkey monkey | Op char expr expr
 exprMap == m_map monkey expr
 
 p_monkey :: parser monkey
-p_monkey = p_some p_letter $p_left p_spaces
+p_monkey = p_some p_letter << p_spaces
 
 p_op :: parser char
-p_op = p_any $p_left p_spaces
+p_op = p_any << p_spaces
      
 p_intExpr, p_opExpr, p_expr :: parser expr
-p_intExpr = Int $p_fmap (p_posint $p_left p_spaces)
+p_intExpr = p_posint << p_spaces p.<&> Int
 
 p_opExpr
     = p_liftA3 mkOp p_monkey p_op p_monkey
       where
         mkOp m1 op m2 = Op op (Monkey m1) (Monkey m2)
 
-p_expr = p_intExpr $p_alt p_opExpr
+p_expr = p_intExpr <|> p_opExpr
 
 p_entry :: parser (monkey, expr)
-p_entry = p_liftA2 pair (p_monkey $p_left p_string ": ") p_expr
+p_entry = p_liftA2 pair (p_monkey << p_string ": ") p_expr
 
 eval :: exprMap -> expr -> int
 eval t
     = go
       where
         go (Int n)       = n
-        go (Monkey m)    = (go . fromJust . m_lookup cmpmonkey m) t
+        go (Monkey m)    = m_lookup cmpmonkey m t |> fromJust |> go
         go (Op op e1 e2) = ex op (go e1) (go e2)
 
         ex '+' = (+)
@@ -101,14 +102,14 @@ solve t h r
 
 readTree :: string -> io exprMap
 readTree fn
-    = go <$>. parse (p_some p_entry) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_entry) <&> go
       where
         go (pr, ps)
             = fromMaybef (error (p_error ps)) (m_fromList cmpmonkey) pr
 
 day21 :: io ()
 day21
-    = readTree "../inputs/day21.txt" >>=. go
+    = readTree "../inputs/day21.txt" >>= go
       where
         go tree
             = io_mapM_ putStrLn [part1, part2]

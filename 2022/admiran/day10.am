@@ -1,9 +1,9 @@
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
-%import <state>
+%import <io>
+%import <state>         (>>=)/st_bind (<&>)/st_rfmap
+
 
 insn ::= Noop | Addx int
 prog   == [insn]
@@ -43,7 +43,7 @@ display
 
 readProg :: string -> io prog
 readProg fn
-    = map (parse . words) <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (words .> parse)
       where
         parse ["noop"]     = Noop
         parse ["addx", ns] = Addx (intval ns)
@@ -51,7 +51,7 @@ readProg fn
 
 day10 :: io ()
 day10
-    = readProg "../inputs/day10.txt" >>=. go
+    = readProg "../inputs/day10.txt" >>= go
       where
         go prog
             = io_mapM_ putStrLn [part1, part2]

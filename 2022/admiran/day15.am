@@ -1,9 +1,9 @@
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <maybe>
-%import <base>
 %import <set>
 %import <v2>
 
@@ -145,7 +145,7 @@ tuningFreq (V2 x y) = x * 4000000 + y
 
 readSensors :: string -> io [sensor]
 readSensors fn
-    = map (readSensor . splitOneOf cmpchar "=,:") <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (splitOneOf cmpchar "=,:" .> readSensor)
       where
         readSensor xs
             = triple bcn sns rng
@@ -157,7 +157,7 @@ readSensors fn
 
 day15 :: io ()
 day15
-    = readSensors "../inputs/day15.txt" >>=. go
+    = readSensors "../inputs/day15.txt" >>= go
       where
         go sensors
             = io_mapM_ putStrLn [part1, part2]

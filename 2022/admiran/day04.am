@@ -1,8 +1,7 @@
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 section     == (int, int)
@@ -18,7 +17,7 @@ encloses ((a, b), (c, d))
 
 readAssigns :: string -> io [sectionPair]
 readAssigns fn
-    = map (mkPair . map readSection . split ',') <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (split ',' .> map readSection .> mkPair)
       where
         readSection = mkPair . map intval . split '-'
         mkPair [a, b] = (a, b)
@@ -26,7 +25,7 @@ readAssigns fn
 
 day04 :: io ()
 day04
-    = readAssigns "../inputs/day04.txt" >>=. go
+    = readAssigns "../inputs/day04.txt" >>= go
       where
         go assigns
             = io_mapM_ putStrLn [part1, part2] 

@@ -1,12 +1,12 @@
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
-%import <parser>
-%import <state>
-
+%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
+%import <state>                 (>>=)/st_bind (<&>)/st_rfmap
 
 || file system definitions
 
@@ -37,37 +37,37 @@ cmd      ::= CD string | LS [lsResult]
 lsResult ::= Dresult string | Fresult int string
 
 p_prompt :: parser char
-p_prompt = p_char '$' $p_left p_spaces
+p_prompt = p_char '$' << p_spaces
 
 p_ident :: parser string
 p_ident
-    = p_some (p_satisfy identChar) $p_left p_spaces
+    = p_some (p_satisfy identChar) << p_spaces
       where
         identChar c = letter c \/ digit c \/ c ==. '.' \/ c ==. '/'
 
 p_size :: parser int
-p_size = p_posint $p_left p_spaces
+p_size = p_posint << p_spaces
 
 p_file :: parser lsResult
 p_file = p_liftA2 Fresult p_size p_ident
 
 p_dir :: parser lsResult
-p_dir = Dresult $p_fmap (p_string "dir" $p_right p_spaces $p_right p_ident)
+p_dir = p_string "dir" >> p_spaces >> p_ident p.<&> Dresult
 
 p_lsResult :: parser lsResult
-p_lsResult = p_file $p_alt p_dir
+p_lsResult = p_file <|> p_dir
 
 p_ls :: parser cmd
-p_ls = LS $p_fmap (p_prompt $p_right p_string "ls" $p_right p_spaces $p_right p_some p_lsResult)
+p_ls = p_prompt >> p_string "ls" >> p_spaces >> p_some p_lsResult p.<&> LS
 
 p_cd :: parser cmd
-p_cd = CD $p_fmap (p_prompt $p_right p_string "cd" $p_right p_spaces $p_right p_ident)
+p_cd = p_prompt >> p_string "cd" >> p_spaces >> p_ident p.<&> CD
 
 p_cmd :: parser cmd
-p_cmd = p_cd $p_alt p_ls
+p_cmd = p_cd <|> p_ls
 
 p_cmds :: parser [cmd]
-p_cmds = p_some p_cmd $p_left p_end
+p_cmds = p_some p_cmd << p_end
 
 || building the file system from the commands
 
@@ -124,7 +124,7 @@ pred2 m e                = False
 
 readInput :: string -> io [cmd]
 readInput fn
-    = go <$>. readFile fn
+    = readFile fn <&> go
       where
         go input
             = error (p_error ps), if isNothing pr
@@ -134,7 +134,7 @@ readInput fn
 
 day07 :: io ()
 day07
-    = readInput "../inputs/day07.txt" >>=. go
+    = readInput "../inputs/day07.txt" >>= go
       where
         go cmds
             = io_mapM_ putStrLn [part1, part2]

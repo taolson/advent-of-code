@@ -1,10 +1,10 @@
 %export day23
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 %import <v2>
 
@@ -70,14 +70,14 @@ emptyTiles g
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go input
             = s_fromList cmplocation [V2 r c | (r, row) <- enumerate input; (c, '#') <- enumerate row]
 
 day23 :: io ()
 day23
-    = readGrid "../inputs/day23.txt" >>=. go
+    = readGrid "../inputs/day23.txt" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

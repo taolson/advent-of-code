@@ -1,11 +1,11 @@
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <parser>
-%import <base>
-
+%import <parser>                (<<)/p_left (>>)/p_right
+%import <parser> qualified as p (<&>)/p_rfmap
 
 || resources are a vector of 4 intbers, representing amounts of
 || ore, clay, obsidian, and geodes
@@ -76,33 +76,33 @@ bp_rbs (Blueprint bid rbs) = rbs
 || parsing
 
 p_ident :: parser string
-p_ident = p_some p_letter $p_left p_spaces
+p_ident = p_some p_letter << p_spaces
 
 p_resource :: parser resource
 p_resource
-    = mkResource $p_fmap p_ident
+    = p_ident p.<&> mkResource
       where
         mkResource s = m_findWithDefault cmpstring r_empty s resourceNameMap
 
 p_cost :: parser resource
 p_cost
-    = p_liftA2 mkCost (p_posint $p_left p_spaces) p_resource
+    = p_liftA2 mkCost (p_posint << p_spaces) p_resource
       where
         mkCost n = map (* n)
 
 p_robot :: parser robot
 p_robot
     = p_liftA2 mkRobot
-          (p_string "Each " $p_right p_resource $p_left p_string "robot costs ")
-          (p_someSepBy (p_string "and ") p_cost $p_left (p_char '.') $p_left p_spaces)
+          (p_string "Each " >> p_resource << p_string "robot costs ")
+          (p_someSepBy (p_string "and ") p_cost << (p_char '.') << p_spaces)
       where
         mkRobot h cs = Robot h (r_sum cs)
         
 p_blueprint :: parser blueprint
 p_blueprint
     = p_liftA2 Blueprint
-          (p_string "Blueprint " $p_right p_spaces $p_right p_posint)
-          (p_string ": " $p_right p_some p_robot)
+          (p_string "Blueprint " >> p_spaces >> p_posint)
+          (p_string ": " >> p_some p_robot)
 
 
 || scheduling
@@ -163,13 +163,13 @@ qualLevel timeLimit bp = bp_id bp * maxGeodes timeLimit bp
 
 readBlueprints :: string -> io [blueprint]
 readBlueprints fn
-    = go <$>. parse (p_some p_blueprint) <$>. readFile fn
+    = readFile fn <&> parse (p_some p_blueprint) <&> go
       where
         go (pr, ps) = fromMaybe (error (p_error ps)) pr
 
 day19 :: io ()
 day19
-    = readBlueprints "../inputs/day19.txt" >>=. go
+    = readBlueprints "../inputs/day19.txt" >>= go
       where
         go blueprints
             = io_mapM_ putStrLn [part1, part2]

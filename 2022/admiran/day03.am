@@ -1,8 +1,7 @@
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
 
 
@@ -27,11 +26,11 @@ priority c
 
 readRucksacks :: string -> io [rucksack]
 readRucksacks fn
-    = map (mapBoth (s_fromList cmpchar) . split2) <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (split2 .> mapBoth (s_fromList cmpchar))
 
 day03 :: io ()
 day03
-    = readRucksacks "../inputs/day03.txt" >>=. go
+    = readRucksacks "../inputs/day03.txt" >>= go
       where
         go sacks
             = io_mapM_ putStrLn [part1, part2]

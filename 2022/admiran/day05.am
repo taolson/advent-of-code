@@ -1,10 +1,10 @@
 %export day05
 
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 
 
 crate    == char
@@ -70,7 +70,7 @@ process f sm (n, fi, ti)
 
 readInput :: string -> io (stackMap, [move])
 readInput fn
-    = go <$>. break null <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> break null <&> go
       where
         go (crateInfo, moveInfo)
             = (stacks, moves)
@@ -81,7 +81,7 @@ readInput fn
 
 day05 :: io ()
 day05
-    = readInput "../inputs/day05.txt" >>=. go
+    = readInput "../inputs/day05.txt" >>= go
       where
         go (sm, moves)
             = io_mapM_ putStrLn [part1, part2]

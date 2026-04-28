@@ -1,13 +1,14 @@
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <parser>
+%import <base>
 %import <dequeue>
 %import <either>
+%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
+%import <parser>                (<*>)/p_apply (<<)/p_left (>>)/p_right (<|>)/p_alt
+%import <parser> qualified as p (<&>)/p_rfmap
 
 
 item == int
@@ -52,24 +53,23 @@ makeMonkey idx items opChar opVal divBy trueIdx falseIdx
 
 
 || parsing
-p_liftA7 f ma mb mc md me mf mg = (((p_liftA4 f ma mb mc md) $p_apply me) $p_apply mf) $p_apply mg
+p_liftA7 f ma mb mc md me mf mg = p_liftA4 f ma mb mc md <*> me <*> mf <*> mg
 
 p_test :: string -> parser int
-p_test s = p_string "If " $p_right p_string s $p_right p_string ": throw to monkey " $p_right p_posint
+p_test s = p_string "If " >> p_string s >> p_string ": throw to monkey " >> p_posint
 
 p_operand :: parser (either string int)
-p_operand = p_fmap Right p_posint $p_alt
-            p_fmap Left  (p_many p_letter)
+p_operand = p_posint p.<&> Right <|> p_many p_letter p.<&> Left
 
 p_monkey :: parser monkey
 p_monkey = p_liftA7 makeMonkey
-               (p_string "Monkey " $p_right p_posint $p_left p_char ':' $p_left p_spaces)
-               (p_string "Starting items: " $p_right  p_manySepBy (p_string ", ") p_posint $p_left p_spaces)
-               (p_string "Operation: new = old " $p_right p_any $p_left p_spaces)
-               (p_operand $p_left p_spaces)
-               (p_string "Test: divisible by " $p_right p_posint $p_left p_spaces)
-               (p_test "true" $p_left p_spaces)
-               (p_test "false" $p_left p_spaces)
+               (p_string "Monkey " >> p_posint << p_char ':' << p_spaces)
+               (p_string "Starting items: " >>  p_manySepBy (p_string ", ") p_posint << p_spaces)
+               (p_string "Operation: new = old " >> p_any << p_spaces)
+               (p_operand << p_spaces)
+               (p_string "Test: divisible by " >> p_posint << p_spaces)
+               (p_test "true" << p_spaces)
+               (p_test "false" << p_spaces)
 
 
 || running
@@ -96,7 +96,7 @@ round reducer mkys
 
 readMonkeys :: string -> io (m_map int monkey)
 readMonkeys fn
-    = go <$>. parse (p_many p_monkey $p_left p_end) <$>. readFile fn
+    = readFile fn <&> parse (p_many p_monkey << p_end) <&> go
       where
         go (pr, ps)
             = error (p_error ps),              if isNothing pr
@@ -106,7 +106,7 @@ readMonkeys fn
 
 day11 :: io ()
 day11
-    = readMonkeys "../inputs/day11.txt" >>=. go
+    = readMonkeys "../inputs/day11.txt" >>= go
       where
         go monkeys
             = io_mapM_ putStrLn [part1, part2]

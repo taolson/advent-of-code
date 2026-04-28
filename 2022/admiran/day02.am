@@ -1,7 +1,7 @@
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 shape == int            || Rock == 0, Scissors == 1, Paper == 2
@@ -24,7 +24,7 @@ convertRound (op, outcome)
 
 readGuide :: string -> io [round]
 readGuide fn
-    = map readRound <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readRound
       where
         readRound (a : _ : b : _) = (readShape a, readShape b)
         readRound xs              = undef       || prevent compiler from complaining about missing pattern
@@ -34,7 +34,7 @@ readGuide fn
 
 day02 :: io ()
 day02
-    = readGuide "../inputs/day02.txt" >>=. go
+    = readGuide "../inputs/day02.txt" >>= go
       where
         go guide
             = io_mapM_ putStrLn [part1, part2]

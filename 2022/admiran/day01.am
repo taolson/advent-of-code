@@ -1,16 +1,15 @@
 %export day01
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 readCargo :: string -> io [[int]]
 readCargo fn
-    = map (map intval) <$>. splitWhen null <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> splitWhen null <&> map (map intval)
 
 day01 :: io ()
 day01
-    = readCargo "../inputs/day01.txt" >>=. go
+    = readCargo "../inputs/day01.txt" >>= go
       where
         go elfCargo
             = io_mapM_ putStrLn [part1, part2]

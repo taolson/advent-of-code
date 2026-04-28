@@ -1,12 +1,12 @@
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
-%import <state> (>>=)/st_bind (>>)/st_right
+%import <state>         (>>=)/st_bind (>>)/st_right
 %import <v2>
 
 
@@ -104,7 +104,7 @@ computeHeight n (s, p) hs
 
 day17 :: io ()
 day17
-    = readFile "../inputs/day17.txt" >>=. go
+    = readFile "../inputs/day17.txt" >>= go
       where
         go jets
             = io_mapM_ putStrLn [part1, part2]

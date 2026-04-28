@@ -1,10 +1,9 @@
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
 %import <map>
-%import <maybe>
-%import <base>
 %import <set>
 
 location  == (int, int)
@@ -21,7 +20,7 @@ scanSt  == (visible, scenic)
 || scenic distance in this direction
 scanOneDir :: scanSt -> [tree] -> scanSt
 scanOneDir st xs
-    = view lensTup3_0 (foldl step (st, -1, initHm) xs)
+    = foldl step (st, -1, initHm) xs |> viewTup3_0
       where
         initHm = rep 10 (fst (hd xs))
         step ((vis, scn), mh, hm) (loc, h)
@@ -41,14 +40,14 @@ findVisibility rows
 
 readTrees :: string -> io [[tree]]
 readTrees fn
-    = map mkRow <$>. zip2 [0 ..] <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> enumerate <&> map mkRow
       where
-        mkRow (r, cs)  = map (mkCol r) (zip2 [0 ..] (map digitVal cs))
+        mkRow (r, cs)  = map digitVal cs |> enumerate |> map (mkCol r)
         mkCol r (c, h) = ((r, c), h)
 
 day08 :: io ()
 day08
-    = readTrees "../inputs/day08.txt" >>=. go
+    = readTrees "../inputs/day08.txt" >>= go
       where
         go trees
             = io_mapM_ putStrLn [part1, part2]

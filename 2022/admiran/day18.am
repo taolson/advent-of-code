@@ -1,9 +1,7 @@
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <lens>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
 %import <v3>
 
@@ -45,7 +43,7 @@ findExternal cs bb
 
 readCubes :: string -> io [cube]
 readCubes fn
-    = map readCube <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readCube
       where
         readCube         = mkCube . map intval . split ','
         mkCube [x, y, z] = V3 x y z
@@ -53,7 +51,7 @@ readCubes fn
       
 day18 :: io ()
 day18
-    = readCubes "../inputs/day18.txt" >>=. go
+    = readCubes "../inputs/day18.txt" >>= go
       where
         go cubes
             = io_mapM_ putStrLn [part1, part2]
