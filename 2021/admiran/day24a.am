@@ -1,0 +1,131 @@
+%import <base>
+%import <io>
+%import <map>
+%import <maybeState>    (>>=?)/mst_bind (<$>?)/mst_fmap (>>?)/mst_right
+%import <state>         (>>=)/st_bind   (<$>)/st_fmap   (>>)/st_right
+
+reg ::= Reg int
+
+opr ::= Ref reg | Lit int
+
+insn ::=
+    Add reg reg opr     |
+    Mul reg reg opr     |
+    Div reg reg opr     |
+    Mod reg reg opr     |
+    Eql reg reg opr     |
+    Inp reg
+
+psSt == (m_map string reg, int)
+
+readReg :: string -> state psSt reg
+readReg s
+    = st_get >>= go
+      where
+        go (m, i) = m_findWithDefault cmpstring (Reg 0) s |> st_pure
+
+allocReg :: string -> state psSt reg
+allocReg s
+    = st_get >>= go
+      where
+        go (m, i)
+          = st_put (m_insert cmpstring s r m, i') >> st_pure r
+            where
+              i' = i + 1
+              r  = Reg i'
+
+parseOpr :: string -> state psSt opr
+parseOpr s
+    = Ref <$> readReg s,          if letter (hd s)
+    = intval s |> Lit |> st_pure, otherwise
+
+mkBin :: string -> string -> string -> state psSt insn
+mkBin op a b
+    = st_liftA3 (gen op) (readReg a) (parseOpr b) (allocReg a)
+      where
+        gen "add" a' b' d = Add d a' b'
+        gen "mul" a' b' d = Mul d a' b'
+        gen "div" a' b' d = Div d a' b'
+        gen "mod" a' b' d = Mod d a' b'
+        gen "eql" a' b' d = Eql d a' b'
+        gen _     _  _  _ = error "mkBin"
+
+parseInsn :: string -> state psSt insn
+parseInsn
+    = words .> go
+      where
+        go [op, a, b] = mkBin op a b
+        go [_, d]     = Inp <$> allocReg d
+
+parseProg :: string -> [insn]
+parseProg s = st_evalState (st_mapM parseInsn $ lines s) (m_empty, 0)
+
+
+|| constrained range of int values a register can hold, lo to hi
+constraint == (int, int)
+
+cnSt == m_map int constraint
+
+getRegConstraint :: reg -> state cnSt constraint
+getRegConstraint (Reg i) = m_findWithDefault cmpint (0, 0) i <$> st_get
+
+setRegConstraint :: reg -> constraint -> state cnSt ()
+setRegConstraint (Reg i) c = st_modify (m_insert cmpint i c)
+
+getOprConstraint :: opr -> state cnSt constraint
+getOprConstraint (Lit n) = st_pure (n, n)
+getOprConstraint (Ref r) = getRegConstraint r
+
+constrainInsn :: insn -> state cnSt ()
+constrainInsn (Add d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb) = setRegConstraint d (la + lb, ha + hb)
+
+constrainInsn (Mul d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb) = setRegConstraint d (la * lb, ha * hb)
+
+constrainInsn (Div d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb) = setRegConstraint d (la $div hb, ha $div lb)
+
+constrainInsn (Mod d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb)
+            = setRegConstraint d (la, ha),    if ha < hb
+            = setRegConstraint d (0, hb - 1), otherwise
+
+constrainInsn (Eql d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb)
+            = setRegConstraint d (0, 0), if la > hb \/ ha < lb          || no overlapping range; can't be equal
+            = setRegConstraint d (1, 1), if la == ha == lb == hb        || equal singleton values
+            = setRegConstraint d (0, 1), otherwise                      || unknown equality
+
+constrainInsn (Inp d) = setRegConstraint d (1, 9)                       || inputs are limited to 1 .. 9
+
+constrainProg :: [insn] -> m_map int constraint
+constrainProg prog = st_execState (st_mapM constrainInsn prog) m_empty
+
+backConstrainInsn :: constraint -> insn -> maybeState cnSt ()
+backConstrainInsn (lo, hi) (Add d a b)
+    = st_bind2 (getRegConstraint a) (getOprConstraint b) go
+      where
+        go (la, ha) (lb, hb)
+            = mst_fail, if hi < clo \? lo > chi
+            = setRegConstraint d rc >>? (backConstrainInsn rc insnA)
+              where
+                clo = la + lb
+                chi = ha + hb
+                rc  = (max2 cmpint la clo, min2 cmpint hi chi)
+main :: io ()
+main = readFile "../inputs/day24.txt" >>= parseProg .> go
+       where
+         go prog = constrainProg prog |> m_toList |> zip2 prog |> io_mapM_ (showent .> putStrLn)
+         showent (i, (_, (l, h))) = showinsn i ++ ": " ++ showint l ++ " .. " ++ showint h
+

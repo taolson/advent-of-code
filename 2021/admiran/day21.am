@@ -1,11 +1,11 @@
 %export day21
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <lens>
 %import <map>
 %import <maybe>
-%import <base>
-%import <state>
+%import <state>         (>>=)/st_bind
 
 
 playerSt == (int, int)          || position, score

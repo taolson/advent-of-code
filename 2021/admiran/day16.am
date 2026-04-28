@@ -1,10 +1,11 @@
 %export day16
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>                    (<&>)/io_rfmap
+%import <io> qualified as IO    (>>=)/io_bind
+%import <maybe>
 
-bits == [int]                           || bits are represented as a list of 0s and 1s
+bits == [int]   || bits are represented as a list of 0s and 1s
 
 hexDigit :: char -> bool
 hexDigit c = '0' <=. c <=. '9' \/ 'A' <=. c <=. 'F'
@@ -137,7 +138,7 @@ p_packet
 
 parse :: string -> io packet
 parse fn
-    = go <$>. p_packet <$>. concatMap hexToBits <$>. filter hexDigit <$>. readFile fn
+    = readFile fn <&> filter hexDigit <&> concatMap hexToBits <&> p_packet <&> go
       where
         go (p, bs)
             = p,                          if all (== 0) bs
@@ -145,7 +146,7 @@ parse fn
 
 day16 :: io ()
 day16
-    = parse "../inputs/day16.txt" >>=. go
+    = parse "../inputs/day16.txt" IO.>>= go
       where
         go p
             = io_mapM_ putStrLn [part1, part2]

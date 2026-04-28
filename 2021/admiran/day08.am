@@ -1,9 +1,8 @@
 %export day08
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 %import <set>
 
 segment == char
@@ -85,17 +84,17 @@ entry   == ([pattern], [pattern])
 
 readInput :: string -> io [entry]
 readInput fn
-    = map readEntry <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readEntry
       where
          readEntry s
              = (ps, ds)
                where
-                 (ps, rs) = splitAt 10 . map (s_fromList cmpchar) . words $ s
+                 (ps, rs) = words s |> map (s_fromList cmpchar) |> splitAt 10
                  ds       = drop 1 rs
 
 day08 :: io ()
 day08
-    = readInput "../inputs/day08.txt" >>=. go
+    = readInput "../inputs/day08.txt" >>= go
       where
         go entries
             = io_mapM_ putStrLn [part1, part2]

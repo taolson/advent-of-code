@@ -1,8 +1,7 @@
 %export day03
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 bit    == num
@@ -37,7 +36,7 @@ filterVecsBy cmp vs
 
 readBitVecs :: string -> io [bitVec]
 readBitVecs fn
-    = map readLine <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readLine
       where
         readLine   = map bitVal
         bitVal '0' = 0
@@ -45,7 +44,7 @@ readBitVecs fn
 
 day03 :: io ()
 day03
-    = readBitVecs "../inputs/day03.txt" >>=. go
+    = readBitVecs "../inputs/day03.txt" >>= go
       where
         go bvecs
             = io_mapM_ putStrLn [part1, part2]

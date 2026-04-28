@@ -2,10 +2,10 @@
 
 %export day05
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
+
 
 maxn = max2 cmpint
 minn = min2 cmpint
@@ -104,7 +104,7 @@ tallyIntersections
 
 readSegments :: string -> io [segment]
 readSegments fn
-    = map readSeg <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map readSeg
       where
         readSeg           = go . words
         go [p1, "->", p2] = mkSegment (readPoint p1) (readPoint p2)
@@ -116,7 +116,7 @@ readSegments fn
 
 day05 :: io ()
 day05
-    = readSegments "../inputs/day05.txt" >>=. go
+    = readSegments "../inputs/day05.txt" >>= go
       where
         go segs
             = io_mapM_ putStrLn [part1, part2]

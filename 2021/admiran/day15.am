@@ -1,10 +1,10 @@
 %export day15
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
 %import <heap>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
 
 point == (int, int)
@@ -62,7 +62,7 @@ findMinRisk part2 g
 
 readInput :: string -> io grid
 readInput fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows
             = Grid (m_fromList cmppoint pts) maxX maxY
@@ -73,7 +73,7 @@ readInput fn
 
 day15 :: io ()
 day15
-    = readInput "../inputs/day15.txt" >>=. go
+    = readInput "../inputs/day15.txt" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

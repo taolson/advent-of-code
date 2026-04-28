@@ -1,11 +1,12 @@
 %export day12
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>
 %import <map>
 %import <maybe>
-%import <base>
 %import <set>
-%import <state>
+%import <state>          (>>=)/st_bind
+
 
 cave       == string
 connection == (cave, cave)
@@ -52,7 +53,7 @@ parseConnection
 
 day12 :: io ()
 day12
-    = readFile "../inputs/day12.txt" >>=. go
+    = readFile "../inputs/day12.txt" >>= go
       where
         go input
             = io_mapM_ putStrLn [part1, part2]

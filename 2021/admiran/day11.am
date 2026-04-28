@@ -1,9 +1,8 @@
 %export day11
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 %import <set>
 
 
@@ -48,13 +47,13 @@ anyNotFlashed (g, x) = any (~= 0) (m_elems g)
 
 readGrid :: string -> io grid
 readGrid fn
-    = go <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> go
       where
         go rows = m_fromList cmploc [((x, y) , digitVal c) | (x, cols) <- enumerate rows; (y, c) <- enumerate cols]
 
 day11 :: io ()
 day11
-    = readGrid "../inputs/day11.txt" >>=. go
+    = readGrid "../inputs/day11.txt" >>= go
       where
         go g
             = io_mapM_ putStrLn [part1, part2]

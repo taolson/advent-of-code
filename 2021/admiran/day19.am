@@ -1,9 +1,8 @@
 %export day19
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 %import <set>
 
 
@@ -158,7 +157,7 @@ allPairs (x : xs) = map (pair x) xs ++ allPairs xs
 
 readInput :: string -> io [(int, [v3])]
 readInput fn
-    = readScanners <$>. words <$>. readFile fn
+    = readFile fn <&> words <&> readScanners
       where
         perror s = error ("parse error: " ++ s)
 
@@ -173,7 +172,7 @@ readInput fn
 
 day19 :: io ()
 day19
-    = readInput "../inputs/day19.txt" >>=. go
+    = readInput "../inputs/day19.txt" >>= go
       where
         go scans
             = io_mapM_ putStrLn [part1, part2]

@@ -1,9 +1,8 @@
 %export day06
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <map>
 
 
 intmap == m_map int int
@@ -30,14 +29,14 @@ run n
 
 readInput :: string -> io intmap
 readInput fn
-    = foldl addFish m_empty <$>. readIntList <$>. readFile fn
+    = readFile fn <&> readIntList <&> foldl addFish m_empty
       where
         readIntList = map intval . split ','
         addFish m n = m_insertWith cmpint (+) n 1 m
 
 day06 :: io ()
 day06
-    = readInput "../inputs/day06.txt" >>=. go
+    = readInput "../inputs/day06.txt" >>= go
       where
         go fish
             = io_mapM_ putStrLn [part1, part2]

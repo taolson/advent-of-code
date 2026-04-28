@@ -2,9 +2,8 @@
 
 %export day25
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 point == (int, int)
@@ -52,10 +51,10 @@ move (_, g)
 
 
 readInput :: string -> io grid
-readInput fn = lines <$>. readFile fn
+readInput fn = readFile fn <&> lines
 
 day25 :: io ()
 day25
-    = readInput "../inputs/day25.txt" >>=. go
+    = readInput "../inputs/day25.txt" >>= go
       where
         go floor = putStrLn . (++) "part 1: " . showint . length . takeWhile fst . iterate move $ (True, floor)

@@ -1,8 +1,8 @@
 %export day18
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>          -split
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <maybe>
-%import <base> -split
 
 
 || tree representation
@@ -76,7 +76,7 @@ addPair (a, b) = addSn a b
 
 readInput :: string -> io [sn]
 readInput fn
-    = fst <$>. sepBy '\n' readSn <$>. readFile fn
+    = readFile fn <&> sepBy '\n' readSn <&> fst
       where
         perror s    = error ("parse error: " ++ s)
         readSn      = mapFst mkSn . inBrackets readElts
@@ -108,7 +108,7 @@ readInput fn
                               = perror "expected ']'", otherwise
 
 day18
-    = readInput "../inputs/day18.txt" >>=. go
+    = readInput "../inputs/day18.txt" >>= go
       where
         go sns
             = io_mapM_ putStrLn [part1, part2]

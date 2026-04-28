@@ -1,8 +1,7 @@
 %export day02
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 move == (int, int, int)         || x, aim, y
@@ -18,7 +17,7 @@ moveProduct2 (x, a, y) = x * y
 
 readCommands :: string -> io [move]
 readCommands fn
-    = map (parse . words) <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (words .> parse)
       where
         parse [s1, s2] = go s1 (intval s2)
         parse ws       = error ("parse error: expected two words")
@@ -29,7 +28,7 @@ readCommands fn
 
 day02 :: io ()
 day02
-    = readCommands "../inputs/day02.txt" >>=. go
+    = readCommands "../inputs/day02.txt" >>= go
       where
         go path
             = io_mapM_ putStrLn [part1, part2]

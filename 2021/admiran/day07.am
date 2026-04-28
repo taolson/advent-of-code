@@ -1,8 +1,7 @@
 %export day07
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 || ternary search for min -- f must be a unimodal function
@@ -16,11 +15,11 @@ findMin f l r
         r' = (2 * r + l) $div 3
 
 readIntList :: string -> io [int]
-readIntList fn = map intval <$>. split ',' <$>. readFile fn
+readIntList fn = readFile fn <&> split ',' <&> map intval
 
 day07 :: io ()
 day07
-    = readIntList "../inputs/day07.txt" >>=. go
+    = readIntList "../inputs/day07.txt" >>= go
       where
         go crabs
             = io_mapM_ putStrLn [part1, part2]

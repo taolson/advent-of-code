@@ -1,9 +1,8 @@
 %export day04
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <either>
-%import <maybe>
 %import <base>
+%import <either>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
 
 
@@ -60,7 +59,7 @@ playGame firstBingo bs ns
 
 readGame :: string -> io ([int], [board])
 readGame fn
-    = go <$>. break (==. '\n') <$>. readFile fn
+    = readFile fn <&> break (==. '\n') <&> go
       where
         go (s1, s2) = (p_draw s1, p_boards s2)
         p_draw      = map intval . split ','
@@ -68,7 +67,7 @@ readGame fn
 
 day04 :: io ()
 day04
-    = readGame "../inputs/day04.txt" >>=. go
+    = readGame "../inputs/day04.txt" >>= go
       where
         go (draws, boards)
             = io_mapM_ putStrLn [part1, part2]

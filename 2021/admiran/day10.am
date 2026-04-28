@@ -1,9 +1,10 @@
 %export day10
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
+%import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <map>
 %import <maybe>
-%import <base>
+
 
 parseStatus ::= Legal | Incomplete | Corrupted
 parseState  ==  (string, string)                || completion stack, input stream
@@ -79,11 +80,11 @@ median = hd . snd . split2 . sortBy cmpint
 
 readParsedChunks :: string -> io [(parseStatus, parseState)]
 readParsedChunks fn
-    = map parse <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map parse
 
 day10 :: io ()
 day10
-    = readParsedChunks "../inputs/day10.txt" >>=. go
+    = readParsedChunks "../inputs/day10.txt" >>= go
       where
         go parsed
             = io_mapM_ putStrLn [part1, part2]

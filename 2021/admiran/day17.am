@@ -1,8 +1,7 @@
 %export day17
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind
 
 
 || target area ranges

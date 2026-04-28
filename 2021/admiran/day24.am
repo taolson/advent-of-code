@@ -3,10 +3,10 @@
 
 %export day24
 
+%import <base>
 %import <io>                    (>>=)/io_bind
 %import <map>
 %import <maybe>
-%import <base>
 %import <vector>
 
 

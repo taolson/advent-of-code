@@ -1,8 +1,7 @@
 %export day22
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 
 
 || vector definitions
@@ -75,7 +74,7 @@ cn_draw cs (On, c)  = c : concatMap ($c_difference c) cs
 
 readInput :: string -> io [command]
 readInput fn
-    = map (readCmd . words) <$>. lines <$>. readFile fn
+    = readFile fn <&> lines <&> map (words .> readCmd)
       where
         perror s = error ("parse error: " ++ s)
 
@@ -97,7 +96,7 @@ readInput fn
 
 day22 :: io ()
 day22
-    = readInput "../inputs/day22.txt" >>=. go
+    = readInput "../inputs/day22.txt" >>= go
       where
         go cmds
             = io_mapM_ putStrLn [part1, part2]

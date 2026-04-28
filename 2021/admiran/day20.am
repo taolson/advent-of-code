@@ -1,9 +1,9 @@
 %export day20
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <maybe>
 %import <base>
+%import <io>            (>>=)/io_bind (<&>)/io_rfmap
 %import <set>
+
 
 pixels    == [[int]]            || a 2-D list of intbers (0 = off, 1 = on)
 algorithm == s_set int          || set of 9-bit intbers (0 .. 511) that result in an "on" pixel
@@ -61,7 +61,7 @@ readImage s
 
 readInput :: string -> io (algorithm, image)
 readInput fn
-    = go <$>. span (not . isSpace) <$>. readFile fn
+    = readFile fn <&> break isSpace <&> go
       where
         go (as, is)
             = (algo, image)
@@ -71,7 +71,7 @@ readInput fn
 
 day20 :: io ()
 day20
-    = readInput "../inputs/day20.txt" >>=. go
+    = readInput "../inputs/day20.txt" >>= go
       where
         go (algo, image)
             = io_mapM_ putStrLn [part1, part2]
