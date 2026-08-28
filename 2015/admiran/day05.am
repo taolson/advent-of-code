@@ -4,7 +4,7 @@
 %export day05
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 badPairs :: [string]
@@ -52,7 +52,7 @@ day05
     = readFile "../inputs/day05.input" >>= (go . lines)
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . length . filter nice1 $ input
                 part2 = (++) "part 2: " . showint . length . filter nice2 $ input

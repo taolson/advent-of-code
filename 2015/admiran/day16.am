@@ -4,19 +4,19 @@
 %export day16
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>         -(>>=) -(<&>)
 
 
 constraint == (string, int)
-aunt       == m_map string int
+aunt       == m.map string int
 
 matchConstraints :: (string -> int -> int -> bool) -> [constraint] -> aunt -> bool
 matchConstraints f cs a
     = all match cs
       where
-        match (k, v) = fromMaybef True (f k v) $ m_lookup cmpstring k a
+        match (k, v) = fromMaybef True (f k v) $ m.lookup cmpstring k a
 
 parseLine :: string -> [constraint]
 parseLine
@@ -26,7 +26,7 @@ parseLine
         mkConstraint _      = error "parseLine: bad parse"
 
 readInput :: string -> io [aunt]
-readInput fn = readFile fn <&> lines <&> map (parseLine .> m_fromList cmpstring)
+readInput fn = readFile fn <&> lines <&> map (parseLine .> m.fromList cmpstring)
 
 day16 :: io ()
 day16
@@ -44,7 +44,7 @@ day16
             = v == n, otherwise
 
         go aunts 
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " $ process pt1
                 part2 = (++) "part 1: " $ process pt2

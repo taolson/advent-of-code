@@ -6,27 +6,26 @@
 %import <base>
 %import <either>
 %import <io>
-%import <map>
+%import <map>    qualified as m
 %import <maybe>
-%import <parser>                (>>=)/p_bind (<&>)/p_rfmap (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <state>
-%import <state> qualified as st (>>=)/st_bind (<&>)/st_rfmap (<<)/st_left (>>)/st_right
+%import <parser> qualified as p
+%import <state>  as st
 
 op ::= WIRE | NOT | AND | OR | LSHIFT | RSHIFT
 
 signal  == either int string
 gate    == (signal, signal, op)
 sigval  == either int gate
-circuit == m_map string sigval
+circuit == m.map string sigval
 
 getValue :: signal -> state circuit int
-getValue (Left x) = st_pure x
+getValue (Left x) = st.pure x
 getValue (Right s)
-    = st_get st.>>= (st_pure . fromJust . m_lookup cmpstring s) st.>>= go
+    = st.get st.>>= (st.pure . fromJust . m.lookup cmpstring s) st.>>= go
       where
-        go (Left x) = st_pure x
+        go (Left x) = st.pure x
         go (Right (s1, s2, op))
-            = st_liftA2 (doOp op) (getValue s1) (getValue s2) st.>>= update
+            = st.liftA2 (doOp op) (getValue s1) (getValue s2) st.>>= update
               where
                 doOp WIRE   a _ = a
                 doOp NOT    a _ = complement a
@@ -35,63 +34,63 @@ getValue (Right s)
                 doOp LSHIFT a b = a .<<. b
                 doOp RSHIFT a b = a .>>. b
 
-        update x = st_modify (m_insert cmpstring s (Left x)) st.>> st_pure x
+        update x = st.modify (m.insert cmpstring s (Left x)) st.>> st.pure x
 
 
-p_signal :: parser signal
-p_signal = ((p_int <&> Left) <|> (p_word <&> Right)) << p_spaces
+p_signal :: p.parser signal
+p_signal = ((p.int p.<&> Left) p.<|> (p.word p.<&> Right)) p.<< p.spaces
 
-p_notv :: parser sigval
+p_notv :: p.parser sigval
 p_notv
-    = p_string "NOT " >> p_signal <&> mkNot
+    = p.string "NOT " p.>> p_signal p.<&> mkNot
       where
         mkNot s = Right (s, Left 0, NOT)
 
-p_wire :: parser sigval
+p_wire :: p.parser sigval
 p_wire
-    = p_signal <&> mkWire
+    = p_signal p.<&> mkWire
       where
         mkWire (Left x) = Left x
         mkWire s        = Right (s, Left 0, WIRE)
 
-p_op :: parser op
-p_op = (p_word << p_spaces) >>= mkOp
+p_op :: p.parser op
+p_op = (p.word p.<< p.spaces) p.>>= mkOp
        where
-         mkOp "AND"    = p_pure AND
-         mkOp "OR"     = p_pure OR
-         mkOp "LSHIFT" = p_pure LSHIFT
-         mkOp "RSHIFT" = p_pure RSHIFT
-         mkOp _        = p_fail
+         mkOp "AND"    = p.pure AND
+         mkOp "OR"     = p.pure OR
+         mkOp "LSHIFT" = p.pure LSHIFT
+         mkOp "RSHIFT" = p.pure RSHIFT
+         mkOp _        = p.fail
 
-p_binop :: parser sigval
+p_binop :: p.parser sigval
 p_binop
-    = p_liftA3 mkBinop p_signal p_op p_signal
+    = p.liftA3 mkBinop p_signal p_op p_signal
       where
         mkBinop s1 op s2 = Right (s1, s2, op)
 
-p_entry :: parser (string, sigval)
+p_entry :: p.parser (string, sigval)
 p_entry
-    = p_liftA2 mkEntry (p_binop <|> p_notv <|> p_wire) (p_string "-> " >> p_word) << p_spaces
+    = p.liftA2 mkEntry (p_binop p.<|> p_notv p.<|> p_wire) (p.string "-> " p.>> p.word) p.<< p.spaces
       where
         mkEntry val sig = (sig, val)        
 
 
 readCircuit :: string -> io circuit
 readCircuit fn
-    = readFile fn st.<&> parse (p_some p_entry st.<< p_end) st.<&> go
+    = readFile fn st.<&> p.parse (p.some p_entry st.<< p.end) st.<&> go
       where
-        go (mentries, ps) = fromMaybef (error (p_error ps)) (m_fromList cmpstring) mentries
+        go (mentries, ps) = fromMaybef (error (p.error ps)) (m.fromList cmpstring) mentries
 
 day07 :: io ()
 day07
     = readCircuit "../inputs/day07.input" st.>>= go
       where
         go c1
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
-                eval  = st_evalState (getValue (Right "a"))
+                eval  = st.evalState (getValue (Right "a"))
                 a1    = eval c1
-                c2    = m_insert cmpstring "b" (Left a1) c1
+                c2    = m.insert cmpstring "b" (Left a1) c1
                 a2    = eval c2
                 part1 = (++) "part 1: " . showint $ a1
                 part2 = (++) "part 2: " . showint $ a2

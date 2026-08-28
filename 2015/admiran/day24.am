@@ -3,8 +3,8 @@
 
 %export day24
 
-%import <io>            (>>=)/io_bind
-%import <maybe>         (<&>)/mb_rfmap (<|>)/mb_alt
+%import <io>            -(<&>)
+%import <maybe>         -(>>=) -(<<) -(>>)
 %import <base>
 
 
@@ -42,7 +42,7 @@ day24
     = readFile "../inputs/day24.input" >>= lines .> map intval .> go
       where
         go pkgs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 process n = showint . product . hd . findBestPartition n $ pkgs
                 part1 = "part 1: " ++ process 3

@@ -4,7 +4,7 @@
 %export day01
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 parenVal :: char -> int
@@ -14,10 +14,10 @@ parenVal _   = 0
 
 day01 :: io ()
 day01
-    = readFile "../inputs/day01.input" >>= (go . map parenVal)
+    = readFile "../inputs/day01.input" >>= map parenVal .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum $ input
                 part2 = (++) "part 2: " . showint . length . takeWhile (>= 0) . scanl (+) 0 $ input

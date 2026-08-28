@@ -4,29 +4,29 @@
 %export day13
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <vector>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<<) -(>>) -(<&>)
+%import <vector>        as v            -(<&>) -foldr -foldl -last -max
 
 
 name  == string
-hmap  == m_map name (m_map name int)
-smap  == vector (vector int)
+hmap  == m.map name (m.map name int)
+smap  == v.vector (v.vector int)
 table == [int]
 
 
 
-|| convert an hmap, with O(logN) lookup on names to a vector of vectors, with O(1) lookup
+|| convert an hmap, with O(logN) lookup on names to a v.vector of v.vectors, with O(1) lookup
 toSmap :: hmap -> smap
 toSmap hm
-    = v_fromList . map (mkEntry . m_toList) . m_elems $ hm
+    = v.fromList . map (mkEntry . m.toList) . m.elems $ hm
       where
-        sz   = m_size hm
-        nmap = m_fromList cmpname $ zip2 (m_keys hm) [0 ..]
+        sz   = m.size hm
+        nmap = m.fromList cmpname $ zip2 (m.keys hm) [0 ..]
 
-        remap (n, x) = (m_findWithDefault cmpname 0 n nmap, x)
-        mkEntry xs   = v_rep sz 0 // map remap xs
+        remap (n, x) = (m.findWithDefault cmpname 0 n nmap, x)
+        mkEntry xs   = v.rep sz 0 // map remap xs
 
 
 tableDelta :: smap -> table -> int
@@ -38,12 +38,12 @@ tableDelta sm ixs
 
 readInput :: string -> io hmap
 readInput fn
-    = readFile fn <&> lines <&> map words <&> foldl ins m_empty
+    = readFile fn <&> lines <&> map words <&> foldl ins m.empty
       where
         parseError = error "readInput: parse error"
 
         ins m (n1 : _ : gl : d : ws)
-            = m_insertWith cmpname (m_union cmpname) n1 (m_singleton n2 $ delta gl) m
+            = m.insertWith cmpname (m.union cmpname) n1 (m.singleton n2 $ delta gl) m
               where
                 n2 = init . last $ ws
 
@@ -57,11 +57,10 @@ day13 :: io ()
 day13
     = readInput "../inputs/day13.input" >>= go
       where
-        process v = showint . max cmpint . map (tableDelta v) . permutations $ [0 .. v_length v - 1]
+        process v = showint . max cmpint . map (tableDelta v) . permutations $ [0 .. v.length v - 1]
 
         go hm
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                   part1 = (++) "part 1: " . process . toSmap $ hm
-                  part2 = (++) "part 2: " . process . toSmap $ m_insert cmpname "self" m_empty hm
-
+                  part2 = (++) "part 2: " . process . toSmap $ m.insert cmpname "self" m.empty hm

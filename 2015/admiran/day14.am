@@ -3,9 +3,9 @@
 
 %export day14
 
-%import <bag>
+%import <bag>   as b
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 reindeer == (string, int, int, int)
@@ -19,7 +19,7 @@ maxDist t = max cmpint . map (dist t)
 
 maxLead :: int -> [reindeer] -> int
 maxLead t rs
-    = max cmpint . b_elems . b_fromList cmpint . map inLead $ [1 .. t]
+    = max cmpint . b.elems . b.fromList cmpint . map inLead $ [1 .. t]
       where
         inLead t' = fst . maxBy cmpint snd . enumerate . map (dist t') $ rs
 
@@ -41,7 +41,7 @@ day14
     = readReindeer "../inputs/day14.input" >>= go
       where
         go rs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 time  = 2503
                 part1 = (++) "part 1: " . showint . maxDist time $ rs

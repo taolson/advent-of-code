@@ -4,13 +4,13 @@
 %export day23
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <io>                            -(<<) -(>>)
 %import <lens>
-%import <maybe>
-%import <maybeState>            p_bind2/mst_bind2 p_bind3/mst_bind3
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (>>=)/p_bind (<&>)/p_rfmap 
-%import <vector>
+%import <maybe>                         -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        as p            -int -char -string -error
+%import <parser>        qualified as p
+%import <vector>        as v            -(<&>)
+
 
 procSt      == (int, int, int)
 instruction == procSt -> procSt
@@ -50,7 +50,7 @@ run :: program -> procSt -> procSt
 run prog
     = go
       where
-        lim = v_length prog
+        lim = v.length prog
 
         go (pc, a, b)
             = (pc, a, b),                       if pc >= lim
@@ -60,32 +60,32 @@ run prog
 
 p_reg :: parser regAccessor
 p_reg
-    = (p_any p.>>= check) << p_spaces
+    = (p.any p.>>= check) << p.spaces
       where
-        check 'a' = p_pure p_ra
-        check 'b' = p_pure p_rb
-        check _   = p_fail
+        check 'a' = p.pure p_ra
+        check 'b' = p.pure p_rb
+        check _   = p.fail
 
 p_offset :: parser int
-p_offset = p_optional (p_char '+') >> p_int << p_spaces
+p_offset = p.optional (p.char '+') >> p.int << p.spaces
 
 p_arith, p_jmp, p_cjmp :: parser instruction
 p_arith
-    = p_bind2 (p_word << p_spaces) p_reg check << p_spaces
+    = p.bind2 (p.word << p.spaces) p_reg check << p.spaces
       where
-        check "hlf" r = p_pure $ hlf r
-        check "tpl" r = p_pure $ tpl r
-        check "inc" r = p_pure $ inc r
-        check _     _ = p_fail
+        check "hlf" r = p.pure $ hlf r
+        check "tpl" r = p.pure $ tpl r
+        check "inc" r = p.pure $ inc r
+        check _     _ = p.fail
 
-p_jmp = p_string "jmp " >> p_offset p.<&> jmp
+p_jmp = p.string "jmp " >> p_offset p.<&> jmp
 
 p_cjmp
-    = p_bind3 (p_word << p_spaces) (p_reg << p_string ", ") p_offset check
+    = p.bind3 (p.word << p.spaces) (p_reg << p.string ", ") p_offset check
       where
-        check "jie" r d = p_pure $ jie r d
-        check "jio" r d = p_pure $ jio r d
-        check _     _ _ = p_fail
+        check "jie" r d = p.pure $ jie r d
+        check "jio" r d = p.pure $ jio r d
+        check _     _ _ = p.fail
 
 p_inst :: parser instruction
 p_inst = p_arith <|> p_jmp <|> p_cjmp
@@ -93,17 +93,16 @@ p_inst = p_arith <|> p_jmp <|> p_cjmp
 
 readProgram :: string -> io program
 readProgram fn
-    = readFile fn <&> parse (p_some p_inst << p_end) <&> go
+    = readFile fn io.<&> parse (p.some p_inst << p.end) io.<&> go
       where
-        go (mprog, ps) = fromMaybef (error (p_error ps)) v_fromList mprog
+        go (mprog, ps) = fromMaybef (error (p.error ps)) v.fromList mprog
 
 day23 :: io ()
 day23
-    = readProgram "../inputs/day23.input" >>= go
+    = readProgram "../inputs/day23.input" io.>>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . view p_rb $ run prog (0, 0, 0)
                 part2 = (++) "part 2: " . showint . view p_rb $ run prog (0, 1, 0)
-

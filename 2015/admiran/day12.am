@@ -4,44 +4,43 @@
 %export day12
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap
+%import <parser> qualified as p
 
 keyVal == (string, json)
 
 json   ::= Num int | Str string | Arr [json] | Obj bool [keyVal]
 
 
-p_quote :: parser char
-p_quote = p_char '\"'
+p_quote :: p.parser char
+p_quote = p.char '\"'
 
-p_stringLit :: parser string
-p_stringLit = p_quote >> p_word << p_quote
+p_stringLit :: p.parser string
+p_stringLit = p_quote p.>> p.word p.<< p_quote
 
-p_num :: parser json
-p_num = p_int p.<&> Num
+p_num :: p.parser json
+p_num = p.int p.<&> Num
 
-p_jstr :: parser json
+p_jstr :: p.parser json
 p_jstr = p_stringLit p.<&> Str
 
-p_array :: parser json
-p_array = p_char '[' >> p_manySepBy p_comma p_json << p_char ']' p.<&> Arr
+p_array :: p.parser json
+p_array = p.char '[' p.>> p.manySepBy p.comma p_json p.<< p.char ']' p.<&> Arr
 
-p_keyVal :: parser keyVal
-p_keyVal = p_liftA2 pair (p_stringLit << p_char ':') p_json
+p_keyVal :: p.parser keyVal
+p_keyVal = p.liftA2 pair (p_stringLit p.<< p.char ':') p_json
 
-p_obj :: parser json
-p_obj = p_char '{' >> p_manySepBy p_comma p_keyVal << p_char '}' p.<&> mkObj
+p_obj :: p.parser json
+p_obj = p.char '{' p.>> p.manySepBy p.comma p_keyVal p.<< p.char '}' p.<&> mkObj
         where
           mkObj kvs = Obj (any (isRedStr . snd) kvs) kvs        || mark objects with any "red" values
 
           isRedStr (Str "red") = True
           isRedStr _           = False
 
-p_json :: parser json
-p_json = p_num <|> p_jstr <|> p_array <|> p_obj
+p_json :: p.parser json
+p_json = p_num p.<|> p_jstr p.<|> p_array p.<|> p_obj
 
 tally :: bool -> json -> int
 tally noReds js
@@ -56,16 +55,16 @@ tally noReds js
 
 readJson :: string -> io json
 readJson fn
-    = readFile fn <&> parse p_json <&> go
+    = readFile fn io.<&> p.parse p_json io.<&> go
       where
-        go (mjson, ps) = fromMaybe (error (p_error ps)) mjson
+        go (mjson, ps) = fromMaybe (error (p.error ps)) mjson
 
 day12 :: io ()
 day12
-    = readJson "../inputs/day12.input" >>= go
+    = readJson "../inputs/day12.input" io.>>= go
       where
         go json
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                   part1 = (++) "part 1: " . showint . tally False $ json
                   part2 = (++) "part 2: " . showint . tally True  $ json

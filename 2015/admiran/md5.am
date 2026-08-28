@@ -3,9 +3,9 @@
 
 %export md5State md5Hash md5Hex
 
-%import <base>          -(!?)
-%import <state>         (>>)/st_right
-%import <vector>
+%import <base>
+%import <state>
+%import <vector> as v -foldr -foldl
 
 
 || a buffer is a vector of 16 32-bit words
@@ -15,7 +15,7 @@ buffer == vector int
 (Vector _ p) !? (I# i) = case readArray# p i of x -> x
 
 emptyBuffer :: buffer
-emptyBuffer = v_rep 16 0
+emptyBuffer = v.rep 16 0
 
 || pack string S into a 16-word buffer, padding with a terminating '0x80' byte and zero bytes to
 || fill out the full 64 bytes, if it the string is less than 64 bytes long
@@ -23,32 +23,32 @@ emptyBuffer = v_rep 16 0
 || it is heavily used.
 makeBuffer :: string -> buffer
 makeBuffer s
-    = st_evalState (go 0 s >> v_unsafeFreeze vbuf) ()
+    = evalState (go 0 s >> v.unsafeFreeze vbuf) ()
       where
-        vbuf = v_thaw $ emptyBuffer
+        vbuf = v.thaw $ emptyBuffer
 
-        go 16 cs = st_pure ()
+        go 16 cs = pure ()
 
         go i cs
             = case cs of
-                []      -> v_unsafeWrite vbuf i 0x80
+                []      -> v.unsafeWrite vbuf i 0x80
                 a : cs' -> case code a of w -> go1 i w cs'
 
         go1 i w cs
             = case cs of
-                []      -> case 0x8000 .|. w of w' -> v_unsafeWrite vbuf i w'
+                []      -> case 0x8000 .|. w of w' -> v.unsafeWrite vbuf i w'
                 b : cs' -> case code b .<<. 8 .|. w of w' -> go2 i w' cs'
 
 
         go2 i w cs
             = case cs of
-                []      -> case 0x800000 .|. w of w'       -> v_unsafeWrite vbuf i w'
+                []      -> case 0x800000 .|. w of w'       -> v.unsafeWrite vbuf i w'
                 c : cs' -> case code c .<<. 16 .|. w of w' -> go3 i w' cs'
 
         go3 i w cs
             = case cs of
-                []      -> case 0x80000000 .|. w of w'     -> v_unsafeWrite vbuf i w'
-                d : cs' -> case code d .<<. 24 .|. w of w' -> case v_unsafeWrite vbuf i w' of _ -> case i + 1 of i' -> go i' cs'
+                []      -> case 0x80000000 .|. w of w'     -> v.unsafeWrite vbuf i w'
+                d : cs' -> case code d .<<. 24 .|. w of w' -> case v.unsafeWrite vbuf i w' of _ -> case i + 1 of i' -> go i' cs'
 
 || put the final message bit length in the last 2 words of the buffer
 addMsgLen :: int -> buffer -> buffer
@@ -90,14 +90,14 @@ md5Add (MD5 a b c d) (MD5 f g h i)
         mask = 0xffffffff
 
 tableS
-    = v_fromList [ 7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22
+    = v.fromList [ 7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22
                  , 5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20
                  , 4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23
                  , 6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21
                  ]
 
 tableK
-    = v_fromList [ 0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee
+    = v.fromList [ 0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee
                  , 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501
                  , 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be
                  , 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821

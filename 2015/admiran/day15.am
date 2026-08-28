@@ -37,7 +37,7 @@ recipes constrain
 
 day15 :: io ()
 day15
-    = io_mapM_ putStrLn  [part1, part2]
+    = mapM_ putStrLn  [part1, part2]
       where
         process = showint . max cmpint . recipes
         part1   = (++) "part 1: " $ process noConstraint

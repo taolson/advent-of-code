@@ -4,55 +4,54 @@
 %export day06
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <state>
-%import <state> qualified as st (>>)/st_right
-%import <vector>
+%import <parser> qualified as p
+%import <state>  as st
+%import <vector> as v
 
 point == (int, int)
 rect  == (point, point)
 
-grid  ::= Grid (mvector int) int
+grid ::= Grid (mvector int) int
 
 initGrid :: int -> grid
 initGrid sz
     = Grid mv sz
       where
-        mv = v_unsafeThaw $ v_rep (sz * sz) 0
+        mv = v.unsafeThaw $ v.rep (sz * sz) 0
 
 gridToVector :: grid -> st (vector int)
-gridToVector (Grid mv sz) = v_unsafeFreeze mv
+gridToVector (Grid mv sz) = v.unsafeFreeze mv
 
 gridAdjust :: grid -> rect -> (int -> int) -> st ()
 gridAdjust (Grid mv sz) ((r1, c1), (r2, c2)) f
-    = st_mapM_ adjust [(r, c) | r <- [r1 .. r2]; c <- [c1 .. c2]]
+    = mapM_ adjust [(r, c) | r <- [r1 .. r2]; c <- [c1 .. c2]]
       where
-        adjust (r, c) = v_modify mv f (r * sz + c)
+        adjust (r, c) = v.modify mv f (r * sz + c)
 
 
 command ::= TurnOn | TurnOff | Toggle
 
 rectOp == (command, rect)
 
-p_point :: parser point
-p_point = p_liftA2 pair p_int (p_char ',' >> p_int) << p_spaces
+p_point :: p.parser point
+p_point = p.liftA2 pair p.int (p.char ',' p.>> p.int) p.<< p.spaces
 
-p_rect :: parser rect
-p_rect = p_liftA2 pair p_point (p_string "through " >> p_point)
+p_rect :: p.parser rect
+p_rect = p.liftA2 pair p_point (p.string "through " p.>> p_point)
 
-p_on, p_off, p_toggle :: parser command
-p_on     = p_string "turn on "  >> p_pure TurnOn
-p_off    = p_string "turn off " >> p_pure TurnOff
-p_toggle = p_string "toggle "   >> p_pure Toggle
+p_on, p_off, p_toggle :: p.parser command
+p_on     = p.string "turn on "  p.>> p.pure TurnOn
+p_off    = p.string "turn off " p.>> p.pure TurnOff
+p_toggle = p.string "toggle "   p.>> p.pure Toggle
 
-p_rectOp :: parser rectOp
-p_rectOp = p_liftA2 pair (p_on <|> p_off <|> p_toggle) p_rect
+p_rectOp :: p.parser rectOp
+p_rectOp = p.liftA2 pair (p_on p.<|> p_off p.<|> p_toggle) p_rect
 
 runRectOps :: (int -> int) -> (int -> int) -> (int -> int) -> [rectOp] -> vector int
 runRectOps fOn fOff fToggle ops
-    = st_evalState (st_mapM_ doOp ops st.>> gridToVector g) ()
+    = evalState (mapM_ doOp ops st.>> gridToVector g) ()
       where
         g = initGrid 1000
 
@@ -62,19 +61,19 @@ runRectOps fOn fOff fToggle ops
 
 readRectOps :: string -> io [rectOp]
 readRectOps fn
-    = readFile fn <&> parse (p_some p_rectOp << p_end) <&> go
+    = readFile fn io.<&> p.parse (p.some p_rectOp p.<< p.end) io.<&> go
       where
-        go (mcmds, ps) = fromMaybe (error (p_error ps)) mcmds
+        go (mcmds, ps) = fromMaybe (error (p.error ps)) mcmds
 
 day06 :: io ()
 day06
-    = readRectOps "../inputs/day06.input" >>= go
+    = readRectOps "../inputs/day06.input" io.>>= go
       where
         decToZero 0 = 0
         decToZero n = n - 1
 
         go rectOps
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                part1   = (++) "part 1: " . showint . v_sum . runRectOps (const 1) (const 0) (1 -) $ rectOps
-                part2   = (++) "part 2: " . showint . v_sum . runRectOps (+ 1)     decToZero (+ 2) $ rectOps
+                part1   = (++) "part 1: " . showint . v.sum . runRectOps (const 1) (const 0) (1 -) $ rectOps
+                part2   = (++) "part 2: " . showint . v.sum . runRectOps (+ 1)     decToZero (+ 2) $ rectOps

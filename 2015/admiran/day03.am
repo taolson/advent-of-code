@@ -4,8 +4,8 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <set>
+%import <io>
+%import <set>   qualified as s
 
 
 location == (int, int)
@@ -17,13 +17,13 @@ moveDirection (x, y) '<' = (x - 1, y)
 moveDirection (x, y) '>' = (x + 1, y)
 moveDirection loc    _   = loc
 
-deliver :: string -> s_set location
+deliver :: string -> s.set location
 deliver
-    = snd . foldl doMove (start, s_singleton start)
+    = snd . foldl doMove (start, s.singleton start)
       where
         start = (0, 0)
         doMove (loc, locs) dir
-            = (newLoc, s_insert cmplocation newLoc locs)
+            = (newLoc, s.insert cmplocation newLoc locs)
               where
                   newLoc = moveDirection loc dir
 
@@ -32,8 +32,8 @@ day03
     = readFile "../inputs/day03.input" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 (santa1, santa2) = mapBoth deliver . uninterleave $ input
-                part1            = (++) "part 1: " . showint . s_size . deliver $ input
-                part2            = (++) "part 2: " . showint . s_size $ s_union cmplocation santa1 santa2
+                part1            = (++) "part 1: " . showint . s.size . deliver $ input
+                part2            = (++) "part 2: " . showint . s.size $ s.union cmplocation santa1 santa2

@@ -71,7 +71,7 @@ nextPassword = fromJust . find legal . tl . iterate incPassword
 
 day11 :: io ()
 day11
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         p     = toPassword "hepxcrrq"
         p1    = nextPassword p

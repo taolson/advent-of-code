@@ -66,7 +66,7 @@ battle (hp1, inv1) (hp2, inv2)
 
 day21 :: io ()
 day21
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         boss     = (100, ("Boss", 0, 8, 2))
         trials   = [w <> a <> r | w <- weapons; a <- optItem armor; r <- optItem rings ++ pairs rings]

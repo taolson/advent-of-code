@@ -4,9 +4,9 @@
 %export day19
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
-%import <set>
+%import <io>
+%import <maybe>                 -(>>=) -(<&>) -(<<) -(>>)
+%import <set>   qualified as s
 
 
 parseMapping :: string -> (string, string)
@@ -29,12 +29,12 @@ singleReplacements k v
               where
                 rest = map (hd s :) . go . tl $ s
 
-uniqueSubs :: [(string, string)] -> string -> s_set string
+uniqueSubs :: [(string, string)] -> string -> s.set string
 uniqueSubs reps src
-    = s_fromList cmpstring $ concat [singleReplacements k v src | (k, v) <- reps]
+    = s.fromList cmpstring $ concat [singleReplacements k v src | (k, v) <- reps]
 
-uniquePreds :: [(string, string)] -> string -> s_set string
-uniquePreds reps src = s_fromList cmpstring $ concat [singleReplacements v k src | (k, v) <- reps]
+uniquePreds :: [(string, string)] -> string -> s.set string
+uniquePreds reps src = s.fromList cmpstring $ concat [singleReplacements v k src | (k, v) <- reps]
 
 || note: this works quickly on the given input, but isn't guaranteed to produce quick results on
 || all inputs.  The "reverse" in the "go" computation perturbs the order enough that it stumbles
@@ -45,7 +45,7 @@ findPathToElectron reps
       where
         go c []  = Nothing
         go c "e" = Just c
-        go c s   = listToMaybe . mapMaybe (go (c + 1)) . reverse . s_toList $ uniquePreds reps s
+        go c s   = listToMaybe . mapMaybe (go (c + 1)) . reverse . s.toList $ uniquePreds reps s
 
         listToMaybe []       = Nothing
         listToMaybe (x : xs) = Just x
@@ -84,7 +84,7 @@ day19
     = readInput "../inputs/day19.input" >>= go
       where
         go (tgt, reps)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                part1 = (++) "part 1: " . showint . s_size . uniqueSubs reps $ tgt
+                part1 = (++) "part 1: " . showint . s.size . uniqueSubs reps $ tgt
                 part2 = (++) "part 2: " . showint . findPathToElectronFast $ tgt

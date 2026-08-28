@@ -4,123 +4,124 @@
 %export +
 
 %import <either>
-
+%import <stdlib> as std
 
 stateEither * ** *** == (* -> (either ** ***, *))
 
 || running
-ste_runState :: stateEither * ** *** -> * -> (either ** ***, *)
-ste_runState ma s = ma s
+runState :: stateEither * ** *** -> * -> (either ** ***, *)
+runState ma s = ma s
 
-ste_evalState :: stateEither * ** *** -> * -> either ** ***
-ste_evalState ma s = fst (ste_runState ma s)
+evalState :: stateEither * ** *** -> * -> either ** ***
+evalState ma s = fst (runState ma s)
 
-ste_execState :: stateEither * ** *** -> * -> *
-ste_execState ma s = snd (ste_runState ma s)
+execState :: stateEither * ** *** -> * -> *
+execState ma s = snd (runState ma s)
 
 
 || state access
-ste_get :: stateEither * ** *
-ste_get s = (Right s, s)
+get :: stateEither * ** *
+get s = (Right s, s)
 
-ste_put :: * -> stateEither * ** ()
-ste_put s' = const (Right (), s')
+put :: * -> stateEither * ** ()
+put s' = const (Right (), s')
 
-ste_modify :: (* -> *) -> stateEither * ** ()
-ste_modify f = go where go s = (Right (), f s)
+modify :: (* -> *) -> stateEither * ** ()
+modify f = go where go s = (Right (), f s)
 
 
 || monad interface
-ste_bind :: stateEither * ** *** -> (*** -> stateEither * ** ****) -> stateEither * ** ****
-ste_bind ma f
+
+(>>=) :: stateEither * ** *** -> (*** -> stateEither * ** ****) -> stateEither * ** ****
+ma >>= f
     = go
       where
         go s
-            = case ste_runState ma s of
+            = case runState ma s of
                 (ra, s') -> case ra of
                               Left  x -> (Left x, s')
-                              Right a -> ste_runState (f a) s'
+                              Right a -> runState (f a) s'
 
-ste_join :: stateEither * ** (stateEither * ** ***) -> stateEither * ** ***
-ste_join ma
+join :: stateEither * ** (stateEither * ** ***) -> stateEither * ** ***
+join ma
     = go
       where
         go s
-            = case ste_runState ma s of
+            = case runState ma s of
                 (ra, s') -> case ra of
                               Left  x -> (Left x, s')
-                              Right a -> ste_runState a s'
+                              Right a -> runState a s'
 
-ste_pure :: *** -> stateEither * ** ***
-ste_pure a = go where go s = (Right a, s)
+pure :: *** -> stateEither * ** ***
+pure a = go where go s = (Right a, s)
 
-ste_either :: either ** *** -> stateEither * ** ***
-ste_either ma = go where go s = (ma, s)
+liftEither :: either ** *** -> stateEither * ** ***
+liftEither ma = go where go s = (ma, s)
 
-ste_excpt :: ** -> stateEither * ** ***
-ste_excpt x = go where go s = (Left x, s)
+excpt :: ** -> stateEither * ** ***
+excpt x = go where go s = (Left x, s)
 
-ste_kbind :: (*** -> stateEither * ** ****) -> (**** -> stateEither * ** *****) -> *** -> stateEither * ** *****
-ste_kbind f g = go where go x = f x $ste_bind g
+(>=>) :: (*** -> stateEither * ** ****) -> (**** -> stateEither * ** *****) -> *** -> stateEither * ** *****
+f >=> g = go where go x = f x >>= g
 
-ste_mapM :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** [****]
-ste_mapM f = foldr (ste_liftA2 (:) . f) (ste_pure [])
+mapM :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** [****]
+mapM f = std.foldr (liftA2 (:) . f) (pure [])
 
-ste_mapM_ :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** ()
-ste_mapM_ f = foldr (ste_right . f) (ste_pure ())
+mapM_ :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** ()
+mapM_ f = std.foldr ((>>) . f) (pure ())
 
-ste_foldM :: (**** -> *** -> stateEither * ** ****) -> **** -> [***] -> stateEither * ** ****
-ste_foldM f z0 xs
-    = foldr c ste_pure xs z0
+foldM :: (**** -> *** -> stateEither * ** ****) -> **** -> [***] -> stateEither * ** ****
+foldM f z0 xs
+    = std.foldr c pure xs z0
       where
-        c x k z = f z x $ste_bind k
+        c x k z = f z x >>= k
 
 
 || functor interface
-ste_fmap :: (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
-ste_fmap f ma = ma $ste_bind (ste_pure . f)
+(<$>) :: (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
+f <$> ma = ma >>= f .> pure
 
 
 || applicative interface
-ste_apply :: stateEither * ** (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
-ste_apply mf ma = mf $ste_bind ($ste_fmap ma)
+(<*>):: stateEither * ** (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
+mf <*> ma = mf >>= (<$> ma)
 
-ste_liftA2 :: (*** -> **** -> *****) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** *****
-ste_liftA2 f ma mb = ste_fmap f ma $ste_apply mb
+liftA2 :: (*** -> **** -> *****) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** *****
+liftA2 f ma mb = f <$> ma <*> mb
 
-ste_liftA3 :: (*** -> **** -> ***** -> ******) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> stateEither * ** ******
-ste_liftA3 f ma mb mc = ste_liftA2 f ma mb $ste_apply mc
+liftA3 :: (*** -> **** -> ***** -> ******) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> stateEither * ** ******
+liftA3 f ma mb mc = liftA2 f ma mb <*> mc
 
-ste_left :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***
-ste_left ma mb = ste_liftA2 const ma mb
+(<<) :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***
+ma << mb = liftA2 const ma mb
 
-ste_right :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ****
-ste_right ma mb = ste_liftA2 (converse const) ma mb
+(>>) :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ****
+ma >> mb = liftA2 (converse const) ma mb
 
 
 || lift multiple independent state actions and bind them to an N-ary function
-ste_bind2 :: stateEither * ** *** -> stateEither  * ** **** -> (*** -> **** -> stateEither * ** *****) -> stateEither * ** *****
-ste_bind2 ma mb f = ste_join (ste_liftA2 f ma mb)
+bind2 :: stateEither * ** *** -> stateEither  * ** **** -> (*** -> **** -> stateEither * ** *****) -> stateEither * ** *****
+bind2 ma mb f = join (liftA2 f ma mb)
 
-ste_bind3 :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> (*** -> **** -> ***** -> stateEither * ** ******) ->
-             stateEither * ** ******
-ste_bind3 ma mb mc f = ste_join (ste_liftA3 f ma mb mc)
+bind3 :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> (*** -> **** -> ***** -> stateEither * ** ******) ->
+         stateEither * ** ******
+bind3 ma mb mc f = join (liftA3 f ma mb mc)
 
 
 || alternative interface
 || note: if ma fails, then mb is run with the state returned from ma, instead of rewinding it to the original state
-ste_alt :: stateEither * ** *** -> stateEither * ** *** -> stateEither * ** ***
-ste_alt ma mb
+alt :: stateEither * ** *** -> stateEither * ** *** -> stateEither * ** ***
+alt ma mb
     = go
       where
         go s
-            = case ste_runState ma s of
+            = case runState ma s of
                 (ra, s') -> case ra of
-                              Left  x -> ste_runState mb s'
+                              Left  x -> runState mb s'
                               Right a -> (Right a, s')
 
-ste_some :: stateEither * ** *** -> stateEither * ** [***]
-ste_some ma = ste_liftA2 (:) ma (ste_many ma)
+some :: stateEither * ** *** -> stateEither * ** [***]
+some ma = liftA2 (:) ma (many ma)
 
-ste_many :: stateEither * ** *** -> stateEither * ** [***]
-ste_many ma = ste_some ma $ste_alt ste_pure []
+many :: stateEither * ** *** -> stateEither * ** [***]
+many ma = some ma $alt pure []
