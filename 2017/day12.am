@@ -1,0 +1,60 @@
+|| day12.m
+
+
+%export day12
+
+%import <base>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+%import <set>           qualified as s
+
+
+element  == int
+groupMap == m.map element [element]
+
+(!!) :: groupMap -> element -> [element]
+m !! e = fromJust $ m.lookup cmpelement e m
+
+groupContainingElement :: element -> groupMap -> [element]
+groupContainingElement e gm
+    = go s.empty [e]
+      where
+        go group [] = s.toList group
+        go group (e : rest)
+            = go group rest,   if s.member cmpelement e group
+            = go group' rest', otherwise
+              where
+                group' = s.insert cmpelement e group
+                rest'  = rest ++ gm !! e
+
+allGroups :: groupMap -> [[element]]
+allGroups m
+    = [],                   if m.null m
+    = group : allGroups m', otherwise
+      where
+        group = groupContainingElement (hd (m.keys m)) m
+        m'    = foldr (m.delete cmpelement) m group
+
+p_groups :: p.parser groupMap
+p_groups
+    = p.many (p_group p.<< p.char '\n') p.<&> m.fromList cmpelement
+      where
+        p_group = p.liftA2 pair p.int (p.string " <-> " p.>> p.someSepBy (p.string ", ") p.int)
+
+readGroups :: string -> io groupMap
+readGroups fn
+    = readFile fn <&> p.parse p_groups <&> go
+      where
+        go (mgm, ps) = fromMaybe (error (p.error ps)) mgm
+        
+day12 :: io ()
+day12
+    = readGroups "../inputs/day12.input" >>= go
+      where
+        go  groupMap
+            = mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . length . groupContainingElement 0 $ groupMap
+                part2 = (++) "part 2: " . showint . length . allGroups $ groupMap

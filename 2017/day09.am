@@ -1,0 +1,53 @@
+|| day09.m
+
+
+%export day09
+
+%import <base>
+%import <io>
+%import <maybe>                 -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser> qualified as p
+
+
+element ::= Group [element] | Garbage int
+
+p_element :: p.parser element
+p_element = (p_group p.<|> p_garbage) << p.optional (p.char ',')
+
+p_garbage :: p.parser element
+p_garbage = p.char '<' p.>> p_garbageTail 0
+
+p_garbageTail :: int -> p.parser element
+p_garbageTail count
+    = p.any p.>>= check
+      where
+        check '>' = p.pure . Garbage $ count
+        check '!' = p.any p.>> p_garbageTail count
+        check _   = p_garbageTail (count + 1)
+
+p_group :: p.parser element
+p_group = p.char '{' p.>> p.many p_element p.<&> Group << p.char '}'
+
+scoreGroup :: int -> element -> (int, int)
+scoreGroup level (Garbage n)  = (0, n)
+scoreGroup level (Group elts)
+    = (level + 1 + score, garbage)
+      where
+        (score, garbage)      = foldr accum (0, 0) . map (scoreGroup (level + 1)) $ elts
+        accum (x, y) (x', y') = (x + x', y + y')
+
+readGroup :: string -> io element
+readGroup fn
+    = readFile fn <&> p.parse p_group <&> go
+      where
+        go (mgroup, ps) = fromMaybe (error (p.error ps)) mgroup
+
+day09 :: io ()
+day09
+    = readGroup "../inputs/day09.input" >>= (go . scoreGroup 0)
+      where
+        go (score, garbage)
+            = mapM_ putStrLn [part1, part2]
+              where
+                part1 = "part 1: " ++ showint score
+                part2 = "part 2: " ++ showint garbage

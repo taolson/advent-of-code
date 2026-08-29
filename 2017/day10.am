@@ -1,0 +1,29 @@
+|| day10.m
+
+
+%export day10
+
+%import <base>
+%import <io>
+%import <maybe>
+%import <parser>        qualified as p
+%import "knotHash"
+
+readIntList :: string -> [int]
+readIntList s
+    = fromMaybe err mlst
+      where
+        (mlst, ps) = p.parse p.intlist s
+        err        = error (p.error ps)
+
+day10 :: io ()
+day10
+    = mapM_ putStrLn [part1, part2]
+      where
+        kh      = makeKnotHash 256
+        input   = "94,84,0,79,2,27,81,1,123,93,218,23,103,255,254,243"
+        kh'     = foldl hashRound kh $ readIntList input
+        b0      = hashIndex kh' 0 
+        b1      = hashIndex kh' 1 
+        part1 = (++) "part 1: " . showint $ b0 * b1
+        part2 = (++) "part 2: " . hexString . hash kh $ input

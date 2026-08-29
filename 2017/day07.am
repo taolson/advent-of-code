@@ -1,0 +1,86 @@
+|| day07.m
+
+
+%export day07
+
+%import <base>
+%import <either>        as e            -(>>=) -(<&>) -(<<) -(>>)
+%import <io>
+%import <lens>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+
+
+program == (string, int, string, [string])
+
+name     = lensTup4_0
+weight   = lensTup4_1
+parent   = lensTup4_2
+children = lensTup4_3
+
+programMap == m.map string program
+
+(!!) :: programMap -> string -> program
+m !! s = fromJust $ m.lookup cmpstring s m
+
+buildProgramMap :: [program] -> (string, programMap)
+buildProgramMap programs
+    = (root, pMap')
+      where
+        pMap    = foldl insProg m.empty programs
+        pMap'   = foldl setParent pMap programs
+        parents = iterate (view parent . (pMap' !!))
+        root    = last . takeWhile (not . null) . parents . hd . m.keys $ pMap'
+
+        insProg m p     = m.insert cmpstring (view name p) p m
+        setParent m p   = foldl (adjParent p) m (view children p)
+        adjParent p m c = m.adjust cmpstring (set parent . view name $ p) c m
+
+totalWeight :: programMap -> string -> either int int
+totalWeight pMap name
+    = go . e.mapM (totalWeight pMap) $ view children prog
+      where
+        prog         = pMap !! name
+
+        go (Right []) = Right $ view weight prog
+
+        go (Right weights)
+            = Right $ view weight prog + sum weights, if all (== w) weights
+            = Left adjustWeight,                 otherwise
+              where
+                w = hd weights
+                groups       = group cmpint . sortBy cmpint $ weights
+                odd          = hd . minBy cmpint length $ groups
+                ref          = hd . maxBy cmpint length $ groups
+                idx          = fromMaybe 0 $ elemIndex (== odd) weights
+                adjustWeight = ref - odd + view weight (pMap !! (view children prog ! idx))
+
+        go (Left adj) = Left adj
+
+p_program :: p.parser program
+p_program = p.liftA4 mkProg p.word (p_blank p.>> p.string "(" p.>> p.int p.<< p.string ")" p.<< p_blank) (p.pure "") (p_children p.<|> p.pure []) p.<< p_nl
+            where
+              mkProg a b c d = (a, b, c, d)
+
+p_children = p.string "->" p.>> p_blank p.>> p.someSepBy (p.string "," p.>> p_blank) p.word
+p_blank    = p.many (p.char ' ' p.<|> p.char '\t')
+p_nl       = p.char '\n'
+
+readProgramsFromFile :: string -> io [program]
+readProgramsFromFile fn
+    = readFile fn <&> p.parse (p.some p_program) <&> go
+      where
+        go (mps, ps) = fromMaybe (error (p.error ps)) mps
+
+day07 :: io ()
+day07
+    = readProgramsFromFile "../inputs/day07.input" >>= (go . buildProgramMap)
+      where
+        go (root, pMap)
+            = mapM_ putStrLn [part1, part2]
+              where
+                process (Left adjust) = showint adjust
+                process (Right total) = "odd program not found; total weight = " ++ showint total
+                part1                 = "part 1: " ++ root
+                part2                 = (++) "part 2: " . process $ totalWeight pMap root

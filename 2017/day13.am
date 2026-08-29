@@ -1,0 +1,43 @@
+|| day13.m
+
+
+%export day13
+
+%import <base>
+%import <io>
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+
+depth == int
+rng   == int
+layer ==(depth, rng)
+
+catches :: int -> layer -> bool
+catches time (depth, rng)
+    = (depth + time) $mod ((rng - 1) * 2) == 0
+
+severity :: layer -> int
+severity (depth, rng) = depth * rng
+
+p_layers :: p.parser [layer]
+p_layers
+    = p.many p_layer
+      where
+        p_layer = p.liftA2 pair (p.int p.<< p.spaces p.<< p.char ':' p.<< p.spaces) p.int p.<< p.char '\n'
+
+readLayers :: string -> io [layer]
+readLayers fn
+    = readFile fn <&> p.parse p_layers <&> go
+      where
+        go (mlayers, ps) = fromMaybe (error (p.error ps)) mlayers
+
+day13 :: io ()
+day13
+    = readLayers "../inputs/day13.input" >>= go
+      where
+        go layers
+            = mapM_ putStrLn [part1, part2]
+              where
+                delay = fromJust . find (not . ($any layers) . catches) $ [0 ..]
+                part1 = (++) "part 1: " . showint . sum . map severity . filter (catches 0) $ layers
+                part2 = (++) "part 2: " . showint $ delay

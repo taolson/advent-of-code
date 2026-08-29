@@ -1,0 +1,117 @@
+|| day25.m
+
+
+%export day25
+
+%import <base>
+%import <io>
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+%import <vector>        as v            -(<&>) -sum
+
+
+tape == ([int], int, [int])     || infinite tape of 1/0
+
+tinit :: tape
+tinit = ([], 0, [])
+
+tread :: tape -> int
+tread (_, c, _) = c
+
+twrite :: int -> tape -> tape
+twrite c (l, _, r) = (l, c, r)
+
+tsum :: tape -> int
+tsum (l, c, r) = sum l + c + sum r
+
+movel, mover :: tape -> tape
+movel ([], c, r)     = ([], 0, c : r)
+movel (l : ls, c, r) = (ls, l, c : r)
+
+mover (l, c, [])     = (c : l, 0, [])
+mover (l, c, r : rs) = (c : l, r, rs)
+
+
+transition == (int, (tape -> tape), int)        || value to write, move, next state idx
+state      == vector transition                 || a 2-element vector of transitions; first for read of 0, second for read of 1
+machine    == vector state                      || state machine
+stateIdx   == int
+
+toStIdx :: char -> int
+toStIdx c = code c - code 'A'
+
+                           
+p_stateIdx :: p.parser stateIdx
+p_stateIdx = p.letter p.<&> toStIdx
+
+p_mov :: p.parser (tape -> tape)
+p_mov
+    = p.word p.<&> mkMove
+      where
+        mkMove "left"  = movel
+        mkMove "right" = mover
+        mkMove _       = error "p.parse error in move direction"
+
+p_initSt :: p.parser stateIdx
+p_initSt = p.string "Begin in state " p.>> p_stateIdx p.<< p.char '.' p.<< p.spaces
+
+p_steps :: p.parser int
+p_steps = p.string "Perform a diagnostic checksum after " p.>> p.int p.<< p.string " steps." p.<< p.spaces
+
+p_transition :: p.parser (int, transition)
+p_transition
+    = p.liftA4 mkTransition
+          (p.string "If the current value is " p.>> p.int p.<< p.char ':' p.<< p.spaces)
+          (p.string "- Write the value " p.>> p.int p.<< p.char '.' p.<< p.spaces)
+          (p.string "- Move one slot to the " p.>> p_mov p.<< p.char '.' p.<< p.spaces)
+          (p.string "- Continue with state " p.>> p_stateIdx p.<< p.char '.' p.<< p.spaces)
+      where
+        mkTransition r w mov si = (r, (w, mov, si))
+
+p_state :: p.parser (stateIdx, state)
+p_state
+    = p.liftA2 mkState
+          (p.string "In state " p.>> p_stateIdx p.<< p.char ':' p.<< p.spaces)
+          (p.some p_transition)
+      where
+        mkState si ts = (si, v.rep (#ts) undef // ts)
+
+p_machine :: p.parser machine
+p_machine
+    = p.some p_state p.<&> mkMachine
+      where
+        mkMachine ss = v.rep (#ss) undef // ss
+
+p_input :: p.parser (machine, stateIdx, int)
+p_input
+    = p.liftA3 mkInput p_initSt p_steps p_machine
+      where
+        mkInput si steps m = (m, si, steps)
+    
+v !! i = v.unsafeIndex v i
+
+run :: machine -> tape -> int -> int -> tape
+run m t si 0 = t
+run m t si n
+    = case tread t of
+        r -> case m !! si !! r of
+               (w, mov, si') -> case mov (twrite w t) of
+                                  t' -> run m t' si' (n - 1)
+
+readInput :: string -> io (machine, stateIdx, int)
+readInput fn
+    = readFile fn <&> p.parse p_input <&> go
+      where
+        go (mr, ps) = fromMaybe (error (p.error ps)) mr
+
+day25 :: io ()
+day25
+    = readInput "../inputs/day25.input" >>= go
+      where
+        go (m, si, steps)
+            = mapM_ putStrLn [part1, tsize t, tpos t]
+              where
+                t               = run m tinit si steps
+                part1           = (++) "part 1: " . showint . tsum $ t
+                tsize (l, c, r) = (++) "final tape size: " . showint $ #l + 1 + #r
+                tpos  (l, c, r) = (++) "final tape position: " . showint $ #l + 1
