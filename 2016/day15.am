@@ -1,0 +1,56 @@
+|| day15.m
+
+
+%export day15
+
+%import <base>
+%import <io>
+%import <maybe>                 - (>>=) -(<&>)
+%import <parser> qualified as p
+
+
+disc ::= Disc int int int
+
+d_index, d_slots, d_phase :: disc -> int
+
+d_index (Disc i _ _) = i
+d_slots (Disc _ s _) = s
+d_phase (Disc _ _ p) = p
+
+p_disc :: p.parser disc
+p_disc = p.liftA3 Disc
+                  (p.string "Disc #" p.>> p.int)
+                  (p.string " has " p.>> p.int)
+                  (p.string " positions; at time=0, it is at position " p.>> p.int)
+                  p.<< p.char '.'
+
+solveTime :: [disc] -> int
+solveTime
+    = solve 0 1
+      where
+        solve time step [] = time
+        solve time step (disc : rest)
+            = solve (nextReadyTime time) step' rest
+              where
+                step' = step $lcm (d_slots disc)
+
+                nextReadyTime t
+                    = t,                        if (d_index disc + d_phase disc + t) $mod d_slots disc == 0
+                    = nextReadyTime (t + step), otherwise
+
+readDiscs :: string -> io [disc]
+readDiscs fn
+    = readFile fn <&> p.parse (p.someSepBy (p.char '\n') p_disc) <&> go
+      where
+        go (mdiscs, ps) = fromMaybe (error (p.error ps)) mdiscs
+
+day15 :: io ()
+day15
+    = readDiscs "../inputs/day15.input" >>= go
+      where
+        go discs2
+            = io.mapM_ putStrLn [part1, part2]
+              where
+                discs1 = init discs2
+                part1  = (++) "part 1: " . showint . solveTime $ discs1
+                part2  = (++) "part 2: " . showint . solveTime $ discs2

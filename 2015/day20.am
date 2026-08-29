@@ -1,0 +1,33 @@
+|| day20.m
+
+
+%export day20
+
+%import <base>
+%import <io>
+%import <state>         as st
+%import <vector>        as v
+
+solve :: int -> int -> int -> int
+solve input m lim
+    = st.evalState (go 1) ()
+      where
+        d      = input $div m
+        counts = v.unsafeThaw . v.rep d $ 0
+
+        go i
+            = st.mapM_ (step2 i) [1 .. min2 cmpint (d $div i) lim] >> v.unsafeRead counts (i - 1) >>= check
+              where
+                check n
+                    = st.pure i,  if n >= input
+                    = go (i + 1), otherwise
+
+        step2 i j = v.unsafeModify counts (+ i * m) (j * i - 1)
+
+day20 :: io ()
+day20
+    = mapM_ putStrLn [part1, part2]
+      where
+        input = 33_100_000
+        part1 = (++) "part 1: " . showint $ solve input 10 input
+        part2 = (++) "part 2: " . showint $ solve input 11 50

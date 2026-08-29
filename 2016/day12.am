@@ -1,0 +1,92 @@
+|| day12.m
+
+
+%export day12
+
+%import <base>
+%import <io>
+%import <maybe>                 -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser> qualified as p
+%import <state>  qualified as st
+%import <vector> as v           -(<&>)
+
+reg   == int
+
+instruction ::= 
+    CpyReg reg reg      |
+    CpyInt int reg      |
+    Inc    reg          |
+    Dec    reg          |
+    JnzReg reg int      |
+    JnzInt int int      |
+    Ret    reg
+
+program   == vector instruction
+registers == vector reg
+
+run :: program -> registers -> int -> registers
+run prog regs pc
+    = runSTVector run' regs
+      where
+        progLen = v.length prog
+
+        run' mregs
+            = step pc
+              where
+                step pc
+                    = st.pure (),                            if pc < 0 \/ pc >= progLen
+                    = exec (v.unsafeIndex prog pc) >>= step, otherwise
+                      where
+                        pc' = st.pure (pc + 1)
+
+                        exec (CpyReg src dst) = (v.unsafeRead mregs src >>= v.write mregs dst) >> pc'
+                        exec (CpyInt val dst) = v.unsafeWrite mregs dst val                    >> pc'
+                        exec (Inc    reg)     = v.unsafeModify mregs (+ 1) reg                 >> pc'
+                        exec (Dec    reg)     = v.unsafeModify mregs (subtract 1) reg          >> pc'
+                        exec (JnzReg reg off) = v.unsafeRead mregs reg >>= jnz off
+                        exec (JnzInt val off) = st.pure val            >>= jnz off
+                        exec (Ret reg)        = st.pure (-1)
+
+                        jnz off val           = st.pure (pc + off), if val ~= 0
+                                              = pc',                otherwise
+
+p_reg :: p.parser reg
+p_reg = p.spaces p.>> p.letter p.<&> \c -> code c - code 'a'
+
+p_sint :: p.parser int
+p_sint = p.spaces p.>> p.int
+
+p_cpy, p_inc, p_dec, p_jnz, p_ret, p_inst :: p.parser instruction
+p_inc = p_reg p.<&> Inc
+p_dec = p_reg p.<&> Dec
+p_ret = p_reg p.<&> Ret
+p_cpy = p.liftA2 CpyReg p_reg p_reg  p.<|> p.liftA2 CpyInt p_sint p_reg
+p_jnz = p.liftA2 JnzReg p_reg p_sint p.<|> p.liftA2 JnzInt p_sint p_sint
+
+p_inst
+    = p.spaces p.>> (p.word p.>>= doInst) p.<< p.char '\n'
+      where
+        doInst "cpy" = p_cpy
+        doInst "inc" = p_inc
+        doInst "dec" = p_dec
+        doInst "jnz" = p_jnz
+        doInst "ret" = p_ret
+        doInst _     = p.fail
+       
+readProgram :: string -> io program
+readProgram fn
+    = readFile fn <&> p.parse (p.some p_inst) <&> go
+      where
+        go (mprog, ps) = fromMaybef (error (p.error ps)) v.fromList mprog
+
+day12 :: io ()
+day12
+    = readProgram "../inputs/day12.input" >>= go
+      where
+        go prog
+            = mapM_ putStrLn [part1, part2]
+              where
+                regs1 = run prog (v.fromList [0, 0, 0, 0]) 0
+                regs2 = run prog (v.fromList [0, 0, 1, 0]) 0
+                part1 = (++) "part 1: " . showint $ regs1 !! 0
+                part2 = (++) "part 2: " . showint $ regs2 !! 0

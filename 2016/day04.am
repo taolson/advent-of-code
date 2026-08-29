@@ -1,0 +1,73 @@
+|| day04.m
+
+
+%export day04
+
+%import <bag>   as b
+%import <base>
+%import <io>
+%import <maybe>                 -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser> qualified as p
+
+
+room ::= Room string int string string string bool      || name, ident, checksum, computed, decoded, valid
+
+getIdent :: room -> int
+getIdent (Room _ i _ _ _ _) = i
+
+getDecoded :: room -> string
+getDecoded (Room _ _ _ _ d _) = d
+
+getValid :: room -> bool
+getValid (Room _ _ _ _ _ v) = v
+
+computeChecksum :: string -> string
+computeChecksum
+    = map fst . sortBy (descending cmpint snd) . charCounts
+      where
+        charCounts = b.toList . b.fromList cmpchar . filter letter
+
+validChecksum :: string -> string -> bool
+validChecksum cs ccs
+    = #cs == 5 & #ccs >= 5 & take 5 ccs ==$ cs
+
+decodeName :: string -> int -> string
+decodeName name ident
+    = map decodeChar name
+      where
+        codeA          = code 'a'
+        decodeChar '-' = ' '
+        decodeChar c   = decode . (codeA +) $ (ident + code c - codeA) $mod 26
+
+p_room :: p.parser room
+p_room
+    = p.liftA3 mkRoom p_roomName p.int (p.inBrackets p.word) p.<< p.spaces
+      where
+        p_roomName     = p.some (p.letter p.<|> p.char '-')
+
+        mkRoom name ident cs
+            = Room name ident cs ccs dec v
+              where
+                ccs = computeChecksum name
+                dec = decodeName name ident
+                v   = validChecksum cs ccs
+          
+findNorthPole :: [room] -> room
+findNorthPole = fromMaybe (error "not found!") . find (isInfixOf cmpchar "northpole" . getDecoded)
+
+readRooms :: string -> io [room]
+readRooms fn
+    = readFile fn <&> p.parse (p.many p_room) <&> go
+      where
+        go (mrooms, ps) = fromMaybe (error (p.error ps)) mrooms
+
+day04 :: io ()
+day04
+    = readRooms "../inputs/day04.input" >>= go
+      where
+        go rooms
+            = mapM_ putStrLn [part1, part2]
+              where
+                np    = findNorthPole rooms
+                part1 = (++) "part 1: " . showint . sum . map getIdent . filter getValid $ rooms
+                part2 = "part 2: " ++ "id: " ++ showint (getIdent np)  ++ " decrypted: " ++ getDecoded np

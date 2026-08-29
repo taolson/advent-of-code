@@ -1,0 +1,31 @@
+|| day06.m
+
+
+%export day06
+
+%import <io>
+%import <bag>   as b
+%import <base>
+
+
+charFreq == (char, int)
+
+accumOccurrences :: string -> [b.bag char] -> [b.bag char]
+accumOccurrences s bs
+    = zipWith (b.insert cmpchar) s bs'
+      where
+        bs' = bs ++ rep (#s - #bs) b.empty
+
+dcd :: ([charFreq] -> charFreq) -> [b.bag char] -> string
+dcd f bs = map (fst . f . b.toList) $ bs
+
+day06 :: io ()
+day06
+    = readFile "../inputs/day06.input" >>= lines .> go
+      where
+        go wds
+            = mapM_ putStrLn [part1, part2]
+              where
+                bs    = foldr accumOccurrences [] $ wds
+                part1 = (++) "part 1: " . dcd (maxBy cmpint snd) $ bs
+                part2 = (++) "part 2: " . dcd (minBy cmpint snd) $ bs

@@ -1,0 +1,127 @@
+|| stateEither.m -- functor / applicative / monad / alternative for combination of state and either
+
+
+%export +
+
+%import <either>
+%import <stdlib> as std
+
+stateEither * ** *** == (* -> (either ** ***, *))
+
+|| running
+runState :: stateEither * ** *** -> * -> (either ** ***, *)
+runState ma s = ma s
+
+evalState :: stateEither * ** *** -> * -> either ** ***
+evalState ma s = fst (runState ma s)
+
+execState :: stateEither * ** *** -> * -> *
+execState ma s = snd (runState ma s)
+
+
+|| state access
+get :: stateEither * ** *
+get s = (Right s, s)
+
+put :: * -> stateEither * ** ()
+put s' = const (Right (), s')
+
+modify :: (* -> *) -> stateEither * ** ()
+modify f = go where go s = (Right (), f s)
+
+
+|| monad interface
+
+(>>=) :: stateEither * ** *** -> (*** -> stateEither * ** ****) -> stateEither * ** ****
+ma >>= f
+    = go
+      where
+        go s
+            = case runState ma s of
+                (ra, s') -> case ra of
+                              Left  x -> (Left x, s')
+                              Right a -> runState (f a) s'
+
+join :: stateEither * ** (stateEither * ** ***) -> stateEither * ** ***
+join ma
+    = go
+      where
+        go s
+            = case runState ma s of
+                (ra, s') -> case ra of
+                              Left  x -> (Left x, s')
+                              Right a -> runState a s'
+
+pure :: *** -> stateEither * ** ***
+pure a = go where go s = (Right a, s)
+
+liftEither :: either ** *** -> stateEither * ** ***
+liftEither ma = go where go s = (ma, s)
+
+excpt :: ** -> stateEither * ** ***
+excpt x = go where go s = (Left x, s)
+
+(>=>) :: (*** -> stateEither * ** ****) -> (**** -> stateEither * ** *****) -> *** -> stateEither * ** *****
+f >=> g = go where go x = f x >>= g
+
+mapM :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** [****]
+mapM f = std.foldr (liftA2 (:) . f) (pure [])
+
+mapM_ :: (*** -> stateEither * ** ****) -> [***] -> stateEither * ** ()
+mapM_ f = std.foldr ((>>) . f) (pure ())
+
+foldM :: (**** -> *** -> stateEither * ** ****) -> **** -> [***] -> stateEither * ** ****
+foldM f z0 xs
+    = std.foldr c pure xs z0
+      where
+        c x k z = f z x >>= k
+
+
+|| functor interface
+(<$>) :: (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
+f <$> ma = ma >>= f .> pure
+
+
+|| applicative interface
+(<*>):: stateEither * ** (*** -> ****) -> stateEither * ** *** -> stateEither * ** ****
+mf <*> ma = mf >>= (<$> ma)
+
+liftA2 :: (*** -> **** -> *****) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** *****
+liftA2 f ma mb = f <$> ma <*> mb
+
+liftA3 :: (*** -> **** -> ***** -> ******) -> stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> stateEither * ** ******
+liftA3 f ma mb mc = liftA2 f ma mb <*> mc
+
+(<<) :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***
+ma << mb = liftA2 const ma mb
+
+(>>) :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ****
+ma >> mb = liftA2 (converse const) ma mb
+
+
+|| lift multiple independent state actions and bind them to an N-ary function
+bind2 :: stateEither * ** *** -> stateEither  * ** **** -> (*** -> **** -> stateEither * ** *****) -> stateEither * ** *****
+bind2 ma mb f = join (liftA2 f ma mb)
+
+bind3 :: stateEither * ** *** -> stateEither * ** **** -> stateEither * ** ***** -> (*** -> **** -> ***** -> stateEither * ** ******) ->
+         stateEither * ** ******
+bind3 ma mb mc f = join (liftA3 f ma mb mc)
+
+
+|| alternative interface
+|| note: if ma fails, then mb is run with the state returned from ma, instead of rewinding it to the original state
+alt :: stateEither * ** *** -> stateEither * ** *** -> stateEither * ** ***
+alt ma mb
+    = go
+      where
+        go s
+            = case runState ma s of
+                (ra, s') -> case ra of
+                              Left  x -> runState mb s'
+                              Right a -> (Right a, s')
+
+some :: stateEither * ** *** -> stateEither * ** [***]
+some ma = liftA2 (:) ma (many ma)
+
+many :: stateEither * ** *** -> stateEither * ** [***]
+many ma = some ma $alt pure []
