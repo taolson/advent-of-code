@@ -4,7 +4,7 @@
 %export day09
 
 %import <base>
-%import <io>            (>>)/io_right
+%import <io>
 %import "ring"
 
 

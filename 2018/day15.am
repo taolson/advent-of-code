@@ -3,15 +3,14 @@
 
 %export day15
 
-%import <io>
-%import <io> qualified as IO    (>>=)/io_bind
-%import <avl>
-%import <either>
-%import <lens>
-%import <map>
-%import <maybe>
+%import <avl>           as a            -member -foldr
 %import <base>
-%import <set>
+%import <either>
+%import <io>
+%import <lens>
+%import <map>           qualified as m
+%import <maybe>         as mb
+%import <set>           qualified as s
 
 
 || (y, x) location; y first to sort naturally into "read order"
@@ -21,18 +20,18 @@ adjacencies :: loc -> [loc]
 adjacencies (y, x) = [(y - 1, x), (y, x - 1), (y, x + 1), (y + 1, x)]
 
 || expand to adjacencies around a given loc until we hit one or more goals; return the first "read order" goal
-nearest :: s_set loc -> s_set loc -> loc -> maybe loc
+nearest :: s.set loc -> s.set loc -> loc -> maybe loc
 nearest walls goals
-    = go walls . s_singleton
+    = go walls . s.singleton
       where
         go visited q
-            = Nothing,                if s_null q
-            = Just (s_first reached), if ~s_null reached        || uses set sorted on y first to provide "read order" nearest
+            = Nothing,                if s.null q
+            = Just (s.first reached), if ~s.null reached        || uses set sorted on y first to provide "read order" nearest
             = go visited' q',         otherwise
               where
-                visited' = s_union cmploc visited q
-                reached  = s_intersect cmploc goals q
-                q'       = s_fromList cmploc [pa | p <- s_toList q; pa <- adjacencies p; ~s_member cmploc pa visited]
+                visited' = s.union cmploc visited q
+                reached  = s.intersect cmploc goals q
+                q'       = s.fromList cmploc [pa | p <- s.toList q; pa <- adjacencies p; ~s.member cmploc pa visited]
 
 
 species  ::= Elf | Goblin
@@ -41,8 +40,8 @@ sunit    ::= Sunit species int  || species, hit power remaining
 u_species = Lens getf overf where getf (Sunit a b) = a; overf fn (Sunit a b) = Sunit (fn a) b
 u_hp      = Lens getf overf where getf (Sunit a b) = b; overf fn (Sunit a b) = Sunit a (fn b)
 
-sunitMap ==  m_map loc sunit
-cave     ::= Cave (s_set loc) sunitMap
+sunitMap ==  m.map loc sunit
+cave     ::= Cave (s.set loc) sunitMap
 
 || actionResult and monad/functor
 actionResult * ::= Fail | Del | Res *           || Fail entire round (elf died), delete sunit due to death, or return modified result
@@ -77,39 +76,39 @@ doAction f k
             = case cmploc k k' of
                 EQ -> case f v of
                         Fail   -> Fail
-                        Del    -> Res $ a_moveR l r             || delete the node
+                        Del    -> Res $ a.moveR l r             || delete the node
                         Res v' -> Res $ AVLNode (k', v') l r h  || adjust the node
 
                 LT -> case go l of
                         Fail   -> Fail
                         Del    -> Del
-                        Res l' -> Res . a_balance $ AVLNode (k', v) l' r h
+                        Res l' -> Res . a.balance $ AVLNode (k', v) l' r h
 
                 GT -> case go r of
                         Fail   -> Fail
                         Del    -> Del
-                        Res r' -> Res . a_balance $ AVLNode (k', v) l r' h
+                        Res r' -> Res . a.balance $ AVLNode (k', v) l r' h
 
-step :: action -> s_set loc -> sunitMap -> actionResult (bool, sunitMap)
+step :: action -> s.set loc -> sunitMap -> actionResult (bool, sunitMap)
 step strike walls
-    = go m_empty
+    = go m.empty
       where
         go past m
-            = Res (True, past),                              if m_null m        || finished round; return updated sunits
-            = Res (False, m_insert cmploc k unit allOthers), if m_null enemies  || game done, no more enemies
+            = Res (True, past),                              if m.null m        || finished round; return updated sunits
+            = Res (False, m.insert cmploc k unit allOthers), if m.null enemies  || game done, no more enemies
             = a_bind2 doPast doFuture go,                    otherwise          || choose an attacker and enemy, possibly perform a strike action
               where
-                (k, unit)   = m_first m
-                future      = m_delete cmploc k m
-                allOthers   = m_union cmploc past future
-                walls'      = s_union cmploc walls $ m_keysSet allOthers
-                enemies     = m_filter cmploc ((_ne cmpspecies $ view u_species unit) . view u_species) allOthers
-                adjEnemies  = s_intersect cmploc (s_fromList cmploc (adjacencies k)) $ m_keysSet enemies
-                enemyRanges = s_fromList cmploc [p | k <- m_keys enemies; p <- adjacencies k; ~s_member cmploc p walls']
+                (k, unit)   = m.first m
+                future      = m.delete cmploc k m
+                allOthers   = m.union cmploc past future
+                walls'      = s.union cmploc walls $ m.keysSet allOthers
+                enemies     = m.filter cmploc ((_ne cmpspecies $ view u_species unit) . view u_species) allOthers
+                adjEnemies  = s.intersect cmploc (s.fromList cmploc (adjacencies k)) $ m.keysSet enemies
+                enemyRanges = s.fromList cmploc [p | k <- m.keys enemies; p <- adjacencies k; ~s.member cmploc p walls']
                 k'          = findGoal k
-                target      = selTarget . sortOn cmpint (view u_hp . snd) . filter (member cmploc (adjacencies k') . fst) $ m_toList enemies
+                target      = selTarget . sortOn cmpint (view u_hp . snd) . filter (member cmploc (adjacencies k') . fst) $ m.toList enemies
 
-                doPast      = fromMaybef (Res past) doStrike target <&> m_insert cmploc k' unit
+                doPast      = fromMaybef (Res past) doStrike target <&> m.insert cmploc k' unit
                               where
                                 doStrike t = doAction strike t past
 
@@ -124,9 +123,9 @@ step strike walls
                     = fromMaybe k move
                       where
                         move
-                            = Nothing,                                              if ~s_null adjEnemies
-                            = nearest walls' enemyRanges k $mb_bind
-                              nearest walls' (s_fromList cmploc (adjacencies k)), otherwise
+                            = Nothing,                                              if ~s.null adjEnemies
+                            = nearest walls' enemyRanges k mb.>>=
+                              nearest walls' (s.fromList cmploc (adjacencies k)), otherwise
 
 outcome :: action -> cave -> actionResult (int, int)
 outcome strike (Cave walls units)
@@ -135,7 +134,7 @@ outcome strike (Cave walls units)
         go rounds units'
             = step strike walls units' >>= check
               where
-                check (False, us) = Res (rounds, sum . map (view u_hp) . m_elems $ us)
+                check (False, us) = Res (rounds, sum . map (view u_hp) . m.elems $ us)
                 check (True, us)  = go (rounds + 1) us
 
 doPart1 :: cave -> (int, int)
@@ -169,7 +168,7 @@ doPart2 cave
 
 readCave :: (species -> int) -> string -> io cave
 readCave initialHP fn
-    = readFile fn IO.>>= lines .> parseCave .> partitionEithers .> (s_fromList cmploc *** m_fromList cmploc) .> uncurry Cave .> io_pure
+    = readFile fn io.>>= lines .> parseCave .> partitionEithers .> (s.fromList cmploc *** m.fromList cmploc) .> uncurry Cave .> io.pure
       where
         parseCave s = [elt | Just elt <- [classify (y, x) c | (y, row) <- enumerate s; (x, c) <- enumerate row]]
 
@@ -180,10 +179,10 @@ readCave initialHP fn
 
 day15 :: io ()
 day15
-    = readCave (const 200) "../inputs/day15.input" IO.>>= go
+    = readCave (const 200) "../inputs/day15.input" io.>>= go
       where
         go cave
-           = io_mapM_ putStrLn [part1, part2]
+           = io.mapM_ putStrLn [part1, part2]
              where
                part1 = (++) "part 1: " . showint . uncurry (*) . doPart1 $ cave
                part2 = (++) "part 2: " . showint . uncurry (*) . doPart2 $ cave

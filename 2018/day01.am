@@ -4,8 +4,8 @@
 %export day01
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <set>
+%import <io>
+%import <set>   qualified as s
 
 parseNumber :: string -> int
 parseNumber [] = 0
@@ -17,19 +17,19 @@ parseNumber s
 
 findCycle :: [int] -> int
 findCycle input
-    = go (cycle input) s_empty 0
+    = go (cycle input) s.empty 0
       where
         go [] _ _ = error "part2: go []"
         go (n : ns) seen freq
-            = freq,                                         if s_member cmpint freq seen
-            = go ns (s_insert cmpint freq seen) (freq + n), otherwise
+            = freq,                                         if s.member cmpint freq seen
+            = go ns (s.insert cmpint freq seen) (freq + n), otherwise
 
 day01 :: io ()
 day01
     = readFile "../inputs/day01.input" >>= lines .> map parseNumber .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum       $ input
                 part2 = (++) "part 2: " . showint . findCycle $ input

@@ -5,9 +5,9 @@
 
 %import <base>
 %import <io>
-%import <vector>
-%import <set>
-%import <state>         (>>=)/st_bind (<<)/st_left (>>)/st_right
+%import <set>           qualified as s
+%import <state>         as st
+%import <vector>        as v
 
 %import "day19"
 
@@ -26,19 +26,19 @@ doStep info mregs
 
 runUntilFirstMatch :: (int, program) -> registers -> int
 runUntilFirstMatch info regs
-    = st_evalState (go s_empty 0) ()
+    = st.evalState (go s.empty 0) ()
       where
-        mregs = v_unsafeThaw regs
+        mregs = v.unsafeThaw regs
 
         go samples prev
             = runTo28 info mregs >>
-              v_read mregs 4     >>=
+              v.read mregs 4     >>=
               checkMatch
               where
                 checkMatch r4
-                  = st_pure prev,                       if s_member cmpint r4 samples
+                  = st.pure prev,                       if s.member cmpint r4 samples
                   = doStep info mregs >>
-                    go (s_insert cmpint r4 samples) r4, otherwise
+                    go (s.insert cmpint r4 samples) r4, otherwise
 
 || optimize the program by replacing the detected inner loop beginning at ip=18 with an
 || equivalent divide operation
@@ -46,19 +46,19 @@ optimize :: (int, program) -> (int, program)
 optimize (ipReg, prog)
     = (ipReg, runSTVector opt prog)
       where
-        opt mv = v_write mv 18 innerLoop   || replace insn at 18 with a psuedo-insn "r2 = r3 / 256"
+        opt mv = v.write mv 18 innerLoop   || replace insn at 18 with a psuedo-insn "r2 = r3 / 256"
 
         innerLoop mregs
-            = (v_read mregs 3 >>= v_write mregs 2 . ($div 256)) >> v_write mregs ipReg 25
+            = (v.read mregs 3 >>= v.write mregs 2 . ($div 256)) >> v.write mregs ipReg 25
 
 day21 :: io ()
 day21
     = readProgram "../inputs/day21.input" >>= optimize .> go
       where
         go info
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                regs1 = st_evalState (runTo28 info (v_unsafeThaw (v_rep 6 0)) >>= v_unsafeFreeze) ()
+                regs1 = st.evalState (runTo28 info (v.unsafeThaw (v.rep 6 0)) >>= v.unsafeFreeze) ()
                 regs2 = run info $ regs1 // [(0, regs1 !! 4)]
-                part1 = (++) "part 1: " . showint . v_first $ regs2
-                part2 = (++) "part 2: " . showint . runUntilFirstMatch info $ v_rep 6 0
+                part1 = (++) "part 1: " . showint . v.first $ regs2
+                part2 = (++) "part 2: " . showint . runUntilFirstMatch info $ v.rep 6 0

@@ -4,8 +4,8 @@
 %export day25
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
+%import <io>
+%import <maybe>         -(>>=) -(<&>)
 
 v4 ::= V4 int int int int
 

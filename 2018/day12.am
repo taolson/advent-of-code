@@ -4,13 +4,11 @@
 %export day12
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap
-%import <vector>
-
+%import <maybe>         as mb           -(>>=) -(<&>) -(<*>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+%import <vector>        as v            -(<&>) -foldl -filter -length -sum
 
 rules  == vector int
 plants == [int]
@@ -68,41 +66,41 @@ warpToGeneration rules gen genNo
         deltaShift = view g_startIndex next - view g_startIndex gen
         deltaGen   = genNo - view g_generation gen
 
-p_ruleElt :: parser int
+p_ruleElt :: p.parser int
 p_ruleElt
-    = (p_char '.' <|> p_char '#') p.<&> toInt
+    = (p.char '.' p.<|> p.char '#') p.<&> toInt
       where
         toInt '#' = 1
         toInt _   = 0
 
-p_rule :: parser (int, int)
+p_rule :: p.parser (int, int)
 p_rule
-    = p_liftA2 mkRule (p_some p_ruleElt << p_string " => ") p_ruleElt << p_spaces
+    = p.liftA2 mkRule (p.some p_ruleElt << p.string " => ") p_ruleElt << p.spaces
       where
         mkRule inp out = (foldl toInt 0 inp, out)
         toInt n b      = (n .<<. 1) .|. b
 
-p_rules :: parser rules
-p_rules = p_some p_rule p.<&> (v_rep 32 0 //)
+p_rules :: p.parser rules
+p_rules = p.some p_rule p.<&> (v.rep 32 0 //)
 
-p_initial :: parser plants
-p_initial = p_string "initial state: " >> p_some p_ruleElt
+p_initial :: p.parser plants
+p_initial = p.string "initial state: " p.>> p.some p_ruleElt
 
-p_initAndRules :: parser (plants, rules)
-p_initAndRules = p_liftA2 pair p_initial (p_spaces >> p_rules)
+p_initAndRules :: p.parser (plants, rules)
+p_initAndRules = p.liftA2 pair p_initial (p.spaces p.>> p_rules)
 
 readInitAndRules :: string -> io (plants, rules)
 readInitAndRules fn
-    = readFile fn <&> parse p_initAndRules <&> go
+    = readFile fn <&> p.parse p_initAndRules <&> go
       where
-        go (mres, ps) = fromMaybe (error (p_error ps)) mres
+        go (mres, ps) = fromMaybe (error (p.error ps)) mres
 
 day12 :: io ()
 day12
     = readInitAndRules "../inputs/day12.input" >>= go
       where
         go (init, rules)
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 gen20  = hd . drop 20 . iterate (generate rules) $ Generation init 0 0
                 stable = findStable rules gen20

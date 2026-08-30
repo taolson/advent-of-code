@@ -3,19 +3,20 @@
 
 %export day07
 
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap -time
-%import <lens>
-%import <map>
-%import <maybe>
 %import <base>
-%import <parser>        (<<)/p_left (>>)/p_right
+%import <io>
+%import <lens>
+%import <map>           qualified as m
+%import <maybe>         as mb           -(>>=) -(<&>) -(<*>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+
 
 stepDependency == (char, char)
 event   == (int, char)
-stepMap == m_map char step
+stepMap == m.map char step
 
 (!!!) :: stepMap -> char -> step
-m !!! x = fromJust $ m_lookup cmpchar x m
+m !!! x = fromJust $ m.lookup cmpchar x m
 
 
 step ::= Step char [char] [char]
@@ -36,15 +37,15 @@ time     = Lens getf overf where getf (SimState a b c d e f) = f; overf fn (SimS
 
 makeStepMap :: [stepDependency] -> stepMap
 makeStepMap
-    = foldl process m_empty
+    = foldl process m.empty
       where
         process m (did, sid)    = addRequirement (getStep sid m) did . addDependent (getStep did m) sid $ m
-        addRequirement step rid = m_insert cmpchar (view stepId step) (over requirements (rid :) step)
-        addDependent step did   = m_insert cmpchar (view stepId step) (over dependents (did :) step)
-        getStep sid             = m_findWithDefault cmpchar (Step sid [] []) sid
+        addRequirement step rid = m.insert cmpchar (view stepId step) (over requirements (rid :) step)
+        addDependent step did   = m.insert cmpchar (view stepId step) (over dependents (did :) step)
+        getStep sid             = m.findWithDefault cmpchar (Step sid [] []) sid
 
 findReady :: stepMap -> [char]
-findReady = map (view stepId) . filter (null . view requirements) . m_elems
+findReady = map (view stepId) . filter (null . view requirements) . m.elems
 
 findNewReady :: char -> stepMap -> ([char], stepMap)
 findNewReady step stepMap
@@ -54,7 +55,7 @@ findNewReady step stepMap
         ready    = filter (null . view requirements) $ deps
         stepMap' = foldl ins stepMap deps
                    where
-                     ins m dep = m_insert cmpchar (view stepId dep) dep m
+                     ins m dep = m.insert cmpchar (view stepId dep) dep m
 
 processBusy :: simState -> simState
 processBusy state
@@ -101,27 +102,27 @@ completionOrder baseTime
 
 || parsing
 
-p_nl = p_char '\n'
+p_nl = p.char '\n'
 
-p_stepDependency :: parser stepDependency
-p_stepDependency = p_liftA2 pair (p_string "Step" >> p_spaces >> p_letter)
-                                 (p_spaces >> p_string "must be finished before step" >> p_spaces >> p_letter)
+p_stepDependency :: p.parser stepDependency
+p_stepDependency = p.liftA2 pair (p.string "Step" p.>> p.spaces p.>> p.letter)
+                                 (p.spaces p.>> p.string "must be finished before step" p.>> p.spaces p.>> p.letter)
 
-p_stepDependencies :: parser [stepDependency]
-p_stepDependencies = p_some (p_stepDependency << (p_skipUntil p_any p_nl))
+p_stepDependencies :: p.parser [stepDependency]
+p_stepDependencies = p.some (p_stepDependency << (p.skipUntil p.any p_nl))
 
 readStepDependencies :: string -> io [stepDependency]
 readStepDependencies fn
-    = readFile fn <&> parse p_stepDependencies <&> go
+    = readFile fn <&> p.parse p_stepDependencies <&> go
       where
-        go (mdep, ps) = fromMaybe (error (p_error ps)) mdep
+        go (mdep, ps) = fromMaybe (error (p.error ps)) mdep
 
 day07 :: io ()
 day07
     = readStepDependencies "../inputs/day07.input" >>= go
       where
         go stepDependencies
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 stepMap          = makeStepMap stepDependencies
                 initialState     = SimState stepMap 1 [] (findReady stepMap) [] 0

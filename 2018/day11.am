@@ -4,7 +4,7 @@
 %export day11
 
 %import <base>
-%import <io>            (>>)/io_right
+%import <io>
 
 
 intTup3 == (int, int, int)

@@ -4,8 +4,8 @@
 %export day02
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
+%import <io>
+%import <map>   qualified as m
 
 
 boxId ::= BoxId string [int]
@@ -20,8 +20,8 @@ parseId :: string -> boxId
 parseId s
     = BoxId s counts
       where
-        counts  = m_elems . foldr ins m_empty $ s
-        ins c b = m_insertWith cmpchar (+) c 1 b
+        counts  = m.elems . foldr ins m.empty $ s
+        ins c b = m.insertWith cmpchar (+) c 1 b
 
 matchLetterCount :: int -> [boxId] -> [boxId]
 matchLetterCount n = filter (any (== n) . letterCounts)
@@ -42,7 +42,7 @@ day02
     = readFile "../inputs/day02.input" >>= lines .> map parseId .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 match2      = matchLetterCount 2 input
                 match3      = matchLetterCount 3 input

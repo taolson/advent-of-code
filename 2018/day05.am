@@ -4,8 +4,8 @@
 %export day05
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <maybe>
+%import <io>
+%import <maybe>         -(>>=)
 
 reactWithout :: (maybe char) -> string -> string
 reactWithout removed
@@ -31,7 +31,7 @@ day05
     = readFile "../inputs/day05.input" >>= lines .> hd .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 allLetters = map decode [code 'A' .. code 'Z']
                 reactW     = length . (converse reactWithout) input . Just

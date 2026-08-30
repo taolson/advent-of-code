@@ -3,18 +3,19 @@
 
 %export day16
 
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <lens>
-%import <map>
-%import <maybe>
 %import <base>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt -p_digit
-%import <parser> qualified as p (<&>)/p_rfmap
-%import <vector>
+%import <lens>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
+%import <vector>        as v            -(<&>) -foldr -foldl -filter -length
+%import <vector>        qualified as v
+
 
 v_findIndex :: (* -> bool) -> vector * -> maybe int
 v_findIndex p v
-    = foldr check Nothing [0 .. v_length v - 1]
+    = foldr check Nothing [0 .. v.length v - 1]
       where
         check i k
             = Just i, if p (v !! i)
@@ -32,8 +33,8 @@ possibleOpcodes = Lens getf overf where getf (Instruction a b c) = c; overf fn (
 
 makeBinaryInstructions :: string -> (int -> int -> int) -> [instruction]
 makeBinaryInstructions name fn
-    = [ Instruction (name ++ "r") reg (v_rep 16 True)
-      , Instruction (name ++ "i") imm (v_rep 16 True)
+    = [ Instruction (name ++ "r") reg (v.rep 16 True)
+      , Instruction (name ++ "i") imm (v.rep 16 True)
       ]
       where
         reg (_, a, b, _) r = fn (r !! a) (r !! b)
@@ -41,9 +42,9 @@ makeBinaryInstructions name fn
 
 makeCompareInstructions :: string -> (int -> int -> bool) -> [instruction]
 makeCompareInstructions name fn
-    = [ Instruction (name ++ "rr") rr (v_rep 16 True)
-      , Instruction (name ++ "ri") ri (v_rep 16 True)
-      , Instruction (name ++ "ir") ir (v_rep 16 True)
+    = [ Instruction (name ++ "rr") rr (v.rep 16 True)
+      , Instruction (name ++ "ri") ri (v.rep 16 True)
+      , Instruction (name ++ "ir") ir (v.rep 16 True)
       ]
       where
         rr (_, a, b, _) r = if' (fn (r !! a) (r !! b)) 1 0
@@ -52,8 +53,8 @@ makeCompareInstructions name fn
 
 makeSetInstructions :: [instruction]
 makeSetInstructions
-    = [ Instruction "setr" setr (v_rep 16 True)
-      , Instruction "seti" seti (v_rep 16 True)
+    = [ Instruction "setr" setr (v.rep 16 True)
+      , Instruction "seti" seti (v.rep 16 True)
       ]
       where
         setr (_, a, b, _) r = r !! a
@@ -91,67 +92,67 @@ updateMatchState (prevMatches, prevUpdated) s
       where
         (matches, updated) = matchInstructions prevUpdated s
 
-opMap == m_map int instruction
+opMap == m.map int instruction
 
 determineOpcodes :: [instruction] -> opMap
 determineOpcodes
-    = go m_empty
+    = go m.empty
       where
         go opMap [] = opMap
         go opMap instructions
             = go opMap' ambiguous'
               where
-                (unique, ambiguous) = partition ((== 1) . v_length . v_filter id . view possibleOpcodes) instructions
+                (unique, ambiguous) = partition ((== 1) . v.length . v.filter id . view possibleOpcodes) instructions
                 opMap'              = foldl ins opMap unique
                 ambiguous'          = map removeMappedOpcodes ambiguous
-                ins m i             =  m_insert cmpint (fromJust . v_findIndex id . view possibleOpcodes $ i) i m
+                ins m i             =  m.insert cmpint (fromJust . v_findIndex id . view possibleOpcodes $ i) i m
 
                 removeMappedOpcodes inst
-                    = over possibleOpcodes (remove (m_keys opMap')) inst
+                    = over possibleOpcodes (remove (m.keys opMap')) inst
                       where
                         remove ks po  = foldl setFalse po ks
                         setFalse po u = po // [(u, False)]
 
 execInst :: opMap -> registers -> operation -> registers
 execInst opMap registers inst
-    = registers // [(c, view effect (fromJust (m_lookup cmpint opcode opMap)) inst registers)]
+    = registers // [(c, view effect (fromJust (m.lookup cmpint opcode opMap)) inst registers)]
       where
         (opcode, _, _, c) = inst
 
-p_digit :: parser int
-p_digit = p_posint << p_spaces
+p_digit :: p.parser int
+p_digit = p.posint << p.spaces
 
-p_regs :: parser registers
-p_regs = p_char '[' >> p_someSepBy (p_string ", ") p_posint p.<&> v_fromList << p_char ']' << p_spaces
+p_regs :: p.parser registers
+p_regs = p.char '[' >> p.someSepBy (p.string ", ") p.posint p.<&> v.fromList << p.char ']' << p.spaces
 
-p_op :: parser operation
-p_op = p_liftA4 mkOp p_digit p_digit p_digit p_digit
+p_op :: p.parser operation
+p_op = p.liftA4 mkOp p_digit p_digit p_digit p_digit
        where
          mkOp a b c d = (a, b, c, d)
 
-p_sample :: parser sample
-p_sample = p_liftA3 Sample (p_string "Before:" >> p_spaces >> p_regs) (p_spaces >> p_op << p_spaces) (p_string "After:" >> p_spaces >> p_regs) << p_spaces
+p_sample :: p.parser sample
+p_sample = p.liftA3 Sample (p.string "Before:" >> p.spaces >> p_regs) (p.spaces >> p_op << p.spaces) (p.string "After:" >> p.spaces >> p_regs) << p.spaces
 
 input == ([sample], [operation])
 
-p_input :: parser input
-p_input = p_liftA2 pair (p_some p_sample) (p_some p_op)
+p_input :: p.parser input
+p_input = p.liftA2 pair (p.some p_sample) (p.some p_op)
 
 readInput :: string -> io input
 readInput fn
-    = readFile fn <&> parse p_input <&> go
+    = readFile fn <&> p.parse p_input <&> go
       where
-        go (minp, ps) = fromMaybe (error (p_error ps)) minp
+        go (minp, ps) = fromMaybe (error (p.error ps)) minp
 
 day16 :: io ()
 day16
     = readInput "../inputs/day16.input" >>= go
       where
         go (samples, prog)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 (matches, updatedInsts) = foldl updateMatchState ([], makeInstructionSet) samples
                 opMap                   = determineOpcodes updatedInsts
-                progResults             = foldl (execInst opMap) (v_rep 4 0) $ prog
+                progResults             = foldl (execInst opMap) (v.rep 4 0) $ prog
                 part1                   = (++) "part 1: " . showint . length . filter (>= 3) $ matches
                 part2                   = (++) "part 2: " . showint . (!! 0) $ progResults

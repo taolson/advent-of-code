@@ -4,17 +4,17 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>        (<*>)/p_apply (<<)/p_left (>>)/p_right
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<*>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
 
 
 point  == (int, int)
-fabric == m_map point int
+fabric == m.map point int
 
 (!!!) :: fabric -> point -> int
-f !!! p = fromJust (m_lookup cmppoint p f)
+f !!! p = fromJust (m.lookup cmppoint p f)
 
 claim ::= Claim int int int int int [point]
 
@@ -32,38 +32,38 @@ makeClaim i l t w h
 
 mergeClaims :: [claim] -> fabric
 mergeClaims
-    = foldl mergeClaim m_empty
+    = foldl mergeClaim m.empty
       where
         mergeClaim f = foldl ins f . points
-        ins f k      = m_insertWith cmppoint (+) k 1 f
+        ins f k      = m.insertWith cmppoint (+) k 1 f
 
-p_liftA5 f ma mb mc md me = p_liftA4 f ma mb mc md <*> me
+p_liftA5 f ma mb mc md me = p.liftA4 f ma mb mc md p.<*> me
 
-p_claim :: parser claim
+p_claim :: p.parser claim
 p_claim
     = p_liftA5 makeClaim
-          (p_char '#' >> p_int)
-          (p_string " @ " >> p_int)
-          (p_char ',' >> p_int)
-          (p_string ": " >> p_int)
-          (p_char 'x' >> p_int)
+          (p.char '#' p.>> p.int)
+          (p.string " @ " p.>> p.int)
+          (p.char ',' p.>> p.int)
+          (p.string ": " p.>> p.int)
+          (p.char 'x' p.>> p.int)
 
-p_claims :: parser [claim]
-p_claims = p_some (p_claim << p_spaces)
+p_claims :: p.parser [claim]
+p_claims = p.some (p_claim p.<< p.spaces)
 
 readClaims :: string -> io [claim]
 readClaims fn
-    = readFile fn <&> parse p_claims <&> go
+    = readFile fn <&> p.parse p_claims <&> go
       where
-        go (mclaims, ps) = fromMaybe (error (p_error ps)) mclaims
+        go (mclaims, ps) = fromMaybe (error (p.error ps)) mclaims
 
 day03 :: io ()
 day03
     = readClaims "../inputs/day03.input" >>= go
       where
         go claims
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 fabric = mergeClaims claims
-                part1  = (++) "part 1: " . showint . length . filter (> 1) . m_elems $ fabric
+                part1  = (++) "part 1: " . showint . length . filter (> 1) . m.elems $ fabric
                 part2  = (++) "part 2: " . showint . cid . hd . filter (all (== 1) . map (fabric !!!) . points) $ claims

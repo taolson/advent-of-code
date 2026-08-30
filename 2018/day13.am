@@ -4,15 +4,15 @@
 %export day13
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>)
 
 
 loc        == (int, int)
 dir        == (int, int)
 segment    == char
-segmentMap == m_map loc segment
+segmentMap == m.map loc segment
 
 isCurve :: segment -> bool
 isCurve '/'  = True
@@ -67,7 +67,7 @@ moveCart (Cart loc dir turns id) segs
         (x, y)   = loc
         (dx, dy) = dir
         loc'     = (x+dx, y+dy)
-        s        = m_findWithDefault cmploc ' ' loc' segs
+        s        = m.findWithDefault cmploc ' ' loc' segs
 
         dirTurn
             = turnLeft dir,  if turns == 0
@@ -108,14 +108,14 @@ readTrack :: [string] -> track
 readTrack rows
     = Track segs carts [] 0
       where
-        (segs, carts) = foldl readRow (m_empty, []) $ enumerate rows
+        (segs, carts) = foldl readRow (m.empty, []) $ enumerate rows
 
         readRow (segs, carts) (y, row)
             = foldl (readElt y) (segs, carts) $ enumerate row
 
         readElt y (segs, carts) (x, ch)
-            = (m_insert cmploc (x, y) ch segs, carts), if member cmpchar "|-+/\\" ch
-            = (m_insert cmploc (x, y) (trackForDir ch) segs, (Cart (x, y) (segmentDirection ch) 0 (length carts)) : carts), if member cmpchar "^v<>" ch
+            = (m.insert cmploc (x, y) ch segs, carts), if member cmpchar "|-+/\\" ch
+            = (m.insert cmploc (x, y) (trackForDir ch) segs, (Cart (x, y) (segmentDirection ch) 0 (length carts)) : carts), if member cmpchar "^v<>" ch
             = (segs, carts), otherwise
 
 day13 :: io ()
@@ -123,10 +123,9 @@ day13
     = readFile "../inputs/day13.input" >>= lines .> readTrack .> go
       where
         go track
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 track1 = hd . dropWhile (null . trackCrashed) . iterate tick $ track
                 track2 = hd . dropWhile ((> 1) . length . trackCarts) . iterate tick $ track1
                 part1  = (++) "part 1: " . showloc . cartLoc . hd . trackCrashed $ track1
                 part2  = (++) "part 2: " . showloc . cartLoc . hd . trackCarts   $ track2
-

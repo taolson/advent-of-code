@@ -4,10 +4,10 @@
 %export day06
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>        (<<)/p_left (>>)/p_right
+%import <io>
+%import <map>           qualified as m
+%import <maybe>         as mb           -(>>=) -(<&>) -(<*>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
 
 
 point == (int, int)
@@ -50,13 +50,13 @@ closestCoordinates grid point
 
 doPart1 :: grid -> int
 doPart1 grid
-    = m_foldr (max2 cmpint) 0 . m_fmap (fromMaybe 0) $ tallyInternal
+    = m.foldr (max2 cmpint) 0 . (m.<$>) (fromMaybe 0) $ tallyInternal
       where
         gridPoints                = [(x, y) | x <- [minX grid .. maxX grid]; y <- [minY grid .. maxY grid]]
-        tallyInternal             = foldl tallyCoord m_empty classifiedPoints
+        tallyInternal             = foldl tallyCoord m.empty classifiedPoints
         tallyCoord m Shared       = m
-        tallyCoord m (Internal c) = m_insertWith cmppoint (mb_liftA2 (+)) c (Just 1) m
-        tallyCoord m (External c) = m_insert cmppoint c Nothing m
+        tallyCoord m (Internal c) = m.insertWith cmppoint (mb.liftA2 (+)) c (Just 1) m
+        tallyCoord m (External c) = m.insert cmppoint c Nothing m
 
         classifiedPoints = map (classify . closestCoordinates grid) $ gridPoints
 
@@ -74,24 +74,24 @@ doPart2 grid maxTotalDist
         sumDistance pt = sum . map (distanceTo pt) . coord $ grid
         gridPoints = [(x, y) | x <- [minX grid .. maxX grid]; y <- [minY grid .. maxY grid]]
 
-p_point :: parser point
-p_point = p_liftA2 pair p_int (p_char ',' >> p_spaces >> p_int) << p_spaces
+p_point :: p.parser point
+p_point = p.liftA2 pair p.int (p.char ',' >> p.spaces >> p.int) << p.spaces
 
-p_points :: parser [point]
-p_points = p_some p_point
+p_points :: p.parser [point]
+p_points = p.some p_point
 
 readPoints :: string -> io [point]
 readPoints fn
-    = readFile fn <&> parse p_points <&> go
+    = readFile fn <&> p.parse p_points <&> go
       where
-        go (mpoints, ps) = fromMaybe (error (p_error ps)) mpoints
+        go (mpoints, ps) = fromMaybe (error (p.error ps)) mpoints
 
 day06 :: io ()
 day06
     = readPoints "../inputs/day06.input" >>= makeGrid .> go
       where
         go grid
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . doPart1 $ grid
                 part2 = (++) "part 2: " . showint . doPart2 grid $ 10_000
