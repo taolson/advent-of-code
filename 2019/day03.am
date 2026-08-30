@@ -1,8 +1,8 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
+%import <io>
+%import <maybe>         -(>>=) -(<&>)
 
 
 point == (int, int)
@@ -85,7 +85,7 @@ day03
     = readPaths "../inputs/day03.input" >>= go
       where
         go paths
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 port  = (0, 0)
                 wires = map (traceFrom 0 port) paths

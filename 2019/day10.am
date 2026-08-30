@@ -1,7 +1,7 @@
 %export day10
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 point == (int, int)
@@ -95,7 +95,7 @@ day10
     = readAsteroidMap "../inputs/day10.input" >>= go
       where
         go asteroids
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 station = maxBy cmpint (countVisible asteroids) asteroids
                 (x, y)  = fromScanObj station . hd . drop 199 . vaporize asteroids $ station

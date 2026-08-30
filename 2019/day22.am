@@ -1,10 +1,9 @@
 %export day22
 
-%import <base>                  -shuffle
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap 
+%import <base>                          -shuffle
+%import <io>
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>)
+%import <parser>        qualified as p
 
 shuffle ::= Rev | Cut num | Deal num
 
@@ -52,24 +51,24 @@ shuffleToLinear m (Deal n) = Linear m   n    0
 
 || day22 parsing
 
-p_shuffle :: parser shuffle
+p_shuffle :: p.parser shuffle
 p_shuffle
-    = p_string "deal into new stack" >> p_spaces >> p_pure Rev <|>
-      p_string "cut " >> p_int << p_spaces p.<&> Cut           <|>
-      p_string "deal with increment " >> p_int << p_spaces p.<&> Deal
+    = p.string "deal into new stack" p.>> p.spaces p.>> p.pure Rev p.<|>
+      p.string "cut " p.>> p.int p.<< p.spaces p.<&> Cut           p.<|>
+      p.string "deal with increment " p.>> p.int p.<< p.spaces p.<&> Deal
 
 readShuffles :: string -> io [shuffle]
 readShuffles fn
-    = readFile fn <&> parse (p_many p_shuffle << p_end) <&> go
+    = readFile fn <&> p.parse (p.many p_shuffle p.<< p.end) <&> go
       where
-        go (ms, ps) = fromMaybe (error (p_error ps)) ms
+        go (ms, ps) = fromMaybe (error (p.error ps)) ms
 
 day22 :: io ()
 day22
     = readShuffles "../inputs/day22.input" >>= go
       where
         go shuffles
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 shuffle1 = makeCombinedShuffle 10007
                 shuffle2 = powLinear (makeCombinedShuffle 119315717514047) 101741582076661

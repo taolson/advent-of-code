@@ -1,9 +1,9 @@
 %export day21
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <maybe>
-%import <parser>        (<&>)/p_rfmap (>>)/p_right (<<)/p_left (<|>)/p_alt
+%import <io>
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>)
+%import <parser>        qualified as p
 %import "intcode"
 
 
@@ -56,37 +56,37 @@ runScript script cmd prog
 
 || parsing
 
-p_term :: parser expr
-p_term = p_letter <&> Var             <|>
-         p_char '!' >> p_term <&> Not <|>
-         p_inParens p_expr
+p_term :: p.parser expr
+p_term = p.letter p.<&> Var               p.<|>
+         p.char '!' p.>> p_term p.<&> Not p.<|>
+         p.inParens p_expr
 
-p_expr :: parser expr
+p_expr :: p.parser expr
 p_expr
-    = (p_liftA2 (Opr And) (p_term << p_string " & ") p_expr) <|>
-      (p_liftA2 (Opr Or)  (p_term << p_string " | ") p_expr) <|>
+    = (p.liftA2 (Opr And) (p_term p.<< p.string " & ") p_expr) p.<|>
+      (p.liftA2 (Opr Or)  (p_term p.<< p.string " | ") p_expr) p.<|>
       p_term
 
-parseScript :: string -> expr
-parseScript s
-    = error (p_error ps), if isNothing me
+p_parseScript :: string -> expr
+p_parseScript s
+    = error (p.error ps), if isNothing me
     = fromJust me,        otherwise
       where
-        (me, ps) = parse (p_expr << p_end) s
+        (me, ps) = p.parse (p_expr p.<< p.end) s
 
 day21 :: io ()
 day21
     = readProgram "../inputs/day21.input" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 script1 = makeScript "(!A | !B | !C) & D"
                 script2 = makeScript "(!A | !B | !C) & (E | H) & D"
                 part1   = "part 1: " ++ process script1 "WALK"
                 part2   = "part 2: " ++ process script2 "RUN"
 
-                makeScript = generate "J" . optimize . parseScript
+                makeScript = generate "J" . optimize . p_parseScript
 
                 process s t
                     = showint damage, if damage > 127

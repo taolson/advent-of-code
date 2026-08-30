@@ -1,6 +1,6 @@
 %export day05
 
-%import <io>            (>>=)/io_bind
+%import <io>
 %import "intcode"
 
 
@@ -22,7 +22,7 @@ day05
     = readProgram "../inputs/day05.input" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 out1  = process prog 1
                 out2  = process prog 5

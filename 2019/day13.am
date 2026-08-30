@@ -1,8 +1,8 @@
 %export day13
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
+%import <io>
+%import <map>           qualified as m
 %import "intcode"
 
 
@@ -19,14 +19,14 @@ toTile 4 = Ball
 toTile _ = error "toTile: bad input"
 
 screenState ::= ScreenState
-                (m_map point tile)  || screen
+                (m.map point tile)  || screen
                 num                 || score
                 point               || ball
                 point               || paddle
 
 readScreenState :: jitState -> (screenState, jitState)
 readScreenState
-    = addTiles (ScreenState m_empty 0 (0, 0) (0, 0))
+    = addTiles (ScreenState m.empty 0 (0, 0) (0, 0))
       where
         addTiles ss t
             = (ss, t),          if null out
@@ -42,7 +42,7 @@ readScreenState
                 ss'       = ScreenState screen score' ball paddle
                 loc       = (x, y)
                 tile      = toTile n
-                screen'   = m_insert cmppoint loc tile screen
+                screen'   = m.insert cmppoint loc tile screen
                 ball'     = loc,    if _eq cmptile tile Ball
                           = ball,   otherwise
                 paddle'   = loc,    if _eq cmptile tile Paddle
@@ -65,9 +65,9 @@ day13
     = readProgram "../inputs/day13.input" >>= jitReset .> go
       where
         go t
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 (ScreenState screen1 _ _ _, _) = readScreenState (jitContinue t)
                 ScreenState  _ score2 _ _ = runGame (jitContinue (jitSetMem 0 2 t))
-                part1  = (++) "part 1: " . showint . length . filter (_eq cmptile Block) . m_elems $ screen1
+                part1  = (++) "part 1: " . showint . length . filter (_eq cmptile Block) . m.elems $ screen1
                 part2  = (++) "part 2: " . showint $ score2

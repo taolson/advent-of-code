@@ -1,7 +1,7 @@
 %export day07
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 %import "intcode"
 
 
@@ -28,7 +28,7 @@ day07
     = readProgram "../inputs/day07.input" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 best1 = max cmpint . map (runSequence prog 0)         $ permutations [0 .. 4]
                 best2 = max cmpint . map (runFeedbackSequence prog 0) $ permutations [5 .. 9]

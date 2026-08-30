@@ -1,9 +1,9 @@
 %export day19
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 %import "intcode"
 
 
@@ -30,9 +30,9 @@ stepEdges prog (prev, edges)
         rightTest n  = inBeam prog row n
         scanEdge t n = (hd . dropWhile t) [n ..]                
 
-findEdges :: program -> num -> m_map num (maybe (num, num))
+findEdges :: program -> num -> m.map num (maybe (num, num))
 findEdges prog rows
-    = (m_fromList cmpint . take rows . iterate (stepEdges prog)) (-1, Nothing)
+    = (m.fromList cmpint . take rows . iterate (stepEdges prog)) (-1, Nothing)
 
 searchRectangle :: program -> num -> maybe (num, num)
 searchRectangle prog yMax
@@ -59,11 +59,11 @@ day19
     = readProgram "../inputs/day19.input" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 pt1Lim      = 50
                 edgeMap    = findEdges prog pt1Lim
-                inBeamPt1  = (sum . map (countBeam pt1Lim) . catMaybes . m_elems) edgeMap
+                inBeamPt1  = (sum . map (countBeam pt1Lim) . catMaybes . m.elems) edgeMap
                 Just(x, y) = searchRectangle prog 2000
                 part1      = "part 1: " ++ showint inBeamPt1
                 part2      = "part 2: " ++ showint (x + 10000 * y)

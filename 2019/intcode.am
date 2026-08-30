@@ -3,13 +3,13 @@
         jitState jitReset jitRun jitContinue decodedInst cache jitGetRunState jitGetMem jitSetMem jitGetOutput jitGetAllOutput
         jitPutInput jitPutAllInput jitGetCache jitGetCacheStats isRun isHalt isWait
 
-%import <io> (>>=.)/io_bind (<$>.)/io_fmap
-%import <map>
-%import <maybe>
 %import <base>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(<&>)
 
 
-program == m_map int int
+program == m.map int int
 
 opcode ::= Add | Mul | Inp | Out | Jt | Jf | Lt | Eq | Rbo | Hlt | IllOpc
 
@@ -20,10 +20,10 @@ operand == (oprMode, int)
 instruction == (opcode, [operand])
 
 readMem :: int -> program -> int
-readMem = m_findWithDefault cmpint 0
+readMem = m.findWithDefault cmpint 0
 
-opDecoder :: m_map int (opcode, int)
-opDecoder = m_fromList cmpint
+opDecoder :: m.map int (opcode, int)
+opDecoder = m.fromList cmpint
             [ (1,  (Add, 3))
             , (2,  (Mul, 3))
             , (3,  (Inp, 1))
@@ -37,7 +37,7 @@ opDecoder = m_fromList cmpint
             ]
 
 decodeOpc :: int -> (opcode, int)
-decodeOpc op = m_findWithDefault cmpint (IllOpc, 0) (op $mod 100) opDecoder
+decodeOpc op = m.findWithDefault cmpint (IllOpc, 0) (op $mod 100) opDecoder
 
 decodeMode :: int -> oprMode
 decodeMode 0 = Ind
@@ -65,12 +65,12 @@ isWait Wait = True
 isWait _    = False
 
 processorState ::= ProcessorState
-                   runState!            || rs
-                   int!                 || ip
-                   int!                 || rb
-                   program!             || mem
-                   [int]!               || inp
-                   [int]!               || out
+                   runState            || rs
+                   int                 || ip
+                   int                 || rb
+                   program             || mem
+                   [int]               || inp
+                   [int]               || out
 
 reset :: program -> processorState
 reset program = ProcessorState Run 0 0 program [] []
@@ -108,13 +108,13 @@ step state
 
         contBinOp op (Just a1) (Just a2) (Just d) = ProcessorState Run ip' rb  mem' inp out
                                                     where
-                                                      mem' = m_insert cmpint d x mem
+                                                      mem' = m.insert cmpint d x mem
                                                       x    = op a1 a2
         contBinOp _  _         _         _       = setRunState ErrMode state
 
         contCmpOp op (Just a1) (Just a2) (Just d) = ProcessorState Run ip' rb  mem' inp out
                                                     where
-                                                      mem' = m_insert cmpint d x mem
+                                                      mem' = m.insert cmpint d x mem
                                                       x    = intRep (op a1 a2)
         contCmpOp _  _         _         _        = setRunState ErrMode state
 
@@ -124,7 +124,7 @@ step state
 
         contInp (Just d)                          = ProcessorState Run ip' rb mem' inp' out
                                                     where
-                                                      mem'       = m_insert cmpint d h mem
+                                                      mem'       = m.insert cmpint d h mem
                                                       (h : inp') = inp
         contInp _                                 = setRunState ErrMode state
 
@@ -155,13 +155,13 @@ setRunState rs' (ProcessorState rs ip rb mem inp out)
 
 getMem :: int -> processorState -> maybe int
 getMem addr (ProcessorState rs ip rb mem inp out)
-    = m_lookup cmpint addr mem
+    = m.lookup cmpint addr mem
 
 setMem :: int -> int -> processorState -> processorState
 setMem addr val (ProcessorState rs ip rb mem inp out)
     = ProcessorState rs ip rb mem' inp out
       where
-        mem' = m_insert cmpint addr val mem
+        mem' = m.insert cmpint addr val mem
 
 getOutput :: processorState -> (int, processorState)
 getOutput (ProcessorState rs ip rb mem inp (x : xs))
@@ -201,17 +201,17 @@ getDstRel :: int -> opAccess
 getDstRel a mem rb = rb + a
 
 decodedInst
-    ::= DAdd opAccess! opAccess! opAccess!                     |
-        DOpr (int -> int -> int) opAccess! opAccess! opAccess! |
-        DJt  opAccess! opAccess!                               |
-        DJf  opAccess! opAccess!                               |
-        DRbo opAccess!                                         |
-        DInp opAccess!                                         |
-        DOut opAccess!                                         |
+    ::= DAdd opAccess opAccess opAccess                     |
+        DOpr (int -> int -> int) opAccess opAccess opAccess |
+        DJt  opAccess opAccess                               |
+        DJf  opAccess opAccess                               |
+        DRbo opAccess                                         |
+        DInp opAccess                                         |
+        DOut opAccess                                         |
         DHlt                                                   |
         DIop                                                   |
         DImo                                                   |
-        CMrk int!
+        CMrk int
 
 isCMrk :: decodedInst -> bool
 isCMrk (CMrk _) = True
@@ -222,22 +222,22 @@ unCMrk (CMrk n) = n
 unCMrk _        = error "unCMrk: not a CMrk"
 
 cache ::= Cache
-          (m_map int decodedInst)      || cache
-          int!                         || accesses
-          int!                         || hits
-          int!                         || flushes
+          (m.map int decodedInst)      || cache
+          int                         || accesses
+          int                         || hits
+          int                         || flushes
 
 cacheInit :: cache
-cacheInit = Cache m_empty 0 0 0
+cacheInit = Cache m.empty 0 0 0
 
 jitState ::= JitState
-             runState!     || rs
-             int!          || ip
-             int!          || rb
-             program!      || mem
-             [int]!        || inp
-             [int]!        || out
-             cache!        || cache
+             runState     || rs
+             int          || ip
+             int          || rb
+             program      || mem
+             [int]        || inp
+             [int]        || out
+             cache        || cache
 
 jitReset :: program -> jitState
 jitReset program = JitState Run 0 0 program [] [] cacheInit
@@ -328,7 +328,7 @@ exec (DOpr opr getA getB getD) (JitState rs ip rb mem inp out ic)
         d    = getD mem rb
         r    = a $opr b
         ip'  = ip + 4
-        mem' = m_insert cmpint d r mem
+        mem' = m.insert cmpint d r mem
         ic'  = cacheFlush d ic
 
 exec (DJt getA getT) (JitState rs ip rb mem inp out ic)
@@ -359,7 +359,7 @@ exec (DInp getD) (JitState rs ip rb mem inp out ic)
         d          = getD mem rb
         (c : inp') = inp
         ip'        = ip + 2
-        mem'       = m_insert cmpint d c mem
+        mem'       = m.insert cmpint d c mem
         ic'        = cacheFlush d ic
 
 exec (DOut getA) (JitState rs ip rb mem inp out ic)
@@ -385,7 +385,7 @@ cacheLookup :: int -> cache -> (maybe decodedInst, cache)
 cacheLookup a (Cache ic ac hi fl)
     = (lookup, Cache ic ac' hi' fl)
       where
-        lookup = m_lookup cmpint a ic
+        lookup = m.lookup cmpint a ic
         ac'    = ac + 1
         hi'    = hi,     if isNothing lookup
                = hi + 1, otherwise
@@ -395,22 +395,22 @@ cacheInsert a len inst (Cache ic ac hi fl)
     = Cache ic'' ac' hi fl
       where
         ac'            = ac + 1
-        ic'            = m_insert cmpint a inst ic
+        ic'            = m.insert cmpint a inst ic
         ic''           = foldl insertMrk ic' [1 .. len]
-        insertMrk ic d = m_insert cmpint (a + d) (CMrk a) ic
+        insertMrk ic d = m.insert cmpint (a + d) (CMrk a) ic
 
 cacheFlush :: int -> cache -> cache
 cacheFlush a cache
     = cache'
       where
       Cache ic ac hi fl = cache
-      md                = m_lookup cmpint a ic
+      md                = m.lookup cmpint a ic
       d                 = fromJust md
       a'                = unCMrk d
       cache'            = cache,                      if isNothing md
                         = Cache ic' ac hi fl',        otherwise
-      ic'               = m_delete cmpint a' ic,      if isCMrk d
-                        = m_delete cmpint a  ic,      otherwise
+      ic'               = m.delete cmpint a' ic,      if isCMrk d
+                        = m.delete cmpint a  ic,      otherwise
       fl'               = fl + 1
 
 jitGetRunState :: jitState -> runState
@@ -422,13 +422,13 @@ jitSetRunState rs' (JitState rs ip rb mem inp out ic)
 
 jitGetMem :: int -> jitState -> maybe int
 jitGetMem addr (JitState rs ip rb mem inp out ic)
-    = m_lookup cmpint addr mem
+    = m.lookup cmpint addr mem
 
 jitSetMem :: int -> int -> jitState -> jitState
 jitSetMem addr val (JitState rs ip rb mem inp out ic)
     = JitState rs ip rb mem' inp out ic
       where
-        mem' = m_insert cmpint addr val mem
+        mem' = m.insert cmpint addr val mem
 
 jitGetOutput :: jitState -> (int, jitState)
 jitGetOutput (JitState rs ip rb mem inp (x : xs) ic)
@@ -462,4 +462,4 @@ jitGetCacheStats (JitState rs ip rb mem inp out (Cache ic ac hi fl))
 || intcode parsing
 
 readProgram :: string -> io program
-readProgram fn = m_fromList cmpint <$>. enumerate <$>. map intval <$>. split ',' <$>. readFile fn
+readProgram fn = readFile fn <&> split ',' <&> map intval <&> enumerate <&> m.fromList cmpint

@@ -40,7 +40,7 @@ gen c1 c2 n
 
 day04 :: io ()
 day04
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         valid  = genMonotonic 235741 706948
         valid1 = filter (adjacentDigits (> 1)) valid

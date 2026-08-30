@@ -1,10 +1,10 @@
 %export day12
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>        (>>)/p_right (<<)/p_left
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -(<|>)
+%import <parser>        qualified as p
 
 position == num
 velocity == num
@@ -39,23 +39,23 @@ totalEnergy
 
 findRepeat :: axis -> num
 findRepeat init
-    = go 0 m_empty init
+    = go 0 m.empty init
       where
         go step seen state
-            = go (step + 1) (m_insert cmpaxis state step seen) (timeStep state), if isNothing findSeen
+            = go (step + 1) (m.insert cmpaxis state step seen) (timeStep state), if isNothing findSeen
             = step - s,                                                          otherwise
               where
-                findSeen = m_lookup cmpaxis state seen
+                findSeen = m.lookup cmpaxis state seen
                 (Just s) = findSeen
 
 
 || day12 parsing
 
-p_pos :: parser position
-p_pos = p_any >> p_any >> p_int
+p_pos :: p.parser position
+p_pos = p.any p.>> p.any p.>> p.int
 
-p_poslist :: parser [position]
-p_poslist = p_inAngles (p_manySepBy (p_comma << p_spaces) p_pos) << p_spaces
+p_poslist :: p.parser [position]
+p_poslist = p.inAngles (p.manySepBy (p.comma << p.spaces) p_pos) << p.spaces
 
 makeSystem :: [[position]] -> sys
 makeSystem positions
@@ -67,16 +67,16 @@ makeSystem positions
 
 readSystem :: string -> io sys
 readSystem fn
-    = readFile fn <&> parse (p_many p_poslist << p_end) <&> go
+    = readFile fn <&> p.parse (p.many p_poslist << p.end) <&> go
       where
-        go (mps, ps) = fromMaybef (error (p_error ps)) makeSystem mps
+        go (mps, ps) = fromMaybef (error (p.error ps)) makeSystem mps
 
 day12 :: io ()
 day12
      = readSystem "../inputs/day12.input" >>= go
        where
          go syst
-             = io_mapM_ putStrLn [part1, part2]
+             = io.mapM_ putStrLn [part1, part2]
                where
                  part1  = (++) "part 1: " . showint . totalEnergy . hd . drop 1000 . iterate (map timeStep) $ syst
                  part2  = (++) "part 2: " . showint . foldr1 lcm . map findRepeat $ syst

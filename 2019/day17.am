@@ -2,9 +2,9 @@
 
 %import <base>
 %import <bfs>
-%import <io>            (>>=)/io_bind
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=)
 %import "intcode"
 
 
@@ -22,8 +22,8 @@ segment ::=
 getSegType :: segment -> segType
 getSegType (Segment st sl ss se) = st
 
-rowState == ([segment], m_map num num, string)
-colState == ([segment], m_map num num, num, char, num)
+rowState == ([segment], m.map num num, string)
+colState == ([segment], m.map num num, num, char, num)
 rowIdx   == (string, num)
 
 findSegments :: [string] -> [segment]
@@ -32,7 +32,7 @@ findSegments rows
     = segments
       where
         (segments, _, _) = foldl processRow startRowState indexedRows
-        startRowState    = ([], m_empty, padRow)
+        startRowState    = ([], m.empty, padRow)
         indexedRows      = zip2 (rows ++ [padRow]) [0 ..]
         padRow           = rep (# (hd rows)) '.'
 
@@ -54,7 +54,7 @@ processCol y (segs, vStarts, hStart, cl, x) (pc, cc)
         startVSeg = cc ~=. pc & pc ==. '.'
         endVSeg   = cc ~=. pc & cc ==. '.' & y - xStart > 1
         bot       = cc ~=. '.' & cc ~=. '#'
-        xStart    = m_findWithDefault cmpint 0 x vStarts
+        xStart    = m.findWithDefault cmpint 0 x vStarts
         newHSeg   = Segment Horiz y hStart (x - 1)
         newVSeg   = Segment Vert  x xStart (y - 1)
         newBSeg   = Segment Bot   x y      y
@@ -64,7 +64,7 @@ processCol y (segs, vStarts, hStart, cl, x) (pc, cc)
                   = segsH,                otherwise
         segs'     = newBSeg : segsV,      if bot
                   = segsV,                otherwise
-        vStarts'  = m_insert cmpint x y vStarts, if startVSeg
+        vStarts'  = m.insert cmpint x y vStarts, if startVSeg
                   = vStarts,              otherwise
         hStart'   = x,                    if startHSeg
                   = hStart,               otherwise
@@ -111,13 +111,13 @@ findPathFrom seg1 segments
                                        = 'R', if _eq cmpsegType type1 Vert & loc1 == end2 & loc2 == end1
                                        = 'L', otherwise
         
-patternsUpTo :: num -> [command] -> m_map [command] num
+patternsUpTo :: num -> [command] -> m.map [command] num
 patternsUpTo n commands
-    = foldl (addPatterns commands) m_empty [1 .. n]
+    = foldl (addPatterns commands) m.empty [1 .. n]
       where
         addPatterns commands pats n
             = pats,                                                                 if # commands < n
-            = addPatterns (tl commands) (m_insertWith cmp (+) (take n commands) 1 pats) n, otherwise
+            = addPatterns (tl commands) (m.insertWith cmp (+) (take n commands) 1 pats) n, otherwise
               where
                 cmp = cmplist cmpcommand
 
@@ -183,13 +183,13 @@ day17
     = readProgram "../inputs/day17.input" >>= jitReset .> go
       where
         go t
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 segments        = (findSegments . readView) t
                 intersections   = findIntersections segments
                 bot             = (hd . filter ((_eq cmpsegType Bot) . getSegType)) segments
                 path            = findPathFrom bot segments
-                patterns        = m_keys (patternsUpTo 5 path)
+                patterns        = m.keys (patternsUpTo 5 path)
                 (seq, pats)     = findSequenceAndPatternSet path patterns
                 dust            = runRobot t seq pats
                 mulTuple (x, y) = x * y

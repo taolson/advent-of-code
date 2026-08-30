@@ -1,14 +1,14 @@
 %export day24
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <set>
+%import <io>
+%import <set>           qualified as s
 
 
 gridType ::= Flat | Recursive
 
 point == (int, int)
-grid  == (s_set point)
+grid  == (s.set point)
 
 gridLocations, gridDirections :: [point]
 
@@ -16,7 +16,7 @@ gridLocations = [(x, y) | y,x <- [0 .. 4]]
 gridDirections = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 gridVal :: grid -> point -> num
-gridVal grid loc = 1, if s_member cmppoint loc grid
+gridVal grid loc = 1, if s.member cmppoint loc grid
                  = 0, otherwise
 
 adjacent :: gridType -> grid -> grid -> grid -> point -> [(grid, point)]
@@ -51,11 +51,11 @@ adjacentCount gt grid gridUp gridDn loc
 
 evolveGrid :: gridType -> grid -> grid -> grid -> grid
 evolveGrid gt grid gridUp gridDn
-    = foldl addBug s_empty gridLocations
+    = foldl addBug s.empty gridLocations
       where
-        addBug grid' loc = s_insert cmppoint loc grid',      if evolveBug loc
+        addBug grid' loc = s.insert cmppoint loc grid',      if evolveBug loc
                          = grid',                            otherwise
-        evolveBug loc    = count loc == 1,                   if s_member cmppoint loc grid
+        evolveBug loc    = count loc == 1,                   if s.member cmppoint loc grid
                          = count loc == 1 \/ count loc == 2, otherwise
         count            = adjacentCount gt grid gridUp gridDn
 
@@ -67,11 +67,11 @@ evolve gt grids
         go gs              = []
         padded             = (pad . pad) grids, if _eq cmpgridType gt Recursive
                            = pad grids,         otherwise
-        pad gs             = [s_empty] ++ gs ++ [s_empty]
+        pad gs             = [s.empty] ++ gs ++ [s.empty]
         strip [g]          = [g]
-        strip gs           = strip' (tl gs),    if s_null (hd gs)
+        strip gs           = strip' (tl gs),    if s.null (hd gs)
                            = strip' gs,         otherwise
-        strip' [g]         = [],                if s_null g
+        strip' [g]         = [],                if s.null g
                            = [g],               otherwise
         strip' (g : gs)    = g : strip' gs
         strip' _           = error "evolve: strip []"
@@ -79,10 +79,10 @@ evolve gt grids
 
 firstDuplicate :: [[grid]] -> grid
 firstDuplicate
-    = go s_empty
+    = go s.empty
       where
-        go seen ([g] : gs) = g,                       if s_member cmpgrid g seen
-                           = go (s_insert cmpgrid  g seen) gs, otherwise
+        go seen ([g] : gs) = g,                       if s.member cmpgrid g seen
+                           = go (s.insert cmpgrid  g seen) gs, otherwise
         go _ _             = error "firstDuplicate: bad gridlist"
 
 bioRating :: grid -> num
@@ -95,16 +95,16 @@ readGrid :: string -> io grid
 readGrid fn
     = readFile fn <&> lines <&> go
       where
-        go rows = foldl (converse (s_insert cmppoint)) s_empty [(x, y) | (y, row) <- enumerate rows; (x, c) <- enumerate row; c ==. '#']
+        go rows = foldl (converse (s.insert cmppoint)) s.empty [(x, y) | (y, row) <- enumerate rows; (x, c) <- enumerate row; c ==. '#']
 
 day24 :: io ()
 day24
     = readGrid "../inputs/day24.input" >>= go
       where
         go grid
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 dup   = (firstDuplicate . iterate (evolve Flat)) [grid]
                 rgrid = (hd . drop 200 . iterate (evolve Recursive)) [grid]
                 part1 = (++) "part 1: " . showint . bioRating $ dup
-                part2 = (++) "part 2: " . showint . sum . map s_size $ rgrid
+                part2 = (++) "part 2: " . showint . sum . map s.size $ rgrid

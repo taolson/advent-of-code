@@ -1,15 +1,15 @@
 %export day11
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
+%import <io>
+%import <map>           qualified as m
 %import "intcode"
 
 
 point     == (int, int)
 direction == (int, int)
 
-grid == m_map point int
+grid == m.map point int
 
 left :: direction -> direction
 left (x, y) = (-y, x)
@@ -27,7 +27,7 @@ paintState ::= PaintState jitState! point! point! grid!
 
 paintHull :: program -> int -> grid
 paintHull prog startColor
-    = go (PaintState (jitRun prog [startColor]) (0, 0) (0, 1) m_empty)
+    = go (PaintState (jitRun prog [startColor]) (0, 0) (0, 1) m.empty)
       where
         go (PaintState t loc dir grid)
             = grid',                                                                  if isHalt (jitGetRunState t)
@@ -35,17 +35,17 @@ paintHull prog startColor
               where
                 (color, t') = jitGetOutput t
                 (turn, t'') = jitGetOutput t'
-                grid'       = m_insert cmppoint loc color grid
+                grid'       = m.insert cmppoint loc color grid
                 dir'        = left dir,  if turn == 0
                             = right dir, otherwise 
                 loc'        = move loc dir'
-                color'      = m_findWithDefault cmppoint 0 loc' grid
+                color'      = m.findWithDefault cmppoint 0 loc' grid
         
 printGrid :: grid -> string
 printGrid grid
     = [c | y <- [maxy, maxy - 1 .. miny]; x <- [minx .. maxx]; c <- putColor (x, y)]
       where
-        keys = m_keys grid
+        keys = m.keys grid
         minx = min cmpint (map fst keys)
         miny = min cmpint (map snd keys)
         maxx = max cmpint (map fst keys)
@@ -59,7 +59,7 @@ printGrid grid
             = c ++ "\n", if x == maxx
             = c,         otherwise
               where
-                elt = m_findWithDefault cmppoint 0 (x, y) grid
+                elt = m.findWithDefault cmppoint 0 (x, y) grid
                 c   = charForColor elt
 
 day11 :: io ()
@@ -67,7 +67,7 @@ day11
     = readProgram "../inputs/day11.input" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                part1 = (++) "part 1: " . showint . m_size . paintHull prog $ 0
+                part1 = (++) "part 1: " . showint . m.size . paintHull prog $ 0
                 part2 = (++) "part 2:\n" . printGrid . paintHull prog $ 1

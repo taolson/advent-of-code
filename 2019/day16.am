@@ -1,7 +1,7 @@
 %export day16
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 phase :: [int] -> [int]
@@ -28,7 +28,7 @@ day16 :: io ()
 day16 = readFile "../inputs/day16.input" >>= go
         where
           go input
-              = io_mapM_ putStrLn [part1, part2]
+              = mapM_ putStrLn [part1, part2]
                 where
                   signal = map (intval . (: [])) . filter digit $ input
                   part1  = (++) "part 1: " . concatMap showint . take 8 . hd . drop 100 . iterate phase $ signal
