@@ -4,35 +4,36 @@
 %export day22
 
 %import <base>
-%import <dequeue>
-%import <io>            (>>=)/io_bind
-%import <maybe>
-%import <set>
+%import <dequeue>       as dq           -null
+%import <dequeue>       qualified as dq
+%import <io>
+%import <maybe>                         -(>>=)
+%import <set>           qualified as s
 
 dq_take :: int -> dequeue * -> dequeue *
 dq_take
-    = go dq_empty
+    = go dq.empty
       where
         go r n q
             = r,                if n <= 0
             = go r' (n - 1) q', otherwise
               where
-                (x, q') = fromJust $ dq_viewL q
-                r'      = dq_addR x r
+                (x, q') = fromJust $ dq.viewL q
+                r'      = dq.addR x r
 
 deck == dequeue int
 
 cmpdeck :: deck -> deck -> ordering
-cmpdeck d1 d2 = cmplist cmpint (dq_toList d1) (dq_toList d2)
+cmpdeck d1 d2 = cmplist cmpint (dq.toList d1) (dq.toList d2)
     
 readDeck :: [string] -> (deck, [string])
 readDeck
-    = go dq_empty
+    = go dq.empty
       where
         go deck []      = (deck, [])
         go deck (s : ss)
             = (deck, ss),                         if null s
-            = go (dq_addR (intval s) deck) ss, otherwise
+            = go (dq.addR (intval s) deck) ss, otherwise
 
 readDecks :: [string] -> [deck]
 readDecks
@@ -48,35 +49,35 @@ doRound :: (deck, deck) -> (deck, deck)
 doRound (d1, d2)
     = (d1b, d2b)
       where
-        (t1, d1a) = fromJust $ dq_viewL d1
-        (t2, d2a) = fromJust $ dq_viewL d2
+        (t1, d1a) = fromJust $ dq.viewL d1
+        (t2, d2a) = fromJust $ dq.viewL d2
         win1      = t1 > t2
-        d1b       = dq_addR t2 (dq_addR t1 d1a), if win1
+        d1b       = dq.addR t2 (dq.addR t1 d1a), if win1
                   = d1a,                            otherwise
         d2b       = d2a,                            if win1
-                  = dq_addR t1 (dq_addR t2 d2a), otherwise
+                  = dq.addR t1 (dq.addR t2 d2a), otherwise
 
 play :: (deck, deck) -> deck
 play (d1, d2)
-    = d1,                        if dq_null d2
-    = d2,                        if dq_null d1
+    = d1,                        if dq.null d2
+    = d2,                        if dq.null d1
     = play . doRound $ (d1, d2), otherwise
 
 deckPair == (deck, deck)
-seenSet  == s_set deckPair
+seenSet  == s.set deckPair
 
 doRoundRecursive :: deck -> deck -> (deck, deck)
 doRoundRecursive d1 d2
     = (d1b, d2b)
       where
-        (t1, d1a) = fromJust $ dq_viewL d1
-        (t2, d2a) = fromJust $ dq_viewL d2
-        recD1     = dq_size d1a >= t1
-        recD2     = dq_size d2a >= t2
-        d1b       = dq_addR t2 (dq_addR t1 d1a), if win1
+        (t1, d1a) = fromJust $ dq.viewL d1
+        (t2, d2a) = fromJust $ dq.viewL d2
+        recD1     = dq.size d1a >= t1
+        recD2     = dq.size d2a >= t2
+        d1b       = dq.addR t2 (dq.addR t1 d1a), if win1
                   = d1a,                         otherwise
         d2b       = d2a,                         if win1
-                  = dq_addR t1 (dq_addR t2 d2a), otherwise
+                  = dq.addR t1 (dq.addR t2 d2a), otherwise
 
         win1
             = win',    if recD1 & recD2
@@ -86,26 +87,26 @@ doRoundRecursive d1 d2
     
 playRecursive :: deck -> deck -> (bool, deck, deck)
 playRecursive
-    = go s_empty
+    = go s.empty
       where
         go seen d1 d2
-            = (True,  d1, d2),  if s_member cmpdeckPair (d1, d2) seen
-            = (True,  d1, d2),  if dq_null d2
-            = (False, d1, d2),  if dq_null d1
+            = (True,  d1, d2),  if s.member cmpdeckPair (d1, d2) seen
+            = (True,  d1, d2),  if dq.null d2
+            = (False, d1, d2),  if dq.null d1
             = go seen' d1' d2', otherwise
               where
-                seen'      = s_insert cmpdeckPair (d1, d2) seen
+                seen'      = s.insert cmpdeckPair (d1, d2) seen
                 (d1', d2') = doRoundRecursive d1 d2
 
 computeScore :: deck -> int
-computeScore d = dq_toList d |> reverse |> zipWith (*) [1 .. ] |> sum
+computeScore d = dq.toList d |> reverse |> zipWith (*) [1 .. ] |> sum
 
 day22 :: io ()
 day22
     = readFile "../inputs/day22.txt" >>= lines .> readDecks .> go
       where
         go decks
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 d1              = decks ! 0
                 d2              = decks ! 1

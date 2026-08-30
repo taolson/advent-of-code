@@ -3,12 +3,13 @@
 
 %export day11
 
-%import <avl>
+%import <avl>                           -foldl
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <map>
-%import <maybe>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+
 
 m_mapAccumWithKey f s AVLLeaf = (s, AVLLeaf)
 
@@ -33,7 +34,7 @@ seatType 'L' = Empty
 seatType '#' = Occupied
 seatType _   = error "seatType: bad input"
 
-grid ::= Grid (m_map point seatState) (m_map point [point]) int int
+grid ::= Grid (m.map point seatState) (m.map point [point]) int int
 
 g_seats  = Lens getf overf where getf (Grid a b c d) = a; overf fn (Grid a b c d) = Grid (fn a) b c d
 g_seen   = Lens getf overf where getf (Grid a b c d) = b; overf fn (Grid a b c d) = Grid a (fn b) c d
@@ -46,7 +47,7 @@ showGrid grid
       where
         showRow r   =  map (showCol r) [0 .. view g_maxCol grid] ++ "\n"
         showCol r c
-            = case m_findWithDefault cmppoint Floor (r, c) (view g_seats grid) of
+            = case m.findWithDefault cmppoint Floor (r, c) (view g_seats grid) of
                 Floor    -> '.'
                 Empty    -> 'L'
                 Occupied -> '#'
@@ -55,8 +56,8 @@ addSeen :: grid -> grid
 addSeen grid
     = set g_seen seen grid
       where
-        seen             = foldl addSeen' m_empty . m_keys . view g_seats $ grid
-        addSeen' m p     = m_insert cmppoint p (seenSeats p) m
+        seen             = foldl addSeen' m.empty . m.keys . view g_seats $ grid
+        addSeen' m p     = m.insert cmppoint p (seenSeats p) m
         seenSeats (r, c) = catMaybes . map (findSeat (r, c)) $ [(dr, dc) | dr <- [- 1 .. 1]; dc <- [-1 .. 1]; dr ~=0 \/ dc ~= 0]
 
         findSeat (r, c) (dr, dc)
@@ -67,7 +68,7 @@ addSeen grid
               where
                 r' = r + dr
                 c' = c + dc
-                st = m_findWithDefault cmppoint Floor (r', c') (view g_seats grid)
+                st = m.findWithDefault cmppoint Floor (r', c') (view g_seats grid)
         
 occupiedAdjacent :: grid -> point -> int
 occupiedAdjacent grid
@@ -75,7 +76,7 @@ occupiedAdjacent grid
       where
         seats           = view g_seats grid
         adjacent (r, c) = map getSeat [(r', c') | r' <- [r - 1 .. r + 1]; c' <- [c - 1 .. c + 1]; r' ~= r \/ c' ~= c]
-        getSeat p       = m_findWithDefault cmppoint Floor p seats
+        getSeat p       = m.findWithDefault cmppoint Floor p seats
 
 occupiedSeen :: grid -> point -> int
 occupiedSeen grid
@@ -83,11 +84,11 @@ occupiedSeen grid
       where
         seats     = view g_seats grid
         seen      = view g_seen  grid
-        seen' p   = map getSeat $ m_findWithDefault cmppoint [] p seen
-        getSeat p = m_findWithDefault cmppoint Floor p seats
+        seen' p   = map getSeat $ m.findWithDefault cmppoint [] p seen
+        getSeat p = m.findWithDefault cmppoint Floor p seats
 
 totalOccupied :: grid -> int
-totalOccupied = length . filter (_eq cmpseatState Occupied) . m_elems . view g_seats
+totalOccupied = length . filter (_eq cmpseatState Occupied) . m.elems . view g_seats
 
 doRound1 :: (grid, bool) -> (grid, bool)
 doRound1 (grid, _)
@@ -115,19 +116,19 @@ readGrid fn
         go rows
             = foldl addSeat emptygrid $ gridList
               where
-                emptygrid = Grid m_empty m_empty 0 0
+                emptygrid = Grid m.empty m.empty 0 0
                 gridList  = [(seatType ch, r, c) | (r, row) <- enumerate rows; (c, ch) <- enumerate row]
 
        addSeat grid (Floor, r, c) = grid
        addSeat grid (st,    r, c)
-           = over g_seats (m_insert cmppoint (r, c) st) . over g_maxRow (max2 cmpint r) . over g_maxCol (max2 cmpint c) $ grid
+           = over g_seats (m.insert cmppoint (r, c) st) . over g_maxRow (max2 cmpint r) . over g_maxCol (max2 cmpint c) $ grid
 
 day11 :: io ()
 day11
     = readGrid "../inputs/day11.txt" >>= addSeen .> go
       where
         go grid
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 (grid1, _) = hd . dropWhile snd . iterate doRound1 $ (grid, True)
                 (grid2, _) = hd . dropWhile snd . iterate doRound2 $ (grid, True)

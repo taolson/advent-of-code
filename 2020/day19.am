@@ -4,45 +4,45 @@
 %export day19
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+
 
 sequence ==  [int]
 rule     ::= Lit char | Alts [sequence]
 ruleId   ==  (int, rule)
-ruleMap  ==  m_map int rule
+ruleMap  ==  m.map int rule
 
 emptyRule :: rule
 emptyRule = Alts []
 
 getRule :: int -> ruleMap -> rule
-getRule n rm = m_findWithDefault cmpint emptyRule n rm
+getRule n rm = m.findWithDefault cmpint emptyRule n rm
 
 
 || parsing input
 
-p_sp, p_nl :: parser char
-p_sp = p_char ' '
-p_nl = p_char '\n'
+p_sp, p_nl :: p.parser char
+p_sp = p.char ' '
+p_nl = p.char '\n'
 
-p_sequence :: parser sequence
-p_sequence = p_someSepBy p_sp p_int
+p_sequence :: p.parser sequence
+p_sequence = p.someSepBy p_sp p.int
 
-p_lit, p_alt :: parser rule
-p_lit = p_char '"' >> p_any << p_char '"' p.<&> Lit
-p_alt = p_someSepBy (p_string " | ") p_sequence p.<&> Alts
+p_lit, p_alt :: p.parser rule
+p_lit = p.char '"' p.>> p.any p.<< p.char '"' p.<&> Lit
+p_alt = p.someSepBy (p.string " | ") p_sequence p.<&> Alts
 
-p_ruleId :: parser ruleId
-p_ruleId = p_liftA2 pair (p_int << p_string ": ") (p_alt <|> p_lit)
+p_ruleId :: p.parser ruleId
+p_ruleId = p.liftA2 pair (p.int p.<< p.string ": ") (p_alt p.<|> p_lit)
 
-p_msg :: parser string
-p_msg = p_some p_letter
+p_msg :: p.parser string
+p_msg = p.some p.letter
 
-p_info :: parser ([ruleId], [string])
-p_info = p_liftA2 pair (p_someSepBy p_nl p_ruleId) (p_spaces >> p_someSepBy p_nl p_msg)
+p_info :: p.parser ([ruleId], [string])
+p_info = p.liftA2 pair (p.someSepBy p_nl p_ruleId) (p.spaces p.>> p.someSepBy p_nl p_msg)
 
 
 || rule matching
@@ -81,22 +81,22 @@ matchMsg rm msg
 
 readInfo :: string -> io (ruleMap, [string])
 readInfo fn
-    = readFile fn <&> parse p_info <&> go
+    = readFile fn <&> p.parse p_info <&> go
       where
-        go (mr, ps) = fromMaybef (error (p_error ps)) buildRules mr
+        go (mr, ps) = fromMaybef (error (p.error ps)) buildRules mr
 
-        buildRules (ruleids, msgs) = (foldl addRule m_empty ruleids, msgs)
-        addRule m (n, rule)        = m_insert cmpint n rule m
+        buildRules (ruleids, msgs) = (foldl addRule m.empty ruleids, msgs)
+        addRule m (n, rule)        = m.insert cmpint n rule m
 
 day19 :: io ()
 day19
     = readInfo "../inputs/day19.txt" >>= go
       where
         go (ruleMap, msgs)
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
-                ruleMap'  = m_insert cmpint 8  (Alts [[42], [42, 8]]) ruleMap
-                ruleMap'' = m_insert cmpint 11 (Alts [[42, 31], [42, 11, 31]]) ruleMap'
+                ruleMap'  = m.insert cmpint 8  (Alts [[42], [42, 8]]) ruleMap
+                ruleMap'' = m.insert cmpint 11 (Alts [[42, 31], [42, 11, 31]]) ruleMap'
                 process m = showint . length . filter (not . null) . map (matchMsg m) $ msgs
                 part1     = "part 1: " ++ process ruleMap
                 part2     = "part 2: " ++ process ruleMap''

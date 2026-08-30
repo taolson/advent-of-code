@@ -1,0 +1,100 @@
+|| day07.m
+
+
+%export day07
+
+%import <base>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+
+
+bagColor == (string, string)
+bagID    == int
+colorMap == (m.map bagColor bagID, bagID)
+countMap == m.map bagID int
+bagMap   == m.map bagID bag
+
+bag ::= Bag bagColor [(bagID, int)]
+
+bcolor :: bag -> bagColor
+bcolor (Bag col cont) = col
+
+bcontents :: bag -> [(bagID, int)]
+bcontents (Bag col cont) = cont
+
+p_parsedContent == (bagColor, int)
+p_parsedBag     == (bagColor, [p_parsedContent])
+
+p_color :: p.parser string
+p_color = p.many p.letter
+
+p_bagColor :: p.parser bagColor
+p_bagColor = p.liftA2 pair (p_color p.<< p.spaces) (p_color p.<< p.spaces p.<< p.string "bag" p.<< p.optional (p.char 's'))
+           
+p_content :: p.parser p_parsedContent
+p_content
+    = p.liftA2 makeContents (p.int p.<< p.spaces) p_bagColor
+      where
+        makeContents count color = (color, count)
+
+p_noContents :: p.parser [p_parsedContent]
+p_noContents = (p.pure []) p.<< p.string "no other bags"
+
+p_contents :: p.parser [p_parsedContent]
+p_contents = p_noContents p.<|> p.someSepBy (p.string ", ") p_content
+
+p_bag :: p.parser p_parsedBag
+p_bag = p.liftA2 pair (p_bagColor p.<< p.spaces p.<< p.string "contain" p.<< p.spaces) (p_contents p.<< p.char '.' p.<< p.spaces)
+
+addColor :: colorMap -> bagColor -> (colorMap, bagID)
+addColor cmap color
+    = case m.lookup cmpbagColor color cm of
+        Just id -> (cmap, id)
+        Nothing -> ((m.insert cmpbagColor color nid cm, nid + 1), nid)
+      where
+         (cm, nid) = cmap
+
+makeBagMaps :: [p_parsedBag] -> (colorMap, bagMap)
+makeBagMaps
+    = foldl addBag ((m.empty, 0), m.empty)
+      where
+        addBag (cmap, bmap) (color, contents)
+            = (cmap2, bmap')
+              where
+                (cmap1, id)  = addColor cmap color
+                (cmap2, ids) = mapAccumL addColor cmap1 $ map fst contents
+                bmap'        = m.insert cmpbagID id (Bag color (zip2 ids (map snd contents))) bmap
+
+bagCount :: bagMap -> int -> countMap -> bagID -> (countMap, int)
+bagCount bmap adj cmap bid
+    = case m.lookup cmpbagID bid cmap of
+        Just n  -> (cmap, n)
+        Nothing -> (cmap2, count)   
+      where
+        Just bag        = m.lookup cmpbagID bid bmap
+        (bids, nums)    = unzip2 . bcontents $ bag
+        (cmap1, counts) = mapAccumL (bagCount bmap adj) cmap bids
+        count           = sum (zipWith (*) counts nums) + adj
+        cmap2           = m.insert cmpbagID bid count cmap1
+
+readBags :: string -> io [p_parsedBag]
+readBags fn
+    = readFile fn <&> p.parse (p.many p_bag) <&> go
+      where
+        go (mbags, ps) = fromMaybe (error (p.error ps)) mbags
+
+day07 :: io ()
+day07
+    = readBags "../inputs/day07.txt" >>= go
+      where
+        go bags
+            = mapM_ putStrLn [part1, part2]
+              where
+                ((cmap, _), bmap) = makeBagMaps bags
+                shinyGoldID       = m.findWithDefault cmpbagColor 0 ("shiny", "gold") cmap
+                (countMap, _)     = mapAccumL (bagCount bmap 0) (m.singleton shinyGoldID 1) (m.keys bmap)
+                (_, goldCount)    = bagCount bmap 1 m.empty shinyGoldID
+                part1             = (++) "part 1: " . showint . subtract 1 . length . filter (> 0) . m.elems $ countMap
+                part2             = (++) "part 2: " . showint $ goldCount - 1

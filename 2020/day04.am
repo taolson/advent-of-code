@@ -4,28 +4,29 @@
 %export day04
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>        (<$>)/p_fmap (<<)/p_left (<|>)/p_alt
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+
 
 fieldKey   == string
 fieldValue ::= Valid string | Invalid string
 field      == (fieldKey, fieldValue)
-passport   == m_map fieldKey fieldValue
+passport   == m.map fieldKey fieldValue
 constraint == string -> bool
 
-p_eol, p_sep, p_col :: parser char
-p_eol = p_char '\n'
-p_sep = p_anyOf [' ', '\n']
-p_col = p_char ':'
+p_eol, p_sep, p_col :: p.parser char
+p_eol = p.char '\n'
+p_sep = p.anyOf [' ', '\n']
+p_col = p.char ':'
 
-p_str :: parser string
-p_str = p_some (p_noneOf [' ', '\n', ':'])
+p_str :: p.parser string
+p_str = p.some (p.noneOf [' ', '\n', ':'])
 
-p_field :: string -> constraint -> parser field
+p_field :: string -> constraint -> p.parser field
 p_field k c
-    = p_liftA2 makeField (p_string k << p_col) (p_str << p_sep)
+    = p.liftA2 makeField (p.string k p.<< p_col) (p_str p.<< p_sep)
       where
         makeField k v
             = (k, v')
@@ -64,7 +65,7 @@ eyeColor s = member cmpstring ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"] 
 passportID :: constraint
 passportID s = #s == 9 & all digit s
 
-p_byr, p_iyr, p_eyr, p_hgt, p_hcl, p_ecl, p_pid, p_cid :: parser field
+p_byr, p_iyr, p_eyr, p_hgt, p_hcl, p_ecl, p_pid, p_cid :: p.parser field
 p_byr = p_field "byr" (numBetween 1920 2002)
 p_iyr = p_field "iyr" (numBetween 2010 2020)
 p_eyr = p_field "eyr" (numBetween 2020 2030)
@@ -74,12 +75,12 @@ p_ecl = p_field "ecl" eyeColor
 p_pid = p_field "pid" passportID
 p_cid = p_field "cid" (const True)
 
-p_passportField :: parser field
+p_passportField :: p.parser field
 p_passportField
-    = p_byr <|> p_iyr <|> p_eyr <|> p_hgt <|> p_hcl <|> p_ecl <|> p_pid <|> p_cid
+    = p_byr p.<|> p_iyr p.<|> p_eyr p.<|> p_hgt p.<|> p_hcl p.<|> p_ecl p.<|> p_pid p.<|> p_cid
 
-p_passport :: parser passport
-p_passport = m_fromList cmpfieldKey <$> p_some p_passportField << p_optional p_eol
+p_passport :: p.parser passport
+p_passport = m.fromList cmpfieldKey p.<$> p.some p_passportField p.<< p.optional p_eol
 
 check ::= PresentFields | ValidFields
 
@@ -89,24 +90,24 @@ validate check reqd pass
         PresentFields -> all isPresent reqd
         ValidFields   -> all isValid   reqd
       where
-        isPresent k = m_member cmpfieldKey k pass
+        isPresent k = m.member cmpfieldKey k pass
         isValid k
-            = case m_findWithDefault cmpfieldKey (Invalid "") k pass of
+            = case m.findWithDefault cmpfieldKey (Invalid "") k pass of
                 Valid v   -> True
                 Invalid v -> False
 
 readPassports :: string -> io [passport]
 readPassports fn
-    = readFile fn <&> parse (p_many p_passport) <&> go
+    = readFile fn <&> p.parse (p.many p_passport) <&> go
       where
-        go (mpasses, ps) = fromMaybe (error (p_error ps)) mpasses
+        go (mpasses, ps) = fromMaybe (error (p.error ps)) mpasses
 
 day04 :: io ()
 day04
     = readPassports "../inputs/day04.txt" >>= go
       where
         go passports
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 required = ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"]
                 part1    = (++) "part 1: " . showint $ countValid PresentFields

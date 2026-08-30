@@ -4,9 +4,9 @@
 %export day17
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <maybe>
-%import <set>
+%import <io>
+%import <maybe>                         -(>>=)
+%import <set>           qualified as s
 
 || an N-dimensional coordinate with the dimensions in a list
 coord == [int]
@@ -16,16 +16,16 @@ adjacent :: coord -> [coord]
 adjacent []       = [[]]
 adjacent (x : xs) = [x : xs' | x <- [x, x - 1, x + 1]; xs' <- adjacent xs]
 
-grid == (s_set coord, maybe coord, maybe coord)   || active, min, max
+grid == (s.set coord, maybe coord, maybe coord)   || active, min, max
 
 g_empty :: grid
-g_empty = (s_empty, Nothing, Nothing)
+g_empty = (s.empty, Nothing, Nothing)
 
 g_append :: grid -> coord -> grid
 g_append (active, mina, maxa) c
     = (active', mina', maxa')
       where
-        active' = s_insert cmpcoord c active
+        active' = s.insert cmpcoord c active
         mina'   = merge (min2 cmpint) mina
         maxa'   = merge (max2 cmpint) maxa
 
@@ -39,7 +39,7 @@ adjacentCount :: grid -> coord -> int
 adjacentCount (active, _, _)
     = length . filter isActive . tl . adjacent
       where
-        isActive c = s_member cmpcoord c active
+        isActive c = s.member cmpcoord c active
 
 || all coordinates to scan for a cycle (min - 1 .. max + 1 for each dimension)
 allCoords :: grid -> [coord]
@@ -57,7 +57,7 @@ cycleCoord g c
         go (active, _, _)
             = isActive & (count == 2 \/ count == 3) \/ ~isActive & count == 3
               where
-                isActive = s_member cmpcoord c active
+                isActive = s.member cmpcoord c active
                 count    = adjacentCount g c
 
 cycleGrid :: grid -> grid
@@ -73,11 +73,11 @@ doPart input (part, dim)
       where
         g                      = readGrid dim input
         boot                   = hd . drop 6 . iterate cycleGrid $ g
-        nactive (active, _, _) = s_size active
+        nactive (active, _, _) = s.size active
 
 day17 :: io ()
 day17
     = readFile "../inputs/day17.txt" >>= go
       where
         go input
-            = io_mapM_ (putStrLn . doPart input) $ [(1, 3), (2, 4)]
+            = io.mapM_ (putStrLn . doPart input) $ [(1, 3), (2, 4)]

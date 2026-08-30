@@ -1,0 +1,37 @@
+|| day06.m
+
+
+%export day06
+
+%import <base>                          -group
+%import <io>
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+%import <set>           qualified as s
+
+
+group == [s.set char]
+
+p_eol :: p.parser char
+p_eol = p.char '\n'
+
+p_group :: p.parser group
+p_group = (map (s.fromList cmpchar)) p.<$> p.some (p.some p.letter p.<< p_eol) p.<< p.optional p_eol
+
+readGroups :: string -> io [group]
+readGroups fn
+    = readFile fn <&> p.parse (p.many p_group) <&> go
+      where
+        go (mgroups, ps) = fromMaybe (error (p.error ps)) mgroups
+
+day06 :: io ()
+day06
+    = readGroups "../inputs/day06.txt" >>= go
+      where
+        go groups
+            = mapM_ putStrLn [part1, part2]
+              where
+                anyAnswers = map (foldr1 (s.union cmpchar)) groups
+                allAnswers = map (foldr1 (s.intersect cmpchar)) groups
+                part1      = (++) "part 1: " . showint . sum . map s.size $ anyAnswers
+                part2      = (++) "part 2: " . showint . sum . map s.size $ allAnswers

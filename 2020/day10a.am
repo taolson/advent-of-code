@@ -4,26 +4,24 @@
 %export day10
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
+%import <io>            (>>=)/(io.>>=)
 %import <maybe>
+%import "intMap"
 
 
-intMap == m_map int int
-
-computeMissing :: intMap -> int -> (intMap, int)
+computeMissing :: intMap int -> int -> (intMap int, int)
 computeMissing mmap span
-    = case m_lookup cmpint span mmap of
+    = case im_lookup span mmap of
         Nothing      -> computeMissing (grow mmap) span
         Just missing -> (mmap, missing)
       where
-        n = m_size mmap
-        m = 1 .<<. (n - 3) + sum (m_elems mmap)
+        n = im_size mmap
+        m = 1 .<<. (n - 3) + sum (im_elems mmap)
 
-        grow mmap = m_insert cmpint n m mmap
+        grow mmap = im_insert n m mmap
 
-initMissing :: intMap
-initMissing = m_fromList cmpint [(0,0), (1, 0), (2, 0), (3, 1)]
+initMissing :: intMap int
+initMissing = im_fromList [(0,0), (1, 0), (2, 0), (3, 1)]
 
 validArrangements :: [int] -> int
 validArrangements xs
@@ -35,18 +33,18 @@ validArrangements xs
         (_, miss) = mapAccumL computeMissing initMissing ones
         pow2 n    = 1 .<<. n
 
-joltDistribution :: [int] -> intMap
+joltDistribution :: [int] -> intMap int
 joltDistribution
-    = snd . foldl addDelta (0, m_empty)
+    = snd . foldl addDelta (0, im_empty)
       where
-        addDelta (s, hist) n = (n, m_insertWith cmpint (+) (n - s) 1 hist)
+        addDelta (s, hist) n = (n, im_insertWith (+) (n - s) 1 hist)
 
 day10 :: io ()
 day10
     = readFile "../inputs/day10.txt" >>= lines .> map intval .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
                 target   = max cmpint input + 3
                 adapters = sortBy cmpint (target : input)
@@ -54,4 +52,4 @@ day10
                 part1    = (++) "part 1: " . showint $ getCount 1 * getCount 3
                 part2    = (++) "part 2: " . showint $ validArrangements adapters
 
-                getCount n = m_findWithDefault cmpint 0 n hist
+                getCount n = im_findWithDefault 0 n hist

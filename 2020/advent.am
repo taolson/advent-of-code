@@ -1,5 +1,5 @@
 %import <base>
-%import <io>            (>>)/io_right
+%import <io>
 %import "day01"
 %import "day02"
 %import "day03"
@@ -37,7 +37,7 @@ progs
 
 main :: io ()
 main
-    = io_mapM_ run $ enumerate progs
+    = mapM_ run $ enumerate progs
       where
         run (i, prog)
             = putStrLn ("--- day " ++ showint (i + 1) ++ " ---") >> prog >> putStrLn ""

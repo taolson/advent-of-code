@@ -1,0 +1,115 @@
+|| strict map from int key to value, based upon Patricia Trees
+
+
+%import <base>
+%import <maybe>    (<$>?)/(mb.<$>)
+
+
+intMap * ::= Tempty | Tnode (maybe *) (intMap *) (intMap *)
+
+im_empty :: intMap *
+im_empty = Tempty
+
+im_null :: intMap * -> bool
+im_null Tempty = True
+im_null _      = False
+
+im_singleton :: (int, *) -> intMap *
+im_singleton (k, v) = im_insert k v Tempty
+
+im_size :: intMap * -> int
+im_size Tempty = 0
+im_size (Tnode mv l r) = fromMaybef 0 (const 1) mv + im_size l + im_size r
+
+im_member :: int -> intMap * -> bool
+im_member k Tempty = False
+im_member k (Tnode mv l r)
+    = isJust mv,   if k == 0
+    = im_member k' l, if ke
+    = im_member k' r, otherwise
+      where
+        ke = k .&. 1 == 0
+        k' = k .>>. 1
+
+im_insert :: int -> * -> intMap * -> intMap *
+im_insert 0 v Tempty        = Tnode (Just v) Tempty Tempty
+im_insert 0 v (Tnode _ l r) = Tnode (Just v) l r
+im_insert k v Tempty        = im_insert k v (Tnode Nothing Tempty Tempty)
+im_insert k v (Tnode mv' l r)
+    = case ko of
+        False -> case im_insert k' v l of l' -> Tnode mv' l' r
+        True  -> case im_insert k' v r of r' -> Tnode mv' l r'
+      where
+        ko = k .&. 1 == 1
+        k' = k .>>. 1
+
+im_insertWith :: (* -> * -> *) -> int -> * -> intMap * -> intMap *
+im_insertWith f 0 v Tempty          = Tnode (Just v) Tempty Tempty
+im_insertWith f 0 v (Tnode mv' l r) = Tnode (Just $ fromMaybef v (f v) mv') l r
+im_insertWith f k v Tempty          = im_insertWith f k v (Tnode Nothing Tempty Tempty)
+im_insertWith f k v (Tnode mv' l r)
+    = case ko of
+        False -> case im_insertWith f k' v l of l' -> Tnode mv' l' r
+        True  -> case im_insertWith f k' v r of r' -> Tnode mv' l r'
+      where
+        ko = k .&. 1 == 1
+        k' = k .>>. 1
+
+im_delete :: int -> intMap * -> intMap *
+im_delete k m
+    = fromMaybe m $ go k m
+      where
+        go k Tempty = Nothing
+
+        go k (Tnode mv' l r)
+            = Nothing,                  if k == 0 & isNothing mv'
+            = Just (Tnode Nothing l r), if k == 0
+            = insL <$>? go k' l,        if ke
+            = insR <$>? go k' r,        otherwise
+              where
+                ke      = k .&. 1 == 0
+                k'      = k .>>. 1
+                insL l' = Tnode mv' l' r
+                insR r' = Tnode mv' l r'
+
+im_lookup :: int -> intMap * -> maybe *
+im_lookup k Tempty  = Nothing
+im_lookup k (Tnode mv' l r)
+    = mv', if k == 0
+    = case ko of
+        False -> im_lookup k' l
+        True  -> im_lookup k' r
+      , otherwise
+      where
+        ko = k .&. 1 == 1
+        k' = k .>>. 1
+
+im_findWithDefault :: * -> int -> intMap * -> *
+im_findWithDefault d k m = im_lookup k m |> fromMaybe d
+
+im_elems :: intMap * -> [*]
+im_elems Tempty = []
+im_elems (Tnode mv l r)
+    = case im_elems l of les ->
+      case im_elems r of res ->
+      les ++ fromMaybef [] singleton mv ++ res
+
+im_fromList :: [(int, *)] -> intMap *
+im_fromList xs
+    = foldl ins im_empty xs
+      where
+        ins m (k, v) = im_insert k v m
+
+im_toList :: intMap * -> [(int, *)]
+im_toList t
+    = go 0 t
+      where
+        mkEntry a b = [(a, b)]
+
+        go i Tempty         = []
+        go i (Tnode mv l r) = go (i .<<. 1) l ++ fromMaybef [] (mkEntry i) mv ++ go (i .<<. 1 + 1) r
+
+
+||%import <base>
+||%import <io>
+||main = im_insert 0x1001 "Hello" im_empty |> showintMap showstring |> putStrLn

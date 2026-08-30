@@ -4,11 +4,11 @@
 %export day12
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap 
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+
 
 locDir == (int, int)
 
@@ -35,29 +35,29 @@ initShip2 =  Ship (0, 0) (10, 1)
 
 action ::= Move locDir int | Fwd int | Turn (locDir -> locDir)
 
-p_dir :: parser locDir
+p_dir :: p.parser locDir
 p_dir
-    = (p_pure north << p_char 'N') <|>
-      (p_pure south << p_char 'S') <|>
-      (p_pure east  << p_char 'E') <|>
-      (p_pure west  << p_char 'W')
+    = (p.pure north p.<< p.char 'N') p.<|>
+      (p.pure south p.<< p.char 'S') p.<|>
+      (p.pure east  p.<< p.char 'E') p.<|>
+      (p.pure west  p.<< p.char 'W')
 
-p_turn :: parser action
+p_turn :: p.parser action
 p_turn
-    = p_liftA2 computeTurn (p_char 'L' <|> p_char 'R') (p_string "90" <|> p_string "180" <|> p_string "270")
+    = p.liftA2 computeTurn (p.char 'L' p.<|> p.char 'R') (p.string "90" p.<|> p.string "180" p.<|> p.string "270")
       where
         computeTurn _   "180" = Turn back
         computeTurn 'L' "90"  = Turn left
         computeTurn 'R' "90"  = Turn right
         computeTurn 'L' "270" = Turn right
         computeTurn 'R' "270" = Turn left
-        computeTurn _   _     = error "p_turn bad parse"
+        computeTurn _   _     = error "p.turn bad parse"
 
-p_action :: parser action
+p_action :: p.parser action
 p_action
-    = p_liftA2 Move p_dir p_int     << p_spaces <|>
-      p_char 'F' >> p_int p.<&> Fwd << p_spaces <|>
-      p_turn << p_spaces
+    = p.liftA2 Move p_dir p.int     p.<< p.spaces p.<|>
+      p.char 'F' p.>> p.int p.<&> Fwd p.<< p.spaces p.<|>
+      p_turn p.<< p.spaces
 
 
 moveFn == ship -> locDir -> int -> ship
@@ -81,16 +81,16 @@ distance (x, y) = abs x + abs y
 
 readActions :: string -> io [action]
 readActions fn
-    = readFile fn <&> parse (p_many p_action) <&> go
+    = readFile fn <&> p.parse (p.many p_action) <&> go
       where
-        go (ma, ps) = fromMaybe (error (p_error ps)) ma
+        go (ma, ps) = fromMaybe (error (p.error ps)) ma
 
 day12 :: io ()
 day12
     = readActions "../inputs/day12.txt" >>= go
       where
         go actions
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 ship1 = foldl (doAction moveLoc) initShip1 actions
                 ship2 = foldl (doAction moveTgt) initShip2 actions

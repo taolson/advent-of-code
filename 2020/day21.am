@@ -1,0 +1,107 @@
+|| day21.m
+
+
+%export day21
+
+%import <base> -(***)
+%import <io>
+%import <avl>           as a            -foldr -foldl
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+%import <set>           qualified as s
+
+
+(***), (+++), (---) :: s.set ingredient -> s.set ingredient -> s.set ingredient
+(***) = s.intersect  cmpingredient
+(+++) = s.union      cmpingredient
+(---) = s.difference cmpingredient
+
+m_partition :: ordI * -> (** -> bool) -> m.map * ** -> (m.map * **, m.map * **)
+m_partition cmp p m
+    = (m.fromList cmp as, m.fromList cmp bs)
+      where
+        (as, bs) = partition (p . snd) (m.toList m)
+
+ingredient  == string
+allergen    == string
+food        == (s.set ingredient, s.set allergen)
+allergenMap == m.map ingredient (s.set allergen)
+
+makeAllergenMap :: s.set ingredient -> s.set allergen -> allergenMap
+makeAllergenMap is as = foldr (converse (m.insert cmpingredient) as) m.empty (s.toList is)
+
+collectIngredients :: [food] -> (s.set ingredient, s.set allergen)
+collectIngredients
+    = foldl addFood (s.empty, s.empty)
+      where
+        addFood (si, sa) (si', sa') = (si +++ si', sa +++ sa')
+
+processFood :: s.set ingredient -> allergenMap -> food -> allergenMap
+processFood ais m (is, as)
+    = s.foldl removeAllergens m nis
+      where
+        nis = ais --- is
+
+        removeAllergens m k
+            = m.adjust cmpingredient (--- as) k m
+
+countOccurrences :: [ingredient] -> [food] -> int
+countOccurrences noAllergens foods
+    = foldl count 0 foods
+      where
+        nas = s.fromList cmpingredient noAllergens
+        count n (is, _) = n + s.size (is *** nas)
+
+solveAllergens :: allergenMap -> [(ingredient, allergen)]
+solveAllergens
+    = go []
+      where
+        go solution m
+            = solution,                      if m.null m
+            = go (solution' ++ solution) m2, otherwise
+              where 
+                (sing, m1)             = m_partition cmpingredient ((== 1) . s.size) m
+                singList               = m.toList sing
+                solution'              = map extractSing singList
+                allergens              = foldr (+++) s.empty (map snd singList)
+                m2                     = foldl (removeAllergens allergens) m1 (m.keys m1)
+                extractSing (e, sa)    = (e, s.first sa)
+                removeAllergens as m k = m.adjust cmpingredient (--- as) k m
+
+
+|| Parsing
+
+p_ingredient :: p.parser string
+p_ingredient = p.some p.letter p.<< p.spaces
+
+p_allergens :: p.parser [string]
+p_allergens = p.string "(contains " p.>> (p.someSepBy (p.string ", ") p_ingredient) p.<< p.char ')' p.<< p.spaces
+
+p_food :: p.parser ([string], [string])
+p_food = p.liftA2 pair (p.some p_ingredient) p_allergens p.<< p.spaces
+
+readFoods :: string -> io [food]
+readFoods fn
+    = readFile fn <&> p.parse (p.many p_food) <&> go
+      where
+        go (mfoods, ps) = fromMaybef (error (p.error ps)) (map mkFood) mfoods
+
+       mkFood (il, al) = (s.fromList cmpingredient il, s.fromList cmpingredient al)
+
+day21 :: io ()
+day21
+    = readFoods "../inputs/day21.txt" >>= go
+      where
+        go foods
+            = mapM_ putStrLn [part1, part2]
+              where
+                (ingredients, allergens)    = collectIngredients foods
+                allergenMap                 = makeAllergenMap ingredients allergens
+                allergenMap1                = foldl (processFood ingredients) allergenMap foods
+                (noAllergens, allergenMap2) = m_partition cmpingredient s.null allergenMap1
+                occurrences                 = countOccurrences (m.keys noAllergens) foods
+                dangerousIngrs              = map fst . sortOn cmpingredient snd . solveAllergens $ allergenMap2
+                dangerousList               = intercalate "," dangerousIngrs
+                part1 = "part 1: " ++ showint occurrences
+                part2 = "part 2: " ++ dangerousList

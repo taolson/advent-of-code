@@ -5,13 +5,13 @@
 
 %import <base>
 %import <io>
-%import <maybe>
-%import <vector>
-%import <state>         (>>=)/st_bind (>>)/st_right
+%import <maybe>                 -(>>=) -(>>)
+%import <vector>        as v    -max
+%import <state>         as st
 
 || shorter synonyms for mvector read/write operations
-vrd = v_unsafeRead
-vwr = v_unsafeWrite
+vrd = v.unsafeRead
+vwr = v.unsafeWrite
 
 || map from a number to the following number
 game == mvector int
@@ -27,7 +27,7 @@ doMove (g, maxLbl, x)
         fp2 p1 p2 = vrd g p2 >>= fp3 p1 p2
 
         fp3 p1 p2 p3
-            = st_bind2 (vrd g p3) (vrd g d) (fnx p1 p3 d)
+            = st.bind2 (vrd g p3) (vrd g d) (fnx p1 p3 d)
               where
                 d          = (hd . dropWhile inPicked . tl . iterate dest) x
                 inPicked n = n == p1 \/ n == p2 \/ n == p3
@@ -41,55 +41,55 @@ doMove (g, maxLbl, x)
             = vwr g x  nx     >>
               vwr g p3 gd     >>
               vwr g d  p1     >>
-              st_pure (g, maxLbl, nx)
+              st.pure (g, maxLbl, nx)
 
 doMoves :: int -> gameState -> gameState
 doMoves n gs
-    = st_evalState (go n gs) ()
+    = st.evalState (go n gs) ()
       where
         go n gs
-            = st_pure gs,               if n == 0
+            = st.pure gs,               if n == 0
             = doMove gs >>= go (n - 1), otherwise
 
 makeGame :: string -> gameState
 makeGame s
-    = st_evalState build ()
+    = st.evalState build ()
       where
         ns   = map digitVal s
         ns'  = tl ns ++ [hd ns]
-        g    = v_unsafeThaw (v_rep 10 undef)
+        g    = v.unsafeThaw (v.rep 10 undef)
 
-        build = st_mapM_ (uncurry (vwr g)) (zip2 ns ns') >>
-                st_pure (g, max cmpint ns, hd ns)
+        build = st.mapM_ (uncurry (vwr g)) (zip2 ns ns') >>
+                st.pure (g, max cmpint ns, hd ns)
 
 makeBigGame :: int -> string -> gameState
 makeBigGame sz s
-    = st_evalState build ()
+    = st.evalState build ()
       where
         ns1  = map digitVal s
         ns2  = ns1 ++ [max cmpint ns1 + 1 .. sz]
         ns3  = tl ns2 ++ [hd ns2]
-        g    = v_unsafeThaw (v_rep (sz + 1) undef)
+        g    = v.unsafeThaw (v.rep (sz + 1) undef)
 
-        build = st_mapM_ (uncurry (vwr g)) (zip2 ns2 ns3) >>
-                st_pure (g, sz, hd ns2)
+        build = st.mapM_ (uncurry (vwr g)) (zip2 ns2 ns3) >>
+                st.pure (g, sz, hd ns2)
 
 showGameState :: gameState -> string
 showGameState (g, _, _)
-    = st_execState (vrd g 1 >>= go) []
+    = st.execState (vrd g 1 >>= go) []
       where
-        go 1 = st_pure ()
-        go n = st_modify (++ showint n) >> vrd g n >>= go
+        go 1 = st.pure ()
+        go n = st.modify (++ showint n) >> vrd g n >>= go
 
 starProduct :: gameState -> int
 starProduct (g, _, _)
-    = st_evalState (vrd g 1 >>= go) ()
+    = st.evalState (vrd g 1 >>= go) ()
       where
-        go s1 = st_fmap (* s1) (vrd g s1)
+        go s1 = (st.<$>) (* s1) (vrd g s1)
 
 day23 :: io ()
 day23
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         input = "487912365"
         part1 = (++) "part 1: " . showGameState . doMoves 100 . makeGame $ input

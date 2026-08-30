@@ -4,7 +4,7 @@
 %export day01
 
 %import <base>
-%import <io>                    (>>=)/io_bind
+%import <io>
 
 solve2, solve3 :: [int]  -> int
 solve2 xs = hd [a * b     | a : bs <- tails xs; b <- bs; a + b == 2020]
@@ -19,7 +19,7 @@ day01 :: io ()
 day01
     = readFile "../inputs/day01.txt" >>= (lines .> map intval .> go)
       where
-        output as     = enumerate as |> io_mapM_ format
+        output as     = enumerate as |> mapM_ format
         format (i, s) = putStrLn $ "part " ++ showint i ++ ": " ++ s
         go expenses
             = output [part1, part2]

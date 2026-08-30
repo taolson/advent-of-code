@@ -7,11 +7,11 @@
 %import <maybe>
 %import <base>
 
-(!!!) :: m_map int int -> int -> int
-m !!! i = fromJust (m_lookup cmpint i m)
+(!!!) :: m.map int int -> int -> int
+m !!! i = fromJust (m.lookup cmpint i m)
 
 || map from a number to the following number
-game == m_map int int
+game == m.map int int
 
 || game map, max cup, and current location
 gameState == (game, int, int)
@@ -23,10 +23,10 @@ move (g, maxLbl, x)
         p1 -> case g !!! p1 of
                 p2 -> case g !!! p2 of
                         p3 -> case g !!! p3 of
-                               nx -> case m_insert cmpint x nx g of
+                               nx -> case m.insert cmpint x nx g of
                                        g1 -> case (hd . dropWhile inPicked . tl . iterate dest) x of
-                                               d -> case m_insert cmpint p3 (g !!! d) g1 of
-                                                      g2 -> case m_insert cmpint d p1 g2 of
+                                               d -> case m.insert cmpint p3 (g !!! d) g1 of
+                                                      g2 -> case m.insert cmpint d p1 g2 of
                                                               g3 -> (g3, maxLbl, nx)
                               where
                                 inPicked n = n == p1 \/ n == p2 \/ n == p3
@@ -37,22 +37,22 @@ move (g, maxLbl, x)
 readGame :: string -> gameState
 readGame [] = error "readGame []"
 readGame (fc : cs)
-    = go m_empty fn cs
+    = go m.empty fn cs
       where
         toint c          = intval [c]
         fn               = toint fc
-        go g pn []       = (m_insert cmpint pn fn g, fst (m_last g), fn)
-        go g pn (c : cs) = go (m_insert cmpint pn cn g) cn cs where cn = toint c
+        go g pn []       = (m.insert cmpint pn fn g, fst (m.last g), fn)
+        go g pn (c : cs) = go (m.insert cmpint pn cn g) cn cs where cn = toint c
 
 makeBigGame :: int -> gameState -> gameState
 makeBigGame sz (g, ml, st)
     = case foldl addCup (g, keyForVal st g) [ml + 1 .. sz] of
-        (g', _) -> (m_insert cmpint sz st g', sz, st)
+        (g', _) -> (m.insert cmpint sz st g', sz, st)
       where
-        addCup (g, n) m = case m_insert cmpint n m g of g' -> (g', m)
+        addCup (g, n) m = case m.insert cmpint n m g of g' -> (g', m)
 
         keyForVal x m
-            = go $ m_toList g
+            = go $ m.toList g
               where
                 go [] = -1
                 go ((k, v) : as)

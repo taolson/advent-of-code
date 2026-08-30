@@ -4,9 +4,9 @@
 %export day02
 
 %import <base>
-%import <io>            (>>=.)/io_bind (<&>)/io_rfmap
-%import <maybe>
-%import <parser>        (<<)/p_left
+%import <io>
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
 
 password ::= Password int int char string
 
@@ -23,13 +23,13 @@ valid2 (Password p1 p2 req pass)
         len      = #pass
         valid p  = 0 <= p <= len & pass ! (p - 1) ==. req
 
-p_password :: parser password
+p_password :: p.parser password
 p_password
-    = p_liftA4 Password
-      (p_posint << p_char '-')
-      (p_posint << p_spaces)
-      (p_any << p_char ':' << p_spaces)
-      (p_many p_letter << p_spaces)
+    = p.liftA4 Password
+      (p.posint p.<< p.char '-')
+      (p.posint p.<< p.spaces)
+      (p.any p.<< p.char ':' p.<< p.spaces)
+      (p.many p.letter p.<< p.spaces)
 
 readPasswords :: string -> io [password]
 readPasswords fn
@@ -38,15 +38,15 @@ readPasswords fn
         go input
             = fromMaybe err mps
               where
-                (mps, ps) = parse (p_many p_password) input
-                err       = error (p_error ps)
+                (mps, ps) = p.parse (p.many p_password) input
+                err       = error (p.error ps)
 
 day02 :: io ()
 day02
-    = readPasswords "../inputs/day02.txt" >>=. go
+    = readPasswords "../inputs/day02.txt" >>= go
       where
         go passwords
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . length . filter valid1 $ passwords
                 part2 = (++) "part 2: " . showint . length . filter valid2 $ passwords

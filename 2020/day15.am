@@ -6,8 +6,8 @@
 %import <base>
 %import <io>
 %import <lens>
-%import <vector>
-%import <state> (>>=)/st_bind (<&>)/st_rfmap (<<)/st_left
+%import <vector>        as v    -(<&>)
+%import <state>         as st   -view -over -set
 
 
 game ::= Game int (mvector int) int int
@@ -21,14 +21,14 @@ emptyGame :: int -> game
 emptyGame n
     = Game n spoken 0 0
       where
-        spoken = v_unsafeThaw $ v_rep n 0
+        spoken = v.unsafeThaw $ v.rep n 0
 
 stepGame :: game -> st game
 stepGame (Game rounds spoken age last)
-    = v_unsafeRead spoken last >>= go
+    = v.unsafeRead spoken last >>= go
       where
         go lookup
-            = age' $seq last' $seq st_pure (Game rounds spoken age' last') << v_unsafeWrite spoken last age
+            = age' $seq last' $seq st.pure (Game rounds spoken age' last') << v.unsafeWrite spoken last age
               where
                 age'  = age + 1
                 last' = if' (lookup == 0) 0 (age - lookup)
@@ -37,19 +37,19 @@ initGame :: game -> int -> st game
 initGame game n = stepGame game <&> set g_last n
 
 makeGame :: int -> [int] -> st game
-makeGame n = st_foldM initGame (emptyGame n)
+makeGame n = st.foldM initGame (emptyGame n)
     
 playGame :: game -> st game
 playGame game
-    = st_pure game,               if view g_age game >= view g_rounds game
+    = st.pure game,               if view g_age game >= view g_rounds game
     = stepGame game >>= playGame, otherwise
 
 day15 :: io ()
 day15
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         input = [18,8,0,5,4,1,20]
-        game1 = st_evalState (makeGame 2020       input >>= playGame) ()
-        game2 = st_evalState (makeGame 30_000_000 input >>= playGame) ()
+        game1 = st.evalState (makeGame 2020       input >>= playGame) ()
+        game2 = st.evalState (makeGame 30_000_000 input >>= playGame) ()
         part1 = (++) "part 1: " . showint . view g_last $ game1
         part2 = (++) "part 2: " . showint . view g_last $ game2

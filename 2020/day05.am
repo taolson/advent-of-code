@@ -4,7 +4,7 @@
 %export day05
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 boardingPass == (int, int)
@@ -42,7 +42,7 @@ day05
     = readFile "../inputs/day05.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 seatIDs = map (seatID . readBoardingPass) . lines $ input
                 part1   = (++) "part 1: " . showint . max cmpint  $ seatIDs

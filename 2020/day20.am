@@ -5,14 +5,16 @@
 
 %import <base>
 %import <io>
-%import <io> qualified as IO    (>>=)/io_bind
+%import <io>
 %import <lens>
-%import <map>
-%import <maybe>                 (>>=)/mb_bind
-%import <set>
+%import <map>           qualified as m
+%import <maybe>         as mb           -(>>=)
+%import <maybe>         qualified as mb
+%import <set>           qualified as s
+
 
 (!!!) :: edgeMap -> edge -> [tile]
-m !!! x = fromJust (m_lookup cmpedge x m)
+m !!! x = fromJust (m.lookup cmpedge x m)
 
 || Assume border edges are unique between any 2 tiles, so that a match on a border is unique
 || center : has all 4 borders in common with other tiles
@@ -30,7 +32,7 @@ point == (int, int)
 addPoint :: point -> point -> point
 addPoint (r, c) (r', c') = (r + r', c + c')
 
-field == s_set point
+field == s.set point
 
 || an edge is a bitwise representation of the edge of a tile
 edge  == int
@@ -91,16 +93,16 @@ flipTileV
 
 || edgeMap || Map from edges to tiles that have them in common
 
-edgeMap == m_map edge [tile]
+edgeMap == m.map edge [tile]
 
 findCommonEdges :: [tile] -> edgeMap
 findCommonEdges
-    = foldl addtile m_empty
+    = foldl addtile m.empty
       where
         addtile m t
             = foldl addEdge m (view t_bids t)
               where
-                addEdge m e = m_insertWith cmpint (++) e [t] m
+                addEdge m e = m.insertWith cmpint (++) e [t] m
 
 commonEdgeCount :: edgeMap -> tile -> int
 commonEdgeCount m t = (subtract 4) . sum . map (length . (m !!!)) . view t_bids $ t
@@ -136,10 +138,10 @@ orientCorner m t
 
 findAndOrientRgt :: edgeMap -> tile -> maybe tile
 findAndOrientRgt m t
-    = otherTileForEdge m t stdEdge >>=
-      doRot                        >>=
-      doFlip                       >>=
-      (mb_pure . set t_offset (addPoint (view t_offset t) (0, fieldSize)))
+    = otherTileForEdge m t stdEdge mb.>>=
+      doRot                        mb.>>=
+      doFlip                       mb.>>=
+      (mb.pure . set t_offset (addPoint (view t_offset t) (0, fieldSize)))
       where
         edge     = view o_rgt . view t_orient $ t
         stdEdge  = standardize edge
@@ -148,10 +150,10 @@ findAndOrientRgt m t
 
 findAndOrientBot :: edgeMap -> tile -> maybe tile
 findAndOrientBot m t
-    = otherTileForEdge m t stdEdge >>=
-      doRot                        >>=
-      doFlip                       >>=
-      (mb_pure . set t_offset (addPoint (view t_offset t) (fieldSize, 0)))
+    = otherTileForEdge m t stdEdge mb.>>=
+      doRot                        mb.>>=
+      doFlip                       mb.>>=
+      (mb.pure . set t_offset (addPoint (view t_offset t) (fieldSize, 0)))
       where
         edge     = view o_bot . view t_orient $ t
         stdEdge  = standardize edge
@@ -176,9 +178,9 @@ placeTileRow m t = catMaybes . takeWhile isJust . iterate (findAndOrientRgt m . 
 
 makeField :: [tile] -> field
 makeField
-    = foldl addtile s_empty
+    = foldl addtile s.empty
       where
-        addtile f t = s_union cmppoint f $ s_fmap cmppoint (xform t) (view t_field t)
+        addtile f t = s.union cmppoint f $ (s.<$>) cmppoint (xform t) (view t_field t)
         xform t     = addPoint (view t_offset t) . (view t_transform t)
 
 matchField :: field -> [point] -> int
@@ -186,7 +188,7 @@ matchField f xs
     = 1, if all mem xs
     = 0, otherwise
       where
-        mem p = s_member cmppoint p f
+        mem p = s.member cmppoint p f
 
 scanField :: field -> [point] -> int
 scanField f xs
@@ -211,10 +213,10 @@ addBit e c = (e .<<. 1) + if' (c ==. '#') 1 0
 makeEdge :: string -> edge
 makeEdge = foldl addBit 0
 
-readTileFace :: [string] -> (s_set point, orientation)
+readTileFace :: [string] -> (s.set point, orientation)
 readTileFace [] = error "readTileFace []"
 readTileFace (t : xs)
-    = go s_empty 0 (makeEdge t, addBit 0 . last $ t, 0, addBit 0 . hd $ t) xs
+    = go s.empty 0 (makeEdge t, addBit 0 . last $ t, 0, addBit 0 . hd $ t) xs
       where
         go s row (t, r, _, l) [b] = (s, Orientation t (addBit r . last $ b) (makeEdge b) (addBit l . hd $ b))
         go s row (t, r, b, l) (x : xs)
@@ -222,7 +224,7 @@ readTileFace (t : xs)
               where
                 s'                = foldl addCh s $ enumerate field
                 field             = init . tl $ x
-                addCh s (col, ch) = if' (ch ==. '#') (s_insert cmppoint (row, col) s) s
+                addCh s (col, ch) = if' (ch ==. '#') (s.insert cmppoint (row, col) s) s
         go _ _   _            _   = error "unhandled readTileFace case"
 
 readTile :: [string] -> (tile, [string])
@@ -258,10 +260,10 @@ monster
 
 day20 :: io ()
 day20
-    = readFile "../inputs/day20.txt" IO.>>= go 
+    = readFile "../inputs/day20.txt" >>= go 
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 tiles        = readTiles . lines $ input
                 ceMap        = findCommonEdges tiles
@@ -271,4 +273,4 @@ day20
                 field        = makeField tiles'
                 monsterCount = scanMonsters field monster
                 part1        = (++) "part 1: " . showint . product . map (view t_tid) $ corners
-                part2        = (++) "part 2: " . showint $ (s_size field - monsterCount * #monster)
+                part2        = (++) "part 2: " . showint $ (s.size field - monsterCount * #monster)

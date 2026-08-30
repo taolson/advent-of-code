@@ -4,10 +4,10 @@
 %export day16
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
-%import <parser>        (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <set>
+%import <io>
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+%import <set>           qualified as s
 
 interval == (int, int)
 
@@ -32,26 +32,26 @@ validForField n (Field _ _ interval1 interval2)
     = inInterval n interval1 \/ inInterval n interval2
 
 ticket  == [int]
-vticket == [s_set field]
+vticket == [s.set field]
 
 validateFields :: [field] -> ticket -> vticket
 validateFields fs t
     = map validFields t
       where
-        validFields n = s_fromList cmpfield . filter (validForField n) $ fs
+        validFields n = s.fromList cmpfield . filter (validForField n) $ fs
 
 badFields :: vticket -> ticket -> [int]
 badFields v t
     = catMaybes $ zipWith findEmpty v t
       where
         findEmpty v n 
-            = Just n,  if s_null v
+            = Just n,  if s.null v
             = Nothing, otherwise
 
 mergeFields :: [vticket] -> vticket
 mergeFields ts
     = [],                                                     if null (hd ts)
-    = foldl1 (s_intersect cmpfield) hts : mergeFields tts, otherwise
+    = foldl1 (s.intersect cmpfield) hts : mergeFields tts, otherwise
       where
         hts = map hd ts
         tts = map tl ts        
@@ -67,58 +67,58 @@ findFieldPositions vs
                         vs' = removeField (fst f) vs
 
                         firstSingleton ((v, i) : vs)
-                            = (hd (s_toList v), i), if s_size v == 1
+                            = (hd (s.toList v), i), if s.size v == 1
                             = firstSingleton vs,    otherwise
 
                         firstSingleton _ = undef        || to get rid of compiler warning
 
                         removeField f [] = []
                         removeField f ((v, i) : vs)
-                            = removeField f vs,           if s_null v'
+                            = removeField f vs,           if s.null v'
                             = (v', i) : removeField f vs, otherwise
                               where
-                                v' = s_delete cmpfield f v
+                                v' = s.delete cmpfield f v
 || Parsing
 
-p_nl :: parser char
-p_nl = p_char '\n'
+p_nl :: p.parser char
+p_nl = p.char '\n'
 
-p_interval :: parser interval
-p_interval = p_liftA2 pair p_int (p_char '-' >> p_int)
+p_interval :: p.parser interval
+p_interval = p.liftA2 pair p.int (p.char '-' p.>> p.int)
 
-p_field :: parser field
+p_field :: p.parser field
 p_field
-    = p_liftA3 (Field 0)
-          (p_some (p_letter <|> (p_char ' ')))
-          (p_string ": " >> p_interval)
-          (p_string " or " >> p_interval << p_nl)
+    = p.liftA3 (Field 0)
+          (p.some (p.letter p.<|> (p.char ' ')))
+          (p.string ": " p.>> p_interval)
+          (p.string " or " p.>> p_interval p.<< p_nl)
 
-p_ticket :: parser ticket
-p_ticket = p_intlist << p_nl
+p_ticket :: p.parser ticket
+p_ticket = p.intlist p.<< p_nl
 
-p_inp :: parser ([field], ticket, [ticket])
-p_inp = p_liftA3 triple
-            (p_some p_field << p_nl)
-            (p_string "your ticket:" >> p_nl >> p_ticket << p_nl)
-            (p_string "nearby tickets:" >> p_nl >> p_some p_ticket)
+p_inp :: p.parser ([field], ticket, [ticket])
+p_inp = p.liftA3 triple
+            (p.some p_field p.<< p_nl)
+            (p.string "your ticket:" p.>> p_nl p.>> p_ticket p.<< p_nl)
+            (p.string "nearby tickets:" p.>> p_nl p.>> p.some p_ticket)
 
 readInput :: string -> io ([field], ticket, [ticket])
 readInput fn
-    = readFile fn <&> parse p_inp <&> go
+    = readFile fn <&> p.parse p_inp <&> go
       where
-        go (minp, ps) = fromMaybe (error (p_error ps)) minp
+        go (minp, ps) = fromMaybe (error (p.error ps)) minp
     
 day16 :: io ()
 day16
     = readInput "../inputs/day16.txt" >>= go
       where
         go (fields, myTicket, nearby)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 fields'      = zipWith setFid fields [0 ..]
                 validated    = map (validateFields fields') nearby
                 errRate      = sum . concat . zipWith badFields validated $ nearby
-                validated'   = filter (not . any s_null) validated
+                validated'   = filter (not . any s.null) validated
                 fpos         = findFieldPositions (mergeFields validated')
                 departFields = filter (isPrefixOf cmpchar "departure" . f_name . fst) $ fpos
                 departVals   = map (myTicket !) $ map snd departFields
