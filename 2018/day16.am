@@ -120,10 +120,10 @@ execInst opMap registers inst
         (opcode, _, _, c) = inst
 
 p_digit :: p.parser int
-p_digit = p.posint << p.spaces
+p_digit = p.posint p.<< p.spaces
 
 p_regs :: p.parser registers
-p_regs = p.char '[' >> p.someSepBy (p.string ", ") p.posint p.<&> v.fromList << p.char ']' << p.spaces
+p_regs = p.char '[' p.>> p.someSepBy (p.string ", ") p.posint p.<&> v.fromList p.<< p.char ']' p.<< p.spaces
 
 p_op :: p.parser operation
 p_op = p.liftA4 mkOp p_digit p_digit p_digit p_digit
@@ -131,7 +131,9 @@ p_op = p.liftA4 mkOp p_digit p_digit p_digit p_digit
          mkOp a b c d = (a, b, c, d)
 
 p_sample :: p.parser sample
-p_sample = p.liftA3 Sample (p.string "Before:" >> p.spaces >> p_regs) (p.spaces >> p_op << p.spaces) (p.string "After:" >> p.spaces >> p_regs) << p.spaces
+p_sample = p.liftA3 Sample (p.string "Before:" p.>> p.spaces p.>> p_regs)
+                           (p.spaces p.>> p_op p.<< p.spaces)
+                           (p.string "After:" p.>> p.spaces p.>> p_regs) p.<< p.spaces
 
 input == ([sample], [operation])
 
