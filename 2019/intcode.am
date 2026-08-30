@@ -203,14 +203,14 @@ getDstRel a mem rb = rb + a
 decodedInst
     ::= DAdd opAccess opAccess opAccess                     |
         DOpr (int -> int -> int) opAccess opAccess opAccess |
-        DJt  opAccess opAccess                               |
-        DJf  opAccess opAccess                               |
-        DRbo opAccess                                         |
-        DInp opAccess                                         |
-        DOut opAccess                                         |
-        DHlt                                                   |
-        DIop                                                   |
-        DImo                                                   |
+        DJt  opAccess opAccess                              |
+        DJf  opAccess opAccess                              |
+        DRbo opAccess                                       |
+        DInp opAccess                                       |
+        DOut opAccess                                       |
+        DHlt                                                |
+        DIop                                                |
+        DImo                                                |
         CMrk int
 
 isCMrk :: decodedInst -> bool
