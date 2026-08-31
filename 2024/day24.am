@@ -4,11 +4,10 @@
 %export day24
 
 %import "adventLib"
-%import <map>
-%import <maybe>
-%import <maybe> qualified as mb (<|>)/mb_alt
-%import <set>
-%import <state>
+%import <map>           qualified as m
+%import <maybe>         as mb           -(>>=) -(>>) -(<<)
+%import <set>           qualified as s
+%import <state>         as st
 
 
 op ::= AND | OR | XOR
@@ -21,16 +20,16 @@ makeOp _     = error "makeOp: unknown op"
 
 signal  == string
 gate    == (op, signal, signal, signal) || op, s1, s2, d
-circuit == m_map signal gate            || map from signal to the gate that generates it
-refs    == m_map signal [gate]          || map from signal to the gates that use it
+circuit == m.map signal gate            || map from signal to the gate that generates it
+refs    == m.map signal [gate]          || map from signal to the gates that use it
 input   == (signal, int)
 
-(!!) :: m_map signal * -> signal -> *
-c !! s = fromJust $ m_lookup cmpsignal s c
+(!!) :: m.map signal * -> signal -> *
+c !! s = fromJust $ m.lookup cmpsignal s c
 
 parseNets :: string -> ([input], (circuit, refs))
 parseNets
-    = lines .> break null .> (map mkInput *** (drop 1 .> foldl insCircuit (m_empty, m_empty)))
+    = lines .> break null .> (map mkInput *** (drop 1 .> foldl insCircuit (m.empty, m.empty)))
       where
         err = error "parse error"
 
@@ -47,27 +46,27 @@ parseNets
                     = (circuit', refs')
                       where
                         g        = (makeOp op, s1, s2, d)
-                        circuit' = m_insert cmpsignal d g circuit
+                        circuit' = m.insert cmpsignal d g circuit
                         refs'    = foldl ins refs [s | s <- [s1, s2]]
-                        ins m s  = m_insertWith cmpsignal (++) s [g] m
+                        ins m s  = m.insertWith cmpsignal (++) s [g] m
 
                 go _ = err
 
-evalCache == m_map signal int
+evalCache == m.map signal int
 
 || evaluate the signal in the circuit, memoizing its value in the cache
 eval :: circuit -> signal -> state evalCache int
 eval circuit s
-    = st_get >>= check
+    = st.get >>= check
       where
         check cache
-            = case m_lookup cmpsignal s cache of
+            = case m.lookup cmpsignal s cache of
                   Nothing -> compute (circuit !! s) >>= update
-                  Just v  -> st_pure v
+                  Just v  -> st.pure v
 
-        update v = st_pure v << st_modify (m_insert cmpsignal s v)
+        update v = st.pure v << st.modify (m.insert cmpsignal s v)
 
-        compute (op, s1, s2, _) = st_liftA2 (fnFor op) (eval circuit s1) (eval circuit s2)
+        compute (op, s1, s2, _) = st.liftA2 (fnFor op) (eval circuit s1) (eval circuit s2)
 
         fnFor AND = (.&.)
         fnFor OR  = (.|.)
@@ -117,14 +116,14 @@ isC (OR, _, _, _)  = True
 isC _              = False
 
 || report a gate as being swapped by adding it to the swapped set in the state
-addSwapped :: gate -> state (s_set signal) ()
-addSwapped g = st_modify (dest g |> s_insert cmpstring)
+addSwapped :: gate -> state (s.set signal) ()
+addSwapped g = st.modify (dest g |> s.insert cmpstring)
 
 || walk the circuit up from bit 0, verifying each full adder's connectivity
 || and reporting the gates that have swapped outputs
-verify :: circuit -> refs -> [signal] -> [signal] -> state (s_set signal) (maybe signal)
+verify :: circuit -> refs -> [signal] -> [signal] -> state (s.set signal) (maybe signal)
 verify circuit refs xs zs
-    = zip2 xs zs |> enumerate |> st_foldM go Nothing
+    = zip2 xs zs |> enumerate |> st.foldM go Nothing
       where
         go msc (i, (sx, sz))
             = checkP >>= checkZ >>= checkC >>= checkT >>= checkG >>= genC
@@ -132,8 +131,8 @@ verify circuit refs xs zs
 
                 || check P gate connectivity through to Z
                 checkP
-                    = st_pure rslt,                 if vp
-                    = addSwapped p >> st_pure rslt, otherwise
+                    = st.pure rslt,                 if vp
+                    = addSwapped p >> st.pure rslt, otherwise
                       where
                         pgs  = refs !! sx               || get the P and G gates from the references to sx
                         p    = fromJust $ find isP pgs  || guaranteed to exist, as it can't be swapped
@@ -152,16 +151,16 @@ verify circuit refs xs zs
                       
                 || verify the discovered Z gate is the sz signal
                 checkZ rslt
-                    = st_pure rslt,   if vz
-                    = addSwapped z >> st_pure rslt, otherwise
+                    = st.pure rslt,   if vz
+                    = addSwapped z >> st.pure rslt, otherwise
                       where
                         (_, _, z) = rslt
                         vz        = dest z ==$ sz
 
                 || check C gate connectivity from Z
                 checkC (mp, g, z)
-                    = st_pure rslt,                 if i == 0 \/ vc
-                    = addSwapped c >> st_pure rslt, otherwise
+                    = st.pure rslt,                 if i == 0 \/ vc
+                    = addSwapped c >> st.pure rslt, otherwise
                       where
                         sc = fromJust msc
                         c  = circuit !! sc
@@ -172,27 +171,27 @@ verify circuit refs xs zs
 
                 || check T gate connectivity from P or C, depending upon which we know is not swapped
                 checkT (mp, g, mc)
-                    = st_pure (g, mp),          if i == 0              || T == P in stage 0
+                    = st.pure (g, mp),          if i == 0              || T == P in stage 0
                     = checkFrom (mp mb.<|> mc), otherwise
                       where
-                        checkFrom Nothing = st_pure (g, Nothing)        || both p and c swapped -- can't find T!
+                        checkFrom Nothing = st.pure (g, Nothing)        || both p and c swapped -- can't find T!
                         checkFrom (Just x)
-                            = st_pure rslt,                 if vt
-                            = addSwapped t >> st_pure rslt, otherwise
+                            = st.pure rslt,                 if vt
+                            = addSwapped t >> st.pure rslt, otherwise
                               where
                                 mt   = find isT $ refs !! dest x
                                 t    = fromJust mt
-                                mtrs = m_lookup cmpsignal (dest t) refs || dest t could be an output not in the refs!
+                                mtrs = m.lookup cmpsignal (dest t) refs || dest t could be an output not in the refs!
                                 trs  = fromJust  mtrs
                                 vt   = isNothing mt \/ isJust mtrs & isJust (find isC $ trs)
                                 rslt = (g, mt)
 
                 || check G gate connectivity to a C gate
                 checkG (g, mt)
-                    = st_pure (Just g, mt),                  if vg
-                    = addSwapped g >> st_pure (Nothing, mt), otherwise
+                    = st.pure (Just g, mt),                  if vg
+                    = addSwapped g >> st.pure (Nothing, mt), otherwise
                       where
-                        mcrs = m_lookup cmpsignal (dest g) refs
+                        mcrs = m.lookup cmpsignal (dest g) refs
                         crs  = fromJust  mcrs
                         vg   = i == 0 \/ isJust mcrs & isJust (find isC crs)
 
@@ -200,11 +199,11 @@ verify circuit refs xs zs
                 genC (mg, mt)
                     = genFrom (mg mb.<|> mt)
                       where
-                        genFrom Nothing  = st_pure Nothing
+                        genFrom Nothing  = st.pure Nothing
                         genFrom (Just x)
-                            = st_pure (Just $ dest x), if i == 0
-                            = st_pure (Just $ dest c), if isJust mc
-                            = st_pure Nothing,         otherwise
+                            = st.pure (Just $ dest x), if i == 0
+                            = st.pure (Just $ dest c), if isJust mc
+                            = st.pure Nothing,         otherwise
                               where
                                 mc = find isC $ refs !! dest x
                                 c  = fromJust mc
@@ -216,8 +215,8 @@ day24
         go (inputs, (circuit, refs))
             = output [part1, part2]
               where
-                zs    = m_keys circuit |> filter (hd .> (==. 'z'))
-                xs    = m_keys refs    |> filter (hd .> (==. 'x'))
-                cache = m_fromList cmpsignal inputs
-                part1 = st_evalState (st_mapM (eval circuit) zs) cache |> binval |> showint
-                part2 = st_execState (verify circuit refs xs zs) s_empty |> s_toList |> intercalate ","
+                zs    = m.keys circuit |> filter (hd .> (==. 'z'))
+                xs    = m.keys refs    |> filter (hd .> (==. 'x'))
+                cache = m.fromList cmpsignal inputs
+                part1 = st.evalState (st.mapM (eval circuit) zs) cache |> binval |> showint
+                part2 = st.execState (verify circuit refs xs zs) s.empty |> s.toList |> intercalate ","

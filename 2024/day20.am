@@ -4,11 +4,10 @@
 %export day20
 
 %import "adventLib"
-%import <maybe>
-%import <maybe> qualified as mb (<&>)/mb_rfmap (<|>)/mb_alt
-%import <set>
-%import <v2>                    (|+|)/v2_add
-%import <vector>
+%import <maybe>         as mb           -(>>=)
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -foldr -foldl (|+|)/add
+%import <vector>        as v            -foldr -foldl -sortBy
 
 
 pos == v2 int
@@ -27,7 +26,7 @@ makeMazeInfo s
       where
         rows  = lines s
         width = #(hd rows)
-        vm    = concat rows |> v_fromList
+        vm    = concat rows |> v.fromList
         info  = [(V2 r c, x) | (r, row) <- enumerate rows; (c, x) <- enumerate row; letter x]
 
         [(end, _), (start, _)] = sortBy (comparing cmpchar snd) info
@@ -36,14 +35,14 @@ makeMazeInfo s
 || this can just be a simple DFS, since there is only one path through this maze
 mazePath :: mazeInfo -> path
 mazePath (vm, width, start, end)
-    = dfs s_empty start |> fromJust |> v_fromList
+    = dfs s.empty start |> fromJust |> v.fromList
       where
         dfs seen p
             = Just [end],                if _eq cmppos p end
-            = Nothing,                   if s_member cmppos p seen
+            = Nothing,                   if s.member cmppos p seen
             = foldr tryNext Nothing exp, otherwise
               where
-                seen' = s_insert cmppos p seen
+                seen' = s.insert cmppos p seen
                 exp   = [p' | d <- dirs; p' <- [p |+| d]; _ne cmppos p' p; mazeAt p' ~=. '#']
 
                 mazeAt (V2 r c) = vm !! (r * width + c)
@@ -58,17 +57,17 @@ findCheats :: path -> int -> (int, int) -> (int, int)
 findCheats path save (ta, tb)
     = foldl go1 (0, 0) [0 .. end]
       where
-        end = v_length path - 1
+        end = v.length path - 1
         
         go1 cheats i
             = foldl go2 cheats [i + save .. end]        || start looking save steps ahead on the path
               where
-                p1 = v_unsafeIndex path i               || p1 is the starting point for our possible cheat
+                p1 = v.unsafeIndex path i               || p1 is the starting point for our possible cheat
                 go2 cheats j
                     = addCheat cheats
                       where
-                        p2 = v_unsafeIndex path j       || p2 is the ending point for our possible cheat
-                        dm = v2_dist p1 p2              || dm is the manhattan distance of the possible cheat
+                        p2 = v.unsafeIndex path j       || p2 is the ending point for our possible cheat
+                        dm = v2.dist p1 p2              || dm is the manhattan distance of the possible cheat
                         dp = j - i                      || dp is the path distance of the possible cheat
 
                         || uses strict addition to prevent space leaks 

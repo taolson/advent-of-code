@@ -36,7 +36,7 @@ progs
 
 main :: io ()
 main
-    = enumerate progs |> io_mapM_ run
+    = enumerate progs |> mapM_ run
       where
         run (i, prog)
             = putStrLn ("--- day " ++ showint (i + 1) ++ " ---") >> prog >> putStrLn ""

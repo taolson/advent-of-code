@@ -4,10 +4,10 @@
 %export day19
 
 %import "adventLib"
-%import <map>
-%import <maybe>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 %import <memo>
-%import <state>
+%import <state>         as st
 
 
 || find the number of ways we can make a pattern from the given towels
@@ -15,9 +15,9 @@ waysToMakePattern :: [string] -> string -> memoSt string int
 waysToMakePattern ts
     = memo ways
       where
-        ways [] = st_pure 1
+        ways [] = st.pure 1
         ways p
-            = st_mapM (waysToMakePattern ts) prefixes <&> sum
+            = st.mapM (waysToMakePattern ts) prefixes <&> sum
               where
                 prefixes    = map tryPrefix ts |> catMaybes
                 tryPrefix t = stripPrefix cmpchar t p
@@ -36,6 +36,6 @@ day19
         go (ts, ps)
             = output [part1, part2]
               where
-                nways = st_evalState (st_mapM (waysToMakePattern ts) ps) (cmpstring, m_empty)
+                nways = st.evalState (st.mapM (waysToMakePattern ts) ps) (cmpstring, m.empty)
                 part1 = count (~= 0) nways |> showint
                 part2 = sum          nways |> showint

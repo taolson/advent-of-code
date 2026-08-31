@@ -8,8 +8,8 @@
 %export day22
 
 %import "adventLib"
-%import <vector>
-%import <state>
+%import <vector>        as v    -sum
+%import <state>         as st
 
 prand :: int -> int
 prand n
@@ -36,17 +36,17 @@ windowDeltasHash
 
 tallySequences :: mvector int -> mvector bool -> int -> st ()
 tallySequences globalTally localTally n
-    = v_fill localTally False >> st_mapM_ tally genSequences
+    = v.fill localTally False >> st.mapM_ tally genSequences
       where
          genSequences = iterate prand n |> windowDeltasHash |> take 2001
 
          || check the localTally for a sequence hash; if it doesn't exist, update the globalTally with it's value and
          || mark in the localTally as seen
          tally (k, v)
-             = v_unsafeRead localTally k >>= check
+             = v.unsafeRead localTally k >>= check
                where
-                 check False = v_unsafeWrite localTally k True >> v_unsafeModify globalTally (+ v) k
-                 check True  = st_pure ()
+                 check False = v.unsafeWrite localTally k True >> v.unsafeModify globalTally (+ v) k
+                 check True  = st.pure ()
 
 day22 :: io ()
 day22
@@ -56,8 +56,8 @@ day22
             = output [part1, part2]
               where
                 maxHash     = 20 * 20 * 20 * 20   || four (-9 .. 9) delta values
-                globalTally = v_rep maxHash 0     |> v_unsafeThaw
-                localTally  = v_rep maxHash False |> v_unsafeThaw
+                globalTally = v.rep maxHash 0     |> v.unsafeThaw
+                localTally  = v.rep maxHash False |> v.unsafeThaw
                 part1       = ns |> map (iterate prand .> (! 2000)) |> sum |> showint
-                part2       = st_evalState doTally () |> v_max cmpint |> showint
-                doTally     = st_mapM_ (tallySequences globalTally localTally) ns >> v_unsafeFreeze globalTally
+                part2       = st.evalState doTally () |> v.max cmpint |> showint
+                doTally     = st.mapM_ (tallySequences globalTally localTally) ns >> v.unsafeFreeze globalTally

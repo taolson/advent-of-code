@@ -4,11 +4,11 @@
 %export day11
 
 %import "adventLib"
-%import <bag>
+%import <bag>           qualified as b
 
 
 stone   == int
-stoneSt == b_bag stone
+stoneSt == b.bag stone
 
 transform :: stone -> [stone]
 transform n
@@ -21,15 +21,15 @@ transform n
         toStone (a, b) = map intval [a, b]
 
 blink :: stoneSt -> stoneSt
-blink st = b_fromCountList cmpint [(s', n) | (s, n) <- b_toList st; s' <- transform s]
+blink st = b.fromCountList cmpint [(s', n) | (s, n) <- b.toList st; s' <- transform s]
 
 day11 :: io ()
 day11
-    = readFile "../inputs/day11.txt" >>= words .> map intval .> b_fromList cmpint .> go
+    = readFile "../inputs/day11.txt" >>= words .> map intval .> b.fromList cmpint .> go
       where
         go stoneSt
             = output [part1, part2]
               where
-                process n = iterate blink stoneSt ! n |> b_elems |> sum |> showint
+                process n = iterate blink stoneSt ! n |> b.elems |> sum |> showint
                 part1     = process 25
                 part2     = process 75

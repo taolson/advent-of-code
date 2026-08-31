@@ -4,11 +4,11 @@
 %export day15
 
 %import "adventLib"
-%import <map>
-%import <maybe>
-%import <maybeState>
-%import <maybeState> qualified as ms    (>>=)/mst_bind (<<)/mst_left (>>)/mst_right (<|>)/mst_alt
-%import <v2>                            (|+|)/v2_add
+%import <map>           qualified as m
+%import <maybe>                         -(>>=)
+%import <maybeState>    as mst          -(>>=)
+%import <maybeState>    qualified as mst
+%import <v2>                            -(>>=) -foldl -sum (|+|)/add
 
 pos == v2 int
 dir == v2 int
@@ -42,52 +42,52 @@ isGpsBox BoxL = True               || only the left portion of a box participate
 isGpsBox _    = False
 
 
-grid     == m_map pos gridElem
+grid     == m.map pos gridElem
 gridInfo == (grid, pos)
 
 || push e in dir d from pos p, returning new pos or Nothing if fail
 push :: gridElem -> pos -> dir -> maybeState grid pos
 push e p d
-    = mst_get ms.>>= (m_findWithDefault cmppos Empty p' .> go)
+    = mst.get mst.>>= (m.findWithDefault cmppos Empty p' .> go)
       where
         p' = p  |+| d
         pL = p' |+| V2 0 (-1)
         pR = p' |+| V2 0 1
 
         go Empty = update e p'
-        go Wall  = mst_fail
+        go Wall  = mst.fail
         go b     = pushDouble b,                if isVert d & isDoubleBox b
-                 = push b p' d ms.>> update e p', otherwise
+                 = push b p' d mst.>> update e p', otherwise
 
-        pushDouble BoxL = push BoxL p' d ms.>> push BoxR pR d ms.>> update2 e p' pR         || push BoxL and the associated BoxR on its right
-        pushDouble BoxR = push BoxR p' d ms.>> push BoxL pL d ms.>> update2 e p' pL         || push BoxR and the associated BoxL on its left
+        pushDouble BoxL = push BoxL p' d mst.>> push BoxR pR d mst.>> update2 e p' pR         || push BoxL and the associated BoxR on its right
+        pushDouble BoxR = push BoxR p' d mst.>> push BoxL pL d mst.>> update2 e p' pL         || push BoxR and the associated BoxL on its left
         pushDouble _    = undef || added to remove compiler warning
 
-        update Empty p = mst_pure p ms.<< mst_modify (m_delete cmppos p)
-        update e     p = mst_pure p ms.<< mst_modify (m_insert cmppos p e)
+        update Empty p = mst.pure p mst.<< mst.modify (m.delete cmppos p)
+        update e     p = mst.pure p mst.<< mst.modify (m.insert cmppos p e)
 
-        update2 Empty p1 p2 = mst_pure p1 ms.<< mst_modify (m_delete cmppos p1 . m_delete cmppos p2)
-        update2 BoxL  p1 p2 = mst_pure p1 ms.<< mst_modify (m_insert cmppos p1 BoxL . m_delete cmppos p2)
-        update2 BoxR  p1 p2 = mst_pure p1 ms.<< mst_modify (m_insert cmppos p1 BoxR . m_delete cmppos p2)
+        update2 Empty p1 p2 = mst.pure p1 mst.<< mst.modify (m.delete cmppos p1 . m.delete cmppos p2)
+        update2 BoxL  p1 p2 = mst.pure p1 mst.<< mst.modify (m.insert cmppos p1 BoxL . m.delete cmppos p2)
+        update2 BoxR  p1 p2 = mst.pure p1 mst.<< mst.modify (m.insert cmppos p1 BoxR . m.delete cmppos p2)
         update2 _     _  _  = undef     || added to remove compiler warning
 
 || robot push from pos in direction dir or return same p and state if fail
 move :: pos -> dir -> maybeState grid pos
-move p d = push Empty p d ms.<|> mst_pure p
+move p d = push Empty p d mst.<|> mst.pure p
 
 execRobot :: [dir] -> gridInfo -> grid
-execRobot ds (g, p) = mst_execState (mst_foldM move p ds) g
+execRobot ds (g, p) = mst.execState (mst.foldM move p ds) g
 
 makeGridInfo :: [string] -> gridInfo
 makeGridInfo rows
-    = foldl insGrid (m_empty, v2_pure 0) xs
+    = foldl insGrid (m.empty, v2.pure 0) xs
       where
         xs = [(V2 r c, e) | (r, row) <- enumerate rows; (c, e) <- enumerate row; e ~=. '.']
         
         insGrid (g, r) (p, c)
             = go c
               where
-                ins e = (m_insert cmppos p e g, r)
+                ins e = (m.insert cmppos p e g, r)
 
                 go '#' = ins Wall
                 go 'O' = ins Box
@@ -99,7 +99,7 @@ expandGridInfo :: gridInfo -> gridInfo
 expandGridInfo (g, (V2 r c))
     = (g', V2 r (c * 2))
       where
-        g' = m_toList g |> concatMap expand |> m_fromList cmppos
+        g' = m.toList g |> concatMap expand |> m.fromList cmppos
 
         expandElem Box = (BoxL, BoxR)
         expandElem e   = (e, e)
@@ -126,6 +126,6 @@ day15
         go (gi, moves)
             = output [part1, part2]
               where
-                process = execRobot moves .> m_toList .> filter (snd .> isGpsBox) .> map (fst .> gpsCoord) .> sum .> showint
+                process = execRobot moves .> m.toList .> filter (snd .> isGpsBox) .> map (fst .> gpsCoord) .> sum .> showint
                 part1   = process gi
                 part2   = expandGridInfo gi |> process

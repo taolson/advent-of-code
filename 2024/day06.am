@@ -4,14 +4,14 @@
 %export day06
 
 %import "adventLib"
-%import <map>
-%import <maybe>
-%import <set>
-%import <v2>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=)
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -foldl
 
 
 pos      == v2 int
-obsSet   == s_set pos
+obsSet   == s.set pos
 gridInfo == (obsSet, pos, pos) || obsSet, grid limits, guard pos
 
 makeGridInfo :: string -> gridInfo
@@ -21,9 +21,9 @@ makeGridInfo input
         rows  = lines input
         nrows = #rows
         ncols = #hd rows
-        (os, gp) = foldl addInfo (s_empty, V2 0 0) [(V2 r c, x) | (r, row) <- enumerate rows; (c, x) <- enumerate row; x ~=. '.']
+        (os, gp) = foldl addInfo (s.empty, V2 0 0) [(V2 r c, x) | (r, row) <- enumerate rows; (c, x) <- enumerate row; x ~=. '.']
 
-        addInfo (s, gp) (p, '#') = (s_insert cmppos p s, gp)
+        addInfo (s, gp) (p, '#') = (s.insert cmppos p s, gp)
         addInfo (s, gp) (p, '^') = (s, p)
         addInfo sgp     _        = sgp
 
@@ -51,7 +51,7 @@ turnRight d
 
 posdir  == (pos, dir)
 path    == [posdir]
-jumpMap == m_map posdir posdir
+jumpMap == m.map posdir posdir
 
 || can the guard possibly hit a given obstruction?
 canHit :: posdir -> pos -> bool
@@ -70,7 +70,7 @@ guardPath (os, (V2 mr mc), gp)
         onGrid (V2 r c) = 0 <= r < mr & 0 <= c < mc
 
         move (p, d)
-            = (p, d'), if s_member cmppos p' os        || hit an obstruction; turn right (Note: don't step, because there could be another obstruction)
+            = (p, d'), if s.member cmppos p' os        || hit an obstruction; turn right (Note: don't step, because there could be another obstruction)
             = (p', d), otherwise                       || continue in same direction
               where
                 p' = step d p
@@ -80,11 +80,11 @@ guardPath (os, (V2 mr mc), gp)
 || build a map that can quickly jump from one obstruction to the next,
 || bypassing all the stepping in between
 makeJumpMap :: path -> jumpMap
-makeJumpMap [] = m_empty
+makeJumpMap [] = m.empty
 makeJumpMap (x : xs)
-    = go m_empty x xs
+    = go m.empty x xs
       where
-        go jm a [b] = m_insert cmpposdir a b jm         || final step to off-grid
+        go jm a [b] = m.insert cmpposdir a b jm         || final step to off-grid
         go jm a (b : xs)
             = check a b
               where
@@ -92,13 +92,13 @@ makeJumpMap (x : xs)
                     = go jm  a xs,  if _eq cmpdir d d'  || same direction; keep checking
                     = go jm' b xs, otherwise            || hit an obstruction; insert into jumpMap
                       where
-                        jm' = m_insert cmpposdir a b jm
+                        jm' = m.insert cmpposdir a b jm
 
         go _ _ _ = undef        || added to remove compiler warning
 
 || find all unique positions in the path
 uniquePos :: path -> [pos]
-uniquePos = map fst .> s_fromList cmppos .> s_toList
+uniquePos = map fst .> s.fromList cmppos .> s.toList
 
 || place an obstacle into the grid and check if it creates a loop in the path
 || by looking for a duplicate position with the same direction in the path
@@ -116,12 +116,12 @@ makesLoop (os, V2 mr mc, gp) jm op
             = quickPath $ fromJust mpd, if ~canHit pd op & isJust mpd
             = stepPath pd,              otherwise
               where
-                mpd = m_lookup cmpposdir pd jm
+                mpd = m.lookup cmpposdir pd jm
 
         || step along path if we canHit new obstruction or are on a new path not cached in the jumpMap
         stepPath (p, d)
             = [],                                  if ~onGrid p
-            = (p, d) : quickPath (p, turnRight d), if _eq cmppos p' op \/ s_member cmppos p' os
+            = (p, d) : quickPath (p, turnRight d), if _eq cmppos p' op \/ s.member cmppos p' os
             = (p, d) : stepPath (p', d),           otherwise
               where
                 p' = step d p

@@ -1,0 +1,73 @@
+|| day03 -- Mull It Over
+
+
+%export day03
+
+%import "adventLib"
+%import <maybe>                 -(>>=)
+%import <parser> qualified as p
+
+
+insn ::= Mul int int | Do | Dont
+
+isMul :: insn -> bool
+isMul (Mul _ _) = True
+isMul _         = False
+
+program == [insn]
+
+|| parse from lo to hi occurrences of p
+p_range :: int -> int -> p.parser * -> p.parser [*]
+p_range lo hi p
+    = go 0
+      where
+        go n = p_next,                 if n < lo || don't have required minimum, yet
+             = p.pure [] ,             if n > hi || finished
+             = p_next p.<|> p.pure [], otherwise || have required amount; continue or terminate
+               where
+                 p_next = p $p.cons go (n + 1)
+
+|| p.parse a number from 1 to 3 digits long
+|| Note: this turned out to be overkill; the input didn't
+|| contain any occurrences of numbers with > 3 digits.
+|| However, i'll leave it as it doesn't alter the performance,
+|| and may be useful in the future.
+p_num :: p.parser int
+p_num = p_range 1 3 p.digit p.<&> intval
+
+p_mul, p_dont, p_do, p_insn :: p.parser insn
+p_mul  = p.liftA2 Mul  (p.string "mul(" p.>> p_num) (p.comma p.>> p_num) p.<< p.char ')'
+p_do   = p.pure   Do   p.<< p.string "do()"
+p_dont = p.pure   Dont p.<< p.string "don't()"
+p_insn = p_mul p.<|> p_do p.<|> p_dont
+
+p_program :: p.parser program
+p_program
+    = p_insn $p.cons p_program   p.<|>   || try an insn
+      p.any p.>> p_program       p.<|>   || or skip a character
+      p.pure []                          || or end of input
+
+parseProgram:: string -> program
+parseProgram input
+    = fromMaybe err mprog
+        where
+          (mprog, ps) = p.parse p_program input
+          err         = error (p.error ps)
+
+exec :: program -> int
+exec
+    = foldl go (Do, 0) .> snd
+      where
+        go (Do, n) (Mul a b) = (Do, n + a * b)
+        go (_, n)  cmd       = (cmd, n), if ~isMul cmd
+        go s       _         = s   
+
+day03 :: io ()
+day03
+    = readFile "../inputs/day03.txt" >>= parseProgram .> go
+      where
+        go prog
+            = output [part1, part2]
+              where
+                part1 = filter isMul prog |> exec |> showint
+                part2 = exec prog |> showint

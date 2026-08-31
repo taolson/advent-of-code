@@ -4,24 +4,24 @@
 %export day08
 
 %import "adventLib"
-%import <map>
-%import <set>
-%import <v2>            (|+|)/v2_add (|-|)/v2_sub
+%import <map>           qualified as m
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -foldl (|+|)/add (|-|)/sub
 
 pos        == v2 int
-antMap     == m_map char [pos]
+antMap     == m.map char [pos]
 antMapInfo == (antMap, pos)     || map, limit
 
 makeAntennaInfo :: string -> antMapInfo
 makeAntennaInfo s
-    = (foldl ins m_empty ants, V2 nrows ncols)
+    = (foldl ins m.empty ants, V2 nrows ncols)
       where
         rows  = lines s
         nrows = #rows
         ncols = #hd rows
         ants  = [(a, V2 r c) | (r, row) <- enumerate rows; (c, a) <- enumerate row; a ~=. '.']
 
-        ins m (a, p) = m_insertWith cmpchar (++) a [p] m
+        ins m (a, p) = m.insertWith cmpchar (++) a [p] m
 
 onGrid :: pos -> pos -> bool
 onGrid (V2 mr mc) (V2 r c) = 0 <= r < mr & 0 <= c < mc
@@ -46,9 +46,9 @@ resonantNodes lim a b
 
 uniqueNodes :: antMapInfo -> (pos -> pos -> pos -> [pos]) -> int
 uniqueNodes (amap, lim) genNodes
-    = s_fromList cmppos ns |> s_size
+    = s.fromList cmppos ns |> s.size
       where
-        ns = [n | xs <- m_elems amap; (a, b) <- allPairs xs; n <- genNodes lim a b]
+        ns = [n | xs <- m.elems amap; (a, b) <- allPairs xs; n <- genNodes lim a b]
 
 day08 :: io ()
 day08

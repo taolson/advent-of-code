@@ -5,8 +5,8 @@
 
 %import "adventLib"
 %import <lens>
-%import <maybe>
-%import <v2>            (|+|)/v2_add
+%import <maybe>                 -(>>=)
+%import <v2>                    -(>>=) -div -mod -sum (|+|)/add
 
 xy   == v2 int
 game == (xy, xy, xy)
@@ -22,7 +22,7 @@ parseGames
         mkGame _         = error "parse error"
 
 adjustPrize :: game -> game
-adjustPrize g = overTup3_2 (|+| v2_pure 10_000_000_000_000) g
+adjustPrize g = overTup3_2 (|+| v2.pure 10_000_000_000_000) g
 
 || solve for positive integer solutions to 2 simultaneous eqns
 || there is at most 1 positive integer soln for each problem in the set

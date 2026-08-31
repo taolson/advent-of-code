@@ -1,0 +1,15 @@
+|| advent library
+
+
+%export + <io> <base>
+
+%import <base>
+%import <io>
+%import <state>
+
+
+format :: (int, string) -> string
+format (i, s) = "part " ++ showint i ++ ": " ++ s
+
+output :: [string] -> io ()
+output rs = zip2 [1 ..] rs |> mapM_ (format .> putStrLn)

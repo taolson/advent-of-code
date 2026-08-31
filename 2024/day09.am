@@ -5,9 +5,9 @@
 %export day09
 
 %import "adventLib"
-%import <maybe>
-%import <heap>
-%import <vector>
+%import <maybe>                 -(>>=)
+%import <heap>          as h
+%import <vector>        as v    -foldl -sum
  
 dirent ::= File int int | Free int
 pos == int
@@ -53,14 +53,14 @@ makeFreeHeaps :: [spn] -> vector (heap spn)
 makeFreeHeaps
     = foldl ins v
       where
-        v = v_rep 10 h_empty
+        v = v.rep 10 h.empty
 
         ins v s
             = v // [(i, h')]
               where
                 (_, Free i) = s
                 h = v !! i
-                h' = h_insert cmpspn s h
+                h' = h.insert cmpspn s h
 
 || compact the files using the freeList, moving each file to the earliest Free list entry that can
 || hold it, or leave it in place
@@ -72,7 +72,7 @@ compactFiles fs
 
         || find the left-most free heap of size >= n
         findMinFreeHeap v n
-            = map ((v !!) .> h_viewMin cmpspn) [n .. 9] |> catMaybes |> minBy cmpspn fst
+            = map ((v !!) .> h.viewMin cmpspn) [n .. 9] |> catMaybes |> minBy cmpspn fst
 
         go vhs ((pe, File i nb) : es)
             = findMinFreeHeap vhs nb |> check
@@ -86,7 +86,7 @@ compactFiles fs
                       , otherwise
                         where
                           vhs1 = vhs // [(nf, h')]
-                          vhs2 = vhs1 // [(nf', h_insert cmpspn (pf', Free nf') (vhs1 !! nf'))]
+                          vhs2 = vhs1 // [(nf', h.insert cmpspn (pf', Free nf') (vhs1 !! nf'))]
                                  where
                                    nf' = nf - nb
                                    pf' = pf + nb

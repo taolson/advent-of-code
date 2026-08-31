@@ -4,8 +4,8 @@
 %export day05
 
 %import "adventLib"
-%import <either>
-%import <map>
+%import <either>                        -(>>=)
+%import <map>           qualified as m
 
 
 || dependencyGraph operations
@@ -14,13 +14,13 @@
 || for this problem we only need the forward dependencies and determine partial ordering on each of
 || the updates
 
-dependencyGraph == m_map int [int]
+dependencyGraph == m.map int [int]
 
 makeDependencyGraph :: [(int, int)] -> dependencyGraph
 makeDependencyGraph
-    = foldl addDep m_empty
+    = foldl addDep m.empty
       where
-        addDep g (a, b) = m_insertWith cmpint (++) a [b] g
+        addDep g (a, b) = m.insertWith cmpint (++) a [b] g
 
 || modified form of Ksaraju's Strongly-Connected Components algorithm; only does DFS on the fwd dependencies,
 || filtering the dependencies to only include those in the original list
@@ -33,7 +33,7 @@ dependencyOrder g xs
             = (n : ns', vs'), otherwise                 || insert it after all of its dependents
               where
                 (ns', vs') = foldl dfs (ns, n : vs) refs
-                refs       = m_findWithDefault cmpint [] n g |> filter (member cmpint xs)       || only follow refs in the original xs list
+                refs       = m.findWithDefault cmpint [] n g |> filter (member cmpint xs)       || only follow refs in the original xs list
 
 inCorrectOrder :: dependencyGraph -> [int] -> either [int] [int]
 inCorrectOrder g xs

@@ -4,11 +4,11 @@
 %export day17
 
 %import "adventLib"
-%import <dequeue>
+%import <dequeue>       as dq   -null
 %import <lens>
-%import <maybe>
-%import <state>
-%import <vector>
+%import <maybe>                 -(>>=) -(<&>) -(>>) -(<<)
+%import <state>         as st   -view -over -set
+%import <vector>        as v    -(<&>) -foldl -filter -min
 
 
 || machine state
@@ -35,44 +35,44 @@ opr == state vmSt int
 
 || decoder for a cmb operand
 cmbDecoder :: vector opr
-cmbDecoder = v_fromList [st_pure 0, st_pure 1, st_pure 2, st_pure 3, vm_view vm_a, vm_view vm_b, vm_view vm_c, err]
+cmbDecoder = v.fromList [st.pure 0, st.pure 1, st.pure 2, st.pure 3, vm_view vm_a, vm_view vm_b, vm_view vm_c, err]
 
 || an insn transforms the vmSt
 insn == opr -> state vmSt ()
 
 adv, bxl, bst, jnz, bxc, out, bdv, cdv :: insn
-adv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_a
-bxl opr = st_bind2 (vm_view vm_b) opr exec            where exec b x = b .^. x  |> vm_set vm_b
+adv opr = st.bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_a
+bxl opr = st.bind2 (vm_view vm_b) opr exec            where exec b x = b .^. x  |> vm_set vm_b
 bst opr = opr >>= exec                                where exec x   = x .&. 7  |> vm_set vm_b
-jnz opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = if' (a == 0) (st_pure ()) (vm_set vm_pc x)
-bxc _   = st_bind2 (vm_view vm_b) (vm_view vm_c) exec where exec b c = b .^. c  |> vm_set vm_b
-out opr = opr >>= exec                                where exec x   = vm_over vm_out (dq_addR $ x $mod 8)
-bdv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_b
-cdv opr = st_bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_c
+jnz opr = st.bind2 (vm_view vm_a) opr exec            where exec a x = if' (a == 0) (st.pure ()) (vm_set vm_pc x)
+bxc _   = st.bind2 (vm_view vm_b) (vm_view vm_c) exec where exec b c = b .^. c  |> vm_set vm_b
+out opr = opr >>= exec                                where exec x   = vm_over vm_out (dq.addR $ x $mod 8)
+bdv opr = st.bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_b
+cdv opr = st.bind2 (vm_view vm_a) opr exec            where exec a x = a .>>. x |> vm_set vm_c
 
 || decoder for an insn
 insDecoder :: vector (stdlib.int -> state vmSt ())
 insDecoder
-    = v_fromList [cmb adv, lit bxl, cmb bst, lit jnz, lit bxc, cmb out, cmb bdv, cmb cdv, err]
+    = v.fromList [cmb adv, lit bxl, cmb bst, lit jnz, lit bxc, cmb out, cmb bdv, cmb cdv, err]
       where
-        cmb op opr = op $ v_unsafeIndex cmbDecoder opr   || unsafeIndex ok, because we are guaranteed to be in bounds
-        lit op opr = op $ st_pure opr
+        cmb op opr = op $ v.unsafeIndex cmbDecoder opr   || unsafeIndex ok, because we are guaranteed to be in bounds
+        lit op opr = op $ st.pure opr
 
 program == vector int
 
 run :: program -> state vmSt [int]
 run prog
-    = st_bind2 fetch fetch decode       || fetch insn opc and opr, then decode
+    = st.bind2 fetch fetch decode       || fetch insn opc and opr, then decode
       where
         fetch = vm_view vm_pc >>= check
                 where
                   check pc
-                      = readInsn <&> Just, if 0 <= pc < v_length prog
-                      = st_pure Nothing,   otherwise
-                        where readInsn = st_pure (v_unsafeIndex prog pc) << vm_set vm_pc (pc + 1)
+                      = readInsn <&> Just, if 0 <= pc < v.length prog
+                      = st.pure Nothing,   otherwise
+                        where readInsn = st.pure (v.unsafeIndex prog pc) << vm_set vm_pc (pc + 1)
 
-        decode (Just opc) (Just opr) = (v_unsafeIndex insDecoder opc) opr >> run prog   || got an insn; decode and exec, then continue
-        decode _          _          = vm_view vm_out <&> dq_toList                     || end of program; gen output
+        decode (Just opc) (Just opr) = (v.unsafeIndex insDecoder opc) opr >> run prog   || got an insn; decode and exec, then continue
+        decode _          _          = vm_view vm_out <&> dq.toList                     || end of program; gen output
 
 makeProgState :: string -> (program, vmSt)
 makeProgState
@@ -83,10 +83,10 @@ makeProgState
         parse [rdefs, [p]] = (parseProg p, parseRegs rdefs)
         parse _          = err
 
-        parseProg = words .> (! 1) .> split ',' .> map intval .> v_fromList
+        parseProg = words .> (! 1) .> split ',' .> map intval .> v.fromList
         parseRegs = map (words .> (! 2) .> intval) .> mkSt
 
-        mkSt [a, b, c] = (0, a, b, c, dq_empty)
+        mkSt [a, b, c] = (0, a, b, c, dq.empty)
         mkSt _         = err
 
 || For part 2, we are asked to find the input value a which will replicate the program on the
@@ -130,7 +130,7 @@ search :: program -> vmSt -> int
 search prog st
     = foldl go (cands, 11) (inits target |> drop 1) |> fst |> min cmpint
       where
-        target = v_toList prog
+        target = v.toList prog
         cands  = [0 .. (1 .<<. 10) - 1]
 
         go (cands, n) ts
@@ -140,7 +140,7 @@ search prog st
                 check xs = isPrefixOf cmpint ts xs
 
                 match c  = emulate c |> check,                                   if useEmulate
-                         = st_evalState (vm_set vm_a c >> run prog) st |> check, otherwise
+                         = st.evalState (vm_set vm_a c >> run prog) st |> check, otherwise
                 
 day17 :: io ()
 day17
@@ -149,5 +149,5 @@ day17
         go (prog, st)
             = output [part1, part2]
               where
-                part1   = st_evalState (run prog) st |> map showint .> intercalate ","
+                part1   = st.evalState (run prog) st |> map showint .> intercalate ","
                 part2   = search prog st |> showint

@@ -4,9 +4,9 @@
 %export day04
 
 %import "adventLib"
-%import <maybe>
-%import <v2>            (|+|)/v2_add (|-|)/v2_sub
-%import <vector>
+%import <maybe>                 -(>>=)
+%import <v2>                    -(>>=) (|+|)/add (|-|)/sub -div
+%import <vector>        as v    -all
 
 
 pos      == v2 int
@@ -15,7 +15,7 @@ gridInfo == (grid, int, int)    || grid, num rows, num cols
 
 (!!?) :: gridInfo -> pos -> maybe char
 (g, nr, nc) !!? (V2 x y)
-    = Just (v_unsafeIndex g (x + y * nc)), if 0 <= x < nc & 0 <= y < nr || unsafeIndex is ok since we are already checking bounds
+    = Just (v.unsafeIndex g (x + y * nc)), if 0 <= x < nc & 0 <= y < nr || unsafeIndex is ok since we are already checking bounds
     = Nothing,                             otherwise
 
 allGridPositions :: gridInfo -> [pos]
@@ -28,7 +28,7 @@ makeGridInfo input
         rows  = lines input
         nrows = #rows
         ncols = #hd rows
-        g     = concat rows |> v_fromList
+        g     = concat rows |> v.fromList
 
 || step from a starting position in the grid in a direction, attempting to match the target string
 stepMatch :: gridInfo -> pos -> pos -> string -> bool
@@ -56,7 +56,7 @@ xoccurrences gi s
 
         diagMatch p d
             = stepMatch gi (p |-| rd) d s \/            || step min to max
-              stepMatch gi (p |+| rd) (v2_neg d) s      || step max to min
+              stepMatch gi (p |+| rd) (v2.neg d) s      || step max to min
               where
                 rd = r *^ d 
 

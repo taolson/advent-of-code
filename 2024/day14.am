@@ -4,8 +4,10 @@
 %export day14
 
 %import "adventLib"
-%import <set>
-%import <v2>            (|+|)/v2_add
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -product (|+|)/add
+%import <v2>            qualified
+
 
 
 pos   == v2 int
@@ -18,7 +20,7 @@ lim = V2 101 103
 
 || strict to prevent space leak on computing p'
 step :: robot -> robot
-step (p, v) = ((p |+| v) $v2_mod lim, v)
+step (p, v) = ((p |+| v) $v2.mod lim, v)
 
 runRobots :: [robot] -> [[robot]]
 runRobots = iterate (map step)
@@ -27,7 +29,7 @@ quadrants :: [rect]
 quadrants
     = [V2 (V2 x y) (V2 (x + hx) (y + hy)) | x <- [0, hx + 1]; y <- [0, hy + 1]]
       where
-        V2 hx hy = lim $v2_div v2_pure 2
+        V2 hx hy = lim $v2.div v2.pure 2
 
 (|<=|), (|<|) :: pos -> pos -> bool
 V2 a b |<=| V2 c d = a <= c & b <= d
@@ -70,7 +72,7 @@ showRobotGrid
 || the idea here is that a tree image is likely made up of a tight grouping of a large number of the robots, so we
 || run through the possible confgurations (must be modulo (lim x * lim y)) and pick the one with the smallest safetyFactor
 findTree :: [robot] -> int
-findTree = runRobots .> map safetyFactor .> take (v2_product lim) .> enumerate .> minBy cmpint snd .> fst
+findTree = runRobots .> map safetyFactor .> take (v2.product lim) .> enumerate .> minBy cmpint snd .> fst
 
 day14 :: io ()
 day14
