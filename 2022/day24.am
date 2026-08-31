@@ -2,15 +2,15 @@
 
 %import <astar>
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <map>
-%import <maybe>
-%import <v2>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <v2>                            -(>>=) -(<&>) -foldl -mod
 
 
 location  == v2 int
-intLstMap == m_map int ([int], [int])           || map from a row/col index to a list of inital cols/rows
+intLstMap == m.map int ([int], [int])           || map from a row/col index to a list of inital cols/rows
 grid      == (intLstMap, intLstMap, int, int)   || vert and horiz blizzards, #rows, #cols in grid
 
 || lenses for grid
@@ -20,7 +20,7 @@ gd_rows  = lensTup4_2
 gd_cols  = lensTup4_3
 
 emptyGrid :: grid
-emptyGrid = (m_empty, m_empty, 0, 0)
+emptyGrid = (m.empty, m.empty, 0, 0)
 
 collision :: grid -> location -> int -> bool
 collision (vert, horiz, rows, cols) (V2 r c) t
@@ -29,8 +29,8 @@ collision (vert, horiz, rows, cols) (V2 r c) t
       (any (== c) . map (($mod cols) . (subtract t))) left \/
       (any (== c) . map (($mod cols) . (+ t)))        right
         where
-          (up, down)    = fromMaybe ([], []) (m_lookup cmpint c vert)
-          (left, right) = fromMaybe ([], []) (m_lookup cmpint r horiz)
+          (up, down)    = fromMaybe ([], []) (m.lookup cmpint c vert)
+          (left, right) = fromMaybe ([], []) (m.lookup cmpint r horiz)
 
 move == (int, location)
 
@@ -42,7 +42,7 @@ solve g t start goal
         rows            = view gd_rows g
         cols            = view gd_cols g
         isGoal (t, loc) = _eq cmplocation loc goal
-        est (t, loc)    = v2_dist goal loc
+        est (t, loc)    = v2.dist goal loc
 
         exp ((t, loc), ())
             = (map (pair t') locs, ())
@@ -70,10 +70,10 @@ readGrid fn
                         member cmpchar "<>^v" d]
 
         ins g (d, r, c)
-            = (over gd_vert  (m_insertWith cmpint apPair c ([r], [])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '^'
-            = (over gd_vert  (m_insertWith cmpint apPair c ([], [r])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. 'v'
-            = (over gd_horiz (m_insertWith cmpint apPair r ([c], [])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '<'
-            = (over gd_horiz (m_insertWith cmpint apPair r ([], [c])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '>'
+            = (over gd_vert  (m.insertWith cmpint apPair c ([r], [])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '^'
+            = (over gd_vert  (m.insertWith cmpint apPair c ([], [r])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. 'v'
+            = (over gd_horiz (m.insertWith cmpint apPair r ([c], [])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '<'
+            = (over gd_horiz (m.insertWith cmpint apPair r ([], [c])) . over gd_rows (max2 cmpint r) . over gd_cols (max2 cmpint c)) g, if d ==. '>'
             = error "readGrid: bad direction character",                                                                                otherwise
 
         apPair (a, b) (c, d) = (a ++ c, b ++ d)
@@ -83,7 +83,7 @@ day24
     = readGrid "../inputs/day24.txt" >>= go
       where
         go g
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 start = V2 (-1) 0
                 goal  = V2 (view gd_rows g) (view gd_cols g - 1)

@@ -2,14 +2,14 @@
 
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 
 
 crate    == char
 stack    == [crate]
-stackMap == m_map int stack
+stackMap == m.map int stack
 move     == (int, int, int)
 
 || collect the stackInfo in row order, adding the crate to a stack numbered by it's
@@ -17,11 +17,11 @@ move     == (int, int, int)
 || are at the top of each stack, with the crates below them in reverse order
 makeStackInfo :: [string] -> stackMap
 makeStackInfo rows
-    = foldl insCrate m_empty crateLocs
+    = foldl insCrate m.empty crateLocs
       where
         crateLocs         = concatMap (filter isInfo . zip2 [0 ..]) rows
         isInfo (i, c)     = letter c \/ digit c
-        insCrate m (i, c) = m_insertWith cmpint push i [c] m
+        insCrate m (i, c) = m.insertWith cmpint push i [c] m
         push [c] cs       = c : cs
         push xs cs        = error "makeStackInfo: bad crate value"
 
@@ -29,9 +29,9 @@ makeStackInfo rows
 || as the stack number, adding the reverse of the crates below it
 makeStackMap :: stackMap -> stackMap
 makeStackMap
-    = foldl insStack m_empty . m_toList
+    = foldl insStack m.empty . m.toList
       where
-        insStack m (x, ci : cs) = m_insert cmpint (digitVal ci) (reverse cs) m
+        insStack m (x, ci : cs) = m.insert cmpint (digitVal ci) (reverse cs) m
         insStack m (x, cs)      = error "makeStackMap: bad insStack value"
 
 makeMove :: string -> move
@@ -62,11 +62,11 @@ process :: mover -> stackMap -> move -> stackMap
 process f sm (n, fi, ti)
     = sm2
       where
-        fs         = fromJust (m_lookup cmpint fi sm)
-        ts         = fromJust (m_lookup cmpint ti sm)
+        fs         = fromJust (m.lookup cmpint fi sm)
+        ts         = fromJust (m.lookup cmpint ti sm)
         (fs', ts') = f fs ts n
-        sm1        = m_insert cmpint fi fs' sm
-        sm2        = m_insert cmpint ti ts' sm1
+        sm1        = m.insert cmpint fi fs' sm
+        sm2        = m.insert cmpint ti ts' sm1
 
 readInput :: string -> io (stackMap, [move])
 readInput fn
@@ -84,7 +84,7 @@ day05
     = readInput "../inputs/day05.txt" >>= go
       where
         go (sm, moves)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                part1 = (++) "part 1: " . map hd . m_elems . foldl (process moveSingle) sm $ moves
-                part2 = (++) "part 2: " . map hd . m_elems . foldl (process moveMany) sm   $ moves
+                part1 = (++) "part 1: " . map hd . m.elems . foldl (process moveSingle) sm $ moves
+                part2 = (++) "part 2: " . map hd . m.elems . foldl (process moveMany) sm   $ moves

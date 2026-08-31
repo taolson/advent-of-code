@@ -1,18 +1,18 @@
 %export day08
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <map>
-%import <set>
+%import <map>           qualified as m
+%import <set>           qualified as s
 
 location  == (int, int)
 
 dist :: location -> location -> int
 dist (a, b) (c, d) = abs (a - c) + abs (b - d)
 
-visible == s_set location             || set of trees visible from the perimeter
-scenic  == m_map location [int]       || map of trees to a list of their scenic distances in each direction
+visible == s.set location             || set of trees visible from the perimeter
+scenic  == m.map location [int]       || map of trees to a list of their scenic distances in each direction
 tree    == (location, int)            || a location and a tree height
 scanSt  == (visible, scenic)
 
@@ -26,15 +26,15 @@ scanOneDir st xs
         step ((vis, scn), mh, hm) (loc, h)
             = ((vis', scn'), mh', hm')
               where
-                vis'  = s_insert cmplocation loc vis, if h > mh
+                vis'  = s.insert cmplocation loc vis, if h > mh
                       = vis,              otherwise
-                scn'  = m_insertWith cmplocation (++) loc [dist loc (hm ! h)] scn
+                scn'  = m.insertWith cmplocation (++) loc [dist loc (hm ! h)] scn
                 mh'   = max2 cmpint h mh
                 hm'   = rep (h + 1) loc ++ drop (h + 1) hm
 
 findVisibility :: [[tree]] -> scanSt
 findVisibility rows
-    = foldl (foldl scanOneDir) (s_empty, m_empty) [rows, map reverse rows, cols, map reverse cols]
+    = foldl (foldl scanOneDir) (s.empty, m.empty) [rows, map reverse rows, cols, map reverse cols]
       where
         cols = transpose rows
 
@@ -50,9 +50,9 @@ day08
     = readTrees "../inputs/day08.txt" >>= go
       where
         go trees
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 (vis, scn) = findVisibility trees
-                scnScores  = map product (m_elems scn)
-                part1      = (++) "part 1: " . showint . s_size $ vis
+                scnScores  = map product (m.elems scn)
+                part1      = (++) "part 1: " . showint . s.size $ vis
                 part2      = (++) "part 2: " . showint . max cmpint $ scnScores

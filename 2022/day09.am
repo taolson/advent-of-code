@@ -3,9 +3,10 @@
 %import <base>
 %import <io>
 %import <lens>
-%import <set>
-%import <state>         (>>=)/st_bind (<&>)/st_rfmap
-%import <v2>
+%import <set>           qualified as s
+%import <state>
+%import <v2>                            -(>>=) -(<&>) -foldl -abs
+%import <v2>            qualified
 
 
 position == v2 int
@@ -16,22 +17,22 @@ follow :: position -> state position position
 follow t h
     = (t', t')
       where
-        delta = v2_sub h t
-        step  = v2_signum delta
-        move  = (v2_foldr (\/) False . v2_fmap ((> 1) . abs)) delta
-        t'    = v2_add t step, if move
+        delta = v2.sub h t
+        step  = v2.signum delta
+        move  = delta v2.<&> (abs .> (> 1)) |> v2.foldr (\/) False
+        t'    = v2.add t step, if move
               = t,             otherwise
 
-simulate :: int -> [step] -> s_set position
+simulate :: int -> [step] -> s.set position
 simulate n ss
-    = snd (foldl doStep (rep n init, s_singleton init) ss)
+    = snd (foldl doStep (rep n init, s.singleton init) ss)
       where
         init = V2 0 0
         doStep (r, ps) s
-            = (h' : tr', s_insert cmpposition t ps)
+            = (h' : tr', s.insert cmpposition t ps)
               where
-                h'       = v2_add (hd r) s
-                (tr', t) = st_mapM follow (tl r) h'
+                h'       = v2.add (hd r) s
+                (tr', t) = mapM follow (tl r) h'
 
 readMoves :: string -> io [step]
 readMoves fn
@@ -50,8 +51,8 @@ day09
     = readMoves "../inputs/day09.txt" >>= go
       where
         go moves
-            = io_mapM_ putStrLn [part1, part2]
+            = io.mapM_ putStrLn [part1, part2]
               where
-                part1 = (++) "part 1: " . showint . s_size . simulate 2  $ moves
-                part2 = (++) "part 2: " . showint . s_size . simulate 10 $ moves
+                part1 = (++) "part 1: " . showint . s.size . simulate 2  $ moves
+                part2 = (++) "part 2: " . showint . s.size . simulate 10 $ moves
         

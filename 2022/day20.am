@@ -2,20 +2,20 @@
 
 %export day20
 
-%import <avl>
+%import <avl>                           -foldl
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 
 
 idx   == int
 value == int
 elt   == (idx, value)
-ring  == (int, m_map idx elt)   || ring size, ring map
+ring  == (int, m.map idx elt)   || ring size, ring map
 
-|| strict(er) version of m_fmapWithKey
-m_fmapWithKey' :: (* -> ** -> ***) -> m_map * ** -> m_map * ***
+|| strict(er) version of fmapWithKey
+m_fmapWithKey' :: (* -> ** -> ***) -> m.map * ** -> m.map * ***
 m_fmapWithKey' f
     = go
       where
@@ -28,11 +28,9 @@ m_fmapWithKey' f
                 l'  = go l
                 r'  = go r
 
-
-
 makeRing :: [value] -> ring
 makeRing xs
-    = (#xs, (m_fromList cmpidx . map mkEntry . zip2 [0 ..]) xs)
+    = (#xs, (m.fromList cmpidx . map mkEntry . zip2 [0 ..]) xs)
       where
         mkEntry (i, v) = (i, (i, v))
 
@@ -44,7 +42,7 @@ mix (sz, rm)
         step rm oi
             = m_fmapWithKey' adj rm
               where
-                (ci, cv) = fromJust (m_lookup cmpidx oi rm)
+                (ci, cv) = fromJust (m.lookup cmpidx oi rm)
                 ni       = (ci + cv) $mod (sz - 1)
                 adj o (i, v)
                     = (seq ni ni, cv),  if o == oi
@@ -59,7 +57,7 @@ coordinates :: ring -> int
 coordinates (sz, rm)
     = elt1k + elt2k + elt3k
       where
-        elts  = map snd . sortOn cmpint fst . m_elems $ rm
+        elts  = map snd . sortOn cmpint fst . m.elems $ rm
         idx0  = fromJust . elemIndex (== 0) $ elts
         elt1k = elts ! ((idx0 + 1000) $mod sz)
         elt2k = elts ! ((idx0 + 2000) $mod sz)
@@ -70,7 +68,7 @@ day20
     = readFile "../inputs/day20.txt" >>= lines .> map intval .> go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 key   = 811589153
                 part1 = (++) "part 1: " . showint . coordinates . mix . makeRing $ input

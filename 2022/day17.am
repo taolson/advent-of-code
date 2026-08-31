@@ -3,11 +3,11 @@
 %import <base>
 %import <io>
 %import <lens>
-%import <map>
-%import <maybe>
-%import <set>
-%import <state>         (>>=)/st_bind (>>)/st_right
-%import <v2>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>) -(<<) -(>>) -pure -mapM -liftA2
+%import <set>           qualified as s
+%import <state>                         -view -over -set
+%import <v2>                            -(>>=) -(<&>) -div -mod -foldl -pure -liftA2
 
 
 point == v2 int
@@ -23,7 +23,7 @@ shapes =
     , [V2 0 0, V2 0 1, V2 1 0, V2 1 1]          || "square"
     ]
 
-gameSt == (s_set point, [char], [point], [[point]])
+gameSt == (s.set point, [char], [point], [[point]])
 
 || lenses for gameSt
 gs_rocks  = lensTup4_0  || set of points from dropped shapes (and initial floor)
@@ -36,10 +36,10 @@ startNextShape :: gameSt -> gameSt
 startNextShape st
     = (set gs_rocks rocks' . set gs_shape s . over gs_shapes tl) st
       where
-        rocks'  = foldl (converse (s_insert cmppoint)) (view gs_rocks st) (view gs_shape st)
-        h       = view lensV2_0 (s_last rocks')
+        rocks'  = foldl (converse (s.insert cmppoint)) (view gs_rocks st) (view gs_shape st)
+        h       = view lensV2_0 (s.last rocks')
         initLoc = V2 (h + 4) 2
-        s       = (map (v2_add initLoc) . hd . view gs_shapes) st
+        s       = (map (v2.add initLoc) . hd . view gs_shapes) st
 
 puff :: gameSt -> gameSt
 puff st
@@ -48,11 +48,11 @@ puff st
         p          = (hd . view gs_puffs) st
         s          = view gs_shape st
         hstep      = V2 0 1
-        s1         = map ($v2_add hstep) s, if p ==. '>'
-                   = map ($v2_sub hstep) s, otherwise
+        s1         = map ($v2.add hstep) s, if p ==. '>'
+                   = map ($v2.sub hstep) s, otherwise
         cols       = map (view lensV2_1) s1
         rocks      = view gs_rocks st
-        collision  = any (< 0) cols \/ any (> 6) cols \/ any (converse (s_member cmppoint) rocks) s1
+        collision  = any (< 0) cols \/ any (> 6) cols \/ any (converse (s.member cmppoint) rocks) s1
         s2         = s,  if collision
                    = s1, otherwise
 
@@ -62,33 +62,33 @@ fall st
     = (False, set gs_shape s' st), otherwise
       where
         vstep        = V2 1 0
-        s'           = map ($v2_sub vstep) (view gs_shape st)
+        s'           = map ($v2.sub vstep) (view gs_shape st)
         rocks        = view gs_rocks st
-        collision    = any (converse (s_member cmppoint) rocks) s'
+        collision    = any (converse (s.member cmppoint) rocks) s'
 
 getHeights :: int -> state gameSt [int]
 getHeights n
-    = st_liftA2 (:) getHeight (st_mapM (const go) [1 .. n])
+    = liftA2 (:) getHeight (mapM (const go) [1 .. n])
       where
-        go          = st_modify puff >> fall >>= check
+        go          = modify puff >> fall >>= check
         check False = go
-        check True  = st_modify startNextShape >> getHeight
-        getHeight   = st_get >>= (st_pure . view lensV2_0 . s_last . view gs_rocks)
+        check True  = modify startNextShape >> getHeight
+        getHeight   = get >>= (pure . view lensV2_0 . s.last . view gs_rocks)
 
 
 || find starting point and period length in height differences
 findPeriod :: [int] -> (int, int)
 findPeriod xs
-    = go 0 m_empty (zipWith subtract xs (0 : xs))
+    = go 0 m.empty (zipWith subtract xs (0 : xs))
       where
         go n seen xs
             = (n', n - n'),             if isJust mn'
             = go (n + 1) seen' (tl xs), otherwise
               where
                 hseq  = take 25 xs
-                mn'   = m_lookup (cmplist cmpint) hseq seen
+                mn'   = m.lookup (cmplist cmpint) hseq seen
                 n'    = fromJust mn'
-                seen' = m_insert (cmplist cmpint) hseq n seen
+                seen' = m.insert (cmplist cmpint) hseq n seen
 
 computeHeight :: int -> (int, int) -> [int] -> int
 computeHeight n (s, p) hs
@@ -107,9 +107,9 @@ day17
     = readFile "../inputs/day17.txt" >>= go
       where
         go jets
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                floor   = (s_fromList cmppoint . map (V2 0)) [0 .. 6]
+                floor   = (s.fromList cmppoint . map (V2 0)) [0 .. 6]
                 st      = startNextShape (floor, cycle jets, [], cycle shapes)
                 heights = fst (getHeights 5000 st)
                 part1   = (++) "part 1: " . showint $ heights ! 2022

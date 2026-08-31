@@ -1,7 +1,7 @@
 %export day02
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 shape == int            || Rock == 0, Scissors == 1, Paper == 2
@@ -37,7 +37,7 @@ day02
     = readGuide "../inputs/day02.txt" >>= go
       where
         go guide
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum . map play $ guide
                 part2 = (++) "part 2: " . showint . sum . map play . map convertRound $ guide

@@ -1,10 +1,9 @@
 %export day13
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap
+%import <io>
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
 
 
 packet ::= Pint int | Plist [packet]
@@ -34,20 +33,20 @@ cmppacket a b
 
 
 || parsing
-p_packet :: parser packet
-p_packet = p_int p.<&> Pint <|> p_char '[' >> p_manySepBy p_comma p_packet << p_char ']' p.<&> Plist
+p_packet :: p.parser packet
+p_packet = p.int p.<&> Pint p.<|> p.char '[' p.>> p.manySepBy p.comma p_packet p.<< p.char ']' p.<&> Plist
 
-p_ppair :: parser (packet, packet)
-p_ppair = p_liftA2 pair (p_packet << p_spaces) (p_packet << p_spaces)
+p_ppair :: p.parser (packet, packet)
+p_ppair = p.liftA2 pair (p_packet p.<< p.spaces) (p_packet p.<< p.spaces)
 
-p_ppairs :: parser [(packet, packet)]
-p_ppairs = p_many p_ppair
+p_ppairs :: p.parser [(packet, packet)]
+p_ppairs = p.many p_ppair
 
 readInput :: string -> io [(packet, packet)]
 readInput fn 
-    = readFile fn <&> parse p_ppairs <&> go
+    = readFile fn <&> p.parse p_ppairs <&> go
       where
-        go (pr, ps) = fromMaybe (error (p_error ps)) pr
+        go (pr, ps) = fromMaybe (error (p.error ps)) pr
 
 
 day13 :: io ()
@@ -55,7 +54,7 @@ day13
     = readInput "../inputs/day13.txt" >>= go
       where
         go ppairs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 divPkts = map (enlist . enlist . Pint) [2, 6]
                 pkts    = sortBy cmppacket (foldr addPair [] ppairs ++ divPkts)

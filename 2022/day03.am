@@ -1,23 +1,23 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <set>
+%import <io>
+%import <set>           qualified as s
 
 
-rucksack == (s_set char, s_set char)
+rucksack == (s.set char, s.set char)
 
-(<**>) = s_intersect cmpchar
-(<++>) = s_union cmpchar
+(<**>) = s.intersect cmpchar
+(<++>) = s.union cmpchar
 
 commonItem :: rucksack -> char
-commonItem  (c1, c2) = s_first (c1 <**> c2)
+commonItem  (c1, c2) = s.first (c1 <**> c2)
 
-allContents :: rucksack -> s_set char
+allContents :: rucksack -> s.set char
 allContents (c1, c2) = c1 <++> c2
 
 badge :: [rucksack] -> char
-badge = s_first . foldl1 (<**>) . map allContents
+badge = s.first . foldl1 (<**>) . map allContents
 
 priority :: char -> int
 priority c
@@ -26,14 +26,14 @@ priority c
 
 readRucksacks :: string -> io [rucksack]
 readRucksacks fn
-    = readFile fn <&> lines <&> map (split2 .> mapBoth (s_fromList cmpchar))
+    = readFile fn <&> lines <&> map (split2 .> mapBoth (s.fromList cmpchar))
 
 day03 :: io ()
 day03
     = readRucksacks "../inputs/day03.txt" >>= go
       where
         go sacks
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 groups = chunk 3 sacks
                 part1  = (++) "part 1: " . showint . sum . map (priority . commonItem) $ sacks

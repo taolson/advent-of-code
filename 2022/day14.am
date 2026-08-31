@@ -1,0 +1,63 @@
+%export day14
+
+%import <base>
+%import <io>
+%import <lens>
+%import <maybe>                         -(>>=) -(<&>)
+%import <maybeState>    qualified as mst
+%import <parser>        qualified as p
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -(<&>) -foldl
+
+
+point == v2 int
+cave  == (s.set point, int)
+
+|| parsing
+p_point :: p.parser point
+p_point = p.liftA2 V2 (p.int p.<< p.char ',') p.int
+
+p_path :: p.parser [point]
+p_path
+    = p.someSepBy (p.string " -> ") p_point p.<&> mkPath
+      where
+        mkPath ps      = (concatMap mkSeg . zip2 ps) (tl ps)
+        mkSeg (p1, p2) = takeWhile (_ne cmppoint p2) (iterate (v2.add delta) p1) ++ [p2] where delta = v2.signum (v2.sub p2 p1)
+
+pourSand :: bool -> point -> cave -> int
+pourSand noFloor source (s, my)
+    = dfs source s |> snd |> s.size |> subtract (s.size s)
+      where
+        dfs p
+            = mst.fail,                                          if noFloor & y > my
+            = (mst.get mst.>>= checkBlocked) mst.<|> checkPaths, otherwise
+              where
+                V2 x y   = p
+                y'       = y + 1
+                paths    = [V2 x y', V2 (x - 1) y', V2 (x + 1) y']
+
+                checkBlocked s
+                    = mst.pure (), if y > my + 1 \/ s.member cmppoint p s
+                    = mst.fail,    otherwise
+
+                checkPaths = mst.mapM_ dfs paths mst.<< mst.modify (s.insert cmppoint p)
+
+|| read the cave from the input, returning it and the maximum y value processed
+readCave :: string -> io cave
+readCave fn
+    = readFile fn <&> p.parse (p.manySepBy p.spaces p_path) <&> go
+      where
+        go (pr, ps)       = fromMaybef (error $ p.error ps) mkCave pr
+        mkCave            = foldl insCave (s.empty, -1) . concat
+        insCave (s, my) p = (s.insert cmppoint p s, max2 cmpint my (view lensV2_1 p))
+
+day14 :: io ()
+day14
+    = readCave "../inputs/day14.txt" >>= go
+      where
+        go cave
+            = io.mapM_ putStrLn [part1, part2]
+              where
+                source = V2 500 0
+                part1  = (++) "part 1: " . showint . pourSand True  source $ cave
+                part2  = (++) "part 2: " . showint . pourSand False source $ cave

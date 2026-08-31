@@ -1,7 +1,7 @@
 %export day04
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 section     == (int, int)
@@ -28,7 +28,7 @@ day04
     = readAssigns "../inputs/day04.txt" >>= go
       where
         go assigns
-            = io_mapM_ putStrLn [part1, part2] 
+            = mapM_ putStrLn [part1, part2] 
               where
                 part1 = (++) "part 1: " . showint . length . filter encloses $ assigns
                 part2 = (++) "part 2: " . showint . length . filter overlaps $ assigns

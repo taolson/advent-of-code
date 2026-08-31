@@ -1,11 +1,11 @@
 %export day15
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <maybe>
-%import <set>
-%import <v2>
+%import <maybe>                         -(>>=) -(<&>)
+%import <set>           qualified as s
+%import <v2>                            -(>>=) -(<&>) -foldl -abs -div -sum
 
 
 nspan == v2 int
@@ -46,38 +46,38 @@ ns_delete d f
         ie'      = ie + 1
 
 
-nspanSet == s_set nspan
+nspanSet == s.set nspan
 
 nss_size :: nspanSet -> int
-nss_size = sum . map ns_size . s_toList
+nss_size = sum . map ns_size . s.toList
 
 || insert a span into a span set, possibly merging it with existing spans
 nss_insert :: nspan -> nspanSet -> nspanSet
 nss_insert sp ss
     = doMerge prev,   if isJust mprev & (ns_intersects prev sp \/ ns_adjacent prev sp)
     = doMerge next,   if isJust mnext & (ns_intersects next sp \/ ns_adjacent next sp)
-    = s_insert cmpnspan sp ss, otherwise
+    = s.insert cmpnspan sp ss, otherwise
       where
-        mprev      = s_lookupLE cmpnspan sp ss
+        mprev      = s.lookupLE cmpnspan sp ss
         prev       = fromJust mprev
-        mnext      = s_lookupGE cmpnspan sp ss
+        mnext      = s.lookupGE cmpnspan sp ss
         next       = fromJust mnext
-        doMerge ms = nss_insert (ns_merge ms sp) (s_delete cmpnspan ms ss)
+        doMerge ms = nss_insert (ns_merge ms sp) (s.delete cmpnspan ms ss)
 
 || delete a span from a span set, possibly splitting existing spans
 nss_delete :: nspan -> nspanSet -> nspanSet
 nss_delete sp ss
-    = s_delete cmpnspan sp ss,                  if s_member cmpnspan sp ss
+    = s.delete cmpnspan sp ss,                  if s.member cmpnspan sp ss
     = foldl doSplit ss [mprev, mnext], otherwise
       where
-        mprev      = s_lookupLE cmpnspan sp ss
-        mnext      = s_lookupGE cmpnspan sp ss
+        mprev      = s.lookupLE cmpnspan sp ss
+        mnext      = s.lookupGE cmpnspan sp ss
         doSplit ss msp'
             = ss,                                   if isNothing msp' \/ ~ns_intersects sp' sp
             = foldl (converse nss_insert) ss' dsp', otherwise
               where
                 sp'  = fromJust msp'
-                ss'  = s_delete cmpnspan sp' ss
+                ss'  = s.delete cmpnspan sp' ss
                 dsp' = ns_delete sp sp'
 
 
@@ -105,9 +105,9 @@ noBeacon delBeacons r sns
     = ss', if delBeacons
     = ss,  otherwise
       where
-        bcns  = (map (v2_pure . view lensV2_0) . filter (onRow r) . map (view sn_bcn)) sns
+        bcns  = (map (v2.pure . view lensV2_0) . filter (onRow r) . map (view sn_bcn)) sns
         spans = catMaybes . map (ns_atRow r) $ sns
-        ss    = foldl (converse nss_insert) s_empty spans
+        ss    = foldl (converse nss_insert) s.empty spans
         ss'   = foldl (converse nss_delete) ss bcns
         onRow r (V2 x y) = r == y
         
@@ -127,7 +127,7 @@ ruledOutRect (V2 xl yl, V2 xh yh) s
       where
         sloc       = view sn_loc s
         srange     = view sn_rng s
-        ruledOut p = v2_dist p sloc <= srange
+        ruledOut p = v2.dist p sloc <= srange
 
 findOutlier :: [sensor] -> rect -> maybe point
 findOutlier ss
@@ -153,14 +153,14 @@ readSensors fn
                 readPoint n = V2 (intval (xs ! n)) (intval (xs ! (n + 2)))
                 bcn         = readPoint 1
                 sns         = readPoint 5
-                rng         = v2_dist bcn sns
+                rng         = v2.dist bcn sns
 
 day15 :: io ()
 day15
     = readSensors "../inputs/day15.txt" >>= go
       where
         go sensors
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 grid  = (V2 0 0, V2 4000000 4000000)
                 part1 = (++) "part 1: " . showint . nss_size . noBeacon True 2000000 $ sensors

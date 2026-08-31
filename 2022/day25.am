@@ -1,7 +1,7 @@
 %export day25
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 snafu == int

@@ -1,7 +1,7 @@
 %export day01
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 readCargo :: string -> io [[int]]
 readCargo fn
@@ -12,7 +12,7 @@ day01
     = readCargo "../inputs/day01.txt" >>= go
       where
         go elfCargo
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 elfCalories = sortBy (descending cmpint id) . map sum $ elfCargo
                 part1       = (++) "part 1: " . showint . hd $ elfCalories

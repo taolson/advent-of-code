@@ -1,11 +1,11 @@
 %export day19
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>                (<<)/p_left (>>)/p_right
-%import <parser> qualified as p (<&>)/p_rfmap
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+
 
 || resources are a vector of 4 intbers, representing amounts of
 || ore, clay, obsidian, and geodes
@@ -40,17 +40,17 @@ r_geodes :: resource -> int
 r_geodes [a, b, c, d] = d
 r_geodes rs           = error "bad resource for r_geodes"
 
-resourceNameMap :: m_map string resource
+resourceNameMap :: m.map string resource
 resourceNameMap
-     = m_fromList cmpstring [ ("ore",      [1, 0, 0, 0])
+     = m.fromList cmpstring [ ("ore",      [1, 0, 0, 0])
                             , ("clay",     [0, 1, 0, 0])
                             , ("obsidian", [0, 0, 1, 0])
                             , ("geode",    [0, 0, 0, 1])
                             ]
 
 r_singleton :: string -> resource
-|| r_singleton = fromJust . converse (m_lookup cmpstring) resourceNameMap
-r_singleton s = fromJust $ m_lookup cmpstring s resourceNameMap
+|| r_singleton = fromJust . converse (m.lookup cmpstring) resourceNameMap
+r_singleton s = fromJust $ m.lookup cmpstring s resourceNameMap
 
 
 robot ::= Robot resource resource       || harvests, costs
@@ -75,34 +75,34 @@ bp_rbs (Blueprint bid rbs) = rbs
 
 || parsing
 
-p_ident :: parser string
-p_ident = p_some p_letter << p_spaces
+p_ident :: p.parser string
+p_ident = p.some p.letter p.<< p.spaces
 
-p_resource :: parser resource
+p_resource :: p.parser resource
 p_resource
     = p_ident p.<&> mkResource
       where
-        mkResource s = m_findWithDefault cmpstring r_empty s resourceNameMap
+        mkResource s = m.findWithDefault cmpstring r_empty s resourceNameMap
 
-p_cost :: parser resource
+p_cost :: p.parser resource
 p_cost
-    = p_liftA2 mkCost (p_posint << p_spaces) p_resource
+    = p.liftA2 mkCost (p.posint p.<< p.spaces) p_resource
       where
         mkCost n = map (* n)
 
-p_robot :: parser robot
+p_robot :: p.parser robot
 p_robot
-    = p_liftA2 mkRobot
-          (p_string "Each " >> p_resource << p_string "robot costs ")
-          (p_someSepBy (p_string "and ") p_cost << (p_char '.') << p_spaces)
+    = p.liftA2 mkRobot
+          (p.string "Each " p.>> p_resource p.<< p.string "robot costs ")
+          (p.someSepBy (p.string "and ") p_cost p.<< (p.char '.') p.<< p.spaces)
       where
         mkRobot h cs = Robot h (r_sum cs)
         
-p_blueprint :: parser blueprint
+p_blueprint :: p.parser blueprint
 p_blueprint
-    = p_liftA2 Blueprint
-          (p_string "Blueprint " >> p_spaces >> p_posint)
-          (p_string ": " >> p_some p_robot)
+    = p.liftA2 Blueprint
+          (p.string "Blueprint " p.>> p.spaces p.>> p.posint)
+          (p.string ": " p.>> p.some p_robot)
 
 
 || scheduling
@@ -163,16 +163,16 @@ qualLevel timeLimit bp = bp_id bp * maxGeodes timeLimit bp
 
 readBlueprints :: string -> io [blueprint]
 readBlueprints fn
-    = readFile fn <&> parse (p_some p_blueprint) <&> go
+    = readFile fn <&> p.parse (p.some p_blueprint) <&> go
       where
-        go (pr, ps) = fromMaybe (error (p_error ps)) pr
+        go (pr, ps) = fromMaybe (error (p.error ps)) pr
 
 day19 :: io ()
 day19
     = readBlueprints "../inputs/day19.txt" >>= go
       where
         go blueprints
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum . map (qualLevel 24) $ blueprints
                 part2 = (++) "part 2: " . showint . product . map (maxGeodes 32) . take 3 $ blueprints

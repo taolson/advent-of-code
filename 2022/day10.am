@@ -2,7 +2,7 @@
 
 %import <base>
 %import <io>
-%import <state>         (>>=)/st_bind (<&>)/st_rfmap
+%import <state>
 
 
 insn ::= Noop | Addx int
@@ -10,7 +10,7 @@ prog   == [insn]
 
 run :: prog -> [int]
 run
-    = concat . fst . converse (st_mapM step) 1
+    = concat . fst . converse (mapM step) 1
       where
         step Noop     x = ([x], x)
         step (Addx n) x = ([x, x], x + n)
@@ -54,7 +54,7 @@ day10
     = readProg "../inputs/day10.txt" >>= go
       where
         go prog
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 sig   = run prog
                 part1 = (++) "part 1: "  . showint . sum . sample [20, 60 ..] . zipWith (*) [1 ..] $ sig

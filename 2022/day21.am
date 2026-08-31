@@ -1,44 +1,43 @@
 %export day21
 
 %import <base>
-%import <io>                    (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>                (<<)/p_left (<|>)/p_alt
-%import <parser> qualified as p (<&>)/p_rfmap
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
 
 
 monkey == string
 
 expr ::= Int int | Monkey monkey | Op char expr expr
 
-exprMap == m_map monkey expr
+exprMap == m.map monkey expr
 
-p_monkey :: parser monkey
-p_monkey = p_some p_letter << p_spaces
+p_monkey :: p.parser monkey
+p_monkey = p.some p.letter p.<< p.spaces
 
-p_op :: parser char
-p_op = p_any << p_spaces
+p_op :: p.parser char
+p_op = p.any p.<< p.spaces
      
-p_intExpr, p_opExpr, p_expr :: parser expr
-p_intExpr = p_posint << p_spaces p.<&> Int
+p_intExpr, p_opExpr, p_expr :: p.parser expr
+p_intExpr = p.posint p.<< p.spaces p.<&> Int
 
 p_opExpr
-    = p_liftA3 mkOp p_monkey p_op p_monkey
+    = p.liftA3 mkOp p_monkey p_op p_monkey
       where
         mkOp m1 op m2 = Op op (Monkey m1) (Monkey m2)
 
-p_expr = p_intExpr <|> p_opExpr
+p_expr = p_intExpr p.<|> p_opExpr
 
-p_entry :: parser (monkey, expr)
-p_entry = p_liftA2 pair (p_monkey << p_string ": ") p_expr
+p_entry :: p.parser (monkey, expr)
+p_entry = p.liftA2 pair (p_monkey p.<< p.string ": ") p_expr
 
 eval :: exprMap -> expr -> int
 eval t
     = go
       where
         go (Int n)       = n
-        go (Monkey m)    = m_lookup cmpmonkey m t |> fromJust |> go
+        go (Monkey m)    = m.lookup cmpmonkey m t |> fromJust |> go
         go (Op op e1 e2) = ex op (go e1) (go e2)
 
         ex '+' = (+)
@@ -55,7 +54,7 @@ hasMonkey t h
 
         go (Monkey m)
             = True,                           if _eq cmpmonkey m h
-            = (go . fromJust . m_lookup cmpmonkey m) t, otherwise
+            = (go . fromJust . m.lookup cmpmonkey m) t, otherwise
 
         go (Op op e1 e2) = go e1 \/ go e2
 
@@ -71,13 +70,13 @@ solve t h r
     = go e1 e2, if hasMonkey t h e1
     = go e2 e1, otherwise
       where
-        Op _ e1 e2 = fromJust (m_lookup cmpmonkey r t)
+        Op _ e1 e2 = fromJust (m.lookup cmpmonkey r t)
 
         go (Monkey m) rhs
             = eval t rhs, if _eq cmpmonkey m h
             = go e rhs,   otherwise
               where
-                e = fromJust (m_lookup cmpmonkey m t)
+                e = fromJust (m.lookup cmpmonkey m t)
 
         go (Op op e1 e2) rhs
             = go e1 (inv op rhs e2),  if hasMonkey t h e1
@@ -102,17 +101,17 @@ solve t h r
 
 readTree :: string -> io exprMap
 readTree fn
-    = readFile fn <&> parse (p_some p_entry) <&> go
+    = readFile fn <&> p.parse (p.some p_entry) <&> go
       where
         go (pr, ps)
-            = fromMaybef (error (p_error ps)) (m_fromList cmpmonkey) pr
+            = fromMaybef (error (p.error ps)) (m.fromList cmpmonkey) pr
 
 day21 :: io ()
 day21
     = readTree "../inputs/day21.txt" >>= go
       where
         go tree
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . eval tree . Monkey $ "root"
                 part2 = (++) "part 2: " . showint . solve tree "humn"  $ "root"

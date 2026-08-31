@@ -1,7 +1,7 @@
 %export day06
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 slidingWindow :: int -> [*] -> [[*]]
 slidingWindow n = tails .> map (take n) .> takeWhile (length .> (== n))
@@ -14,7 +14,7 @@ day06
     = readFile "../inputs/day06.txt" >>= go
       where
         go signal
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1  = (++) "part 1: " . showint . indexOfPacket 4  $ signal
                 part2  = (++) "part 2: " . showint . indexOfPacket 14 $ signal
