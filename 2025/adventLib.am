@@ -1,19 +1,19 @@
 || advent library
 
 || Advent of Code web site session cookie:
-sessionCookie = "your cookie here"
+sessionCookie = "53616c7465645f5f6a30f5179fd3b2b1978d7eb31c72f37705f5b42835b9f37cf0840aab4f31b6291ab080161fa79c6496d47ae205136a174a5135bf00c86694"
 
-%export output readInput download  <io> <base> (>>=) (<&>) (<*>) (<<) (>>)
+%export output readInput download  <io> <base>
 
-%import <io>
 %import <base>
-%import <state>                 (>>=)/st_bind (<&>)/st_rfmap (<*>)/st_apply (<<)/st_left (>>)/st_right
+%import <io>
+%import <state>
 
 format :: (int, string) -> string
 format (i, s) = "part " ++ showint i ++ ": " ++ s
 
 output :: [string] -> io ()
-output rs = zip2 [1 ..] rs |> io_mapM_ (format .> putStrLn)
+output rs = zip2 [1 ..] rs |> io.mapM_ (format .> putStrLn)
 
 || read the local input file from ../inputs, if present, or download it from adventofcode.com
 readInput :: string -> io string
@@ -32,7 +32,7 @@ readInput s
 download :: string -> string -> io int
 download s dst
     = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
-||    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io_pure 0
+||    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io.pure 0
       where
         cmd  = "curl"
         url  = "https://adventofcode.com"

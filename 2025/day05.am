@@ -4,7 +4,7 @@
 %export day05
 
 %import "adventLib"
-%import <maybe>
+%import <maybe>                 -(>>=)
 
 
 pid      == int

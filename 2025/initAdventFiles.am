@@ -2,7 +2,7 @@
 
 
 %import <base>
-%import <io>                    (>>=)/io_bind
+%import <io>
 %import <maybe>
 
 fileDigits :: int -> string
@@ -35,4 +35,4 @@ main :: io ()
 main
     = readFile "template.am" >>= go
       where
-        go template = io_mapM_ (initFile template) [1 .. 12]
+        go template = io.mapM_ (initFile template) [1 .. 12]

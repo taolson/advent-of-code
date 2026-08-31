@@ -4,7 +4,7 @@
 %export day06
 
 %import "adventLib"
-%import <maybe>
+%import <maybe>                 -(>>=)
 
 || an eqn is a list of ints as strings, and an operator string to perform on them
 eqn == ([string], string)

@@ -4,9 +4,9 @@
 %export day12
 
 %import "adventLib"
-%import <maybe>
-%import <parser>        (>>=?)/p_bind (<$>?)/p_fmap (<<?)/p_left (>>?)/p_right
-%import <v2>
+%import <maybe>                         -(>>=)
+%import <parser>        qualified as p
+%import <v2>                            -(>>=) -sum
 
 
 || A shape is a 3x3 square which can have "holes" in the edges;
@@ -32,32 +32,32 @@
 shape  == ([char], int) || # of used 
 region == (int, int, [int])
 
-p_elem :: parser char
-p_elem = p_spaces >>? p_any >>=? check
+p_elem :: p.parser char
+p_elem = p.spaces p.>> p.any p.>>= check
          where
-           check c = p_pure c, if c ==. '#' \/ c ==. '.'
-                   = p_fail,   otherwise
+           check c = p.pure c, if c ==. '#' \/ c ==. '.'
+                   = p.fail,   otherwise
 
-p_id :: parser int
-p_id = p_spaces >>? p_int <<? p_char ':'
+p_id :: p.parser int
+p_id = p.spaces p.>> p.int p.<< p.char ':'
 
-p_shape :: parser shape
-p_shape = mkShape <$>? p_spaces >>? p_id >>? p_spaces >>? p_count 9 p_elem
+p_shape :: p.parser shape
+p_shape = p.spaces p.>> p_id p.>> p.spaces p.>> p.count 9 p_elem p.<&> mkShape
           where
             mkShape xs = (xs, #filter (==. '#') xs)
 
-p_region :: parser region
-p_region = p_liftA3 triple (p_spaces >>? p_int) (p_char 'x' >>? p_int) (p_string ": " >>? p_someSepBy (p_char ' ') p_int)
+p_region :: p.parser region
+p_region = p.liftA3 triple (p.spaces p.>> p.int) (p.char 'x' p.>> p.int) (p.string ": " p.>> p.someSepBy (p.char ' ') p.int)
 
-p_input :: parser ([shape], [region])
-p_input = p_liftA2 pair (p_some p_shape) (p_some p_region) <<? p_spaces <<? p_end
+p_input :: p.parser ([shape], [region])
+p_input = p.liftA2 pair (p.some p_shape) (p.some p_region) p.<< p.spaces p.<< p.end
 
 parseInput :: string -> ([shape], [region])
 parseInput s
     = fromMaybe err mr
       where
-        (mr, ps) = parse p_input s
-        err      = error (p_error ps)
+        (mr, ps) = p.parse p_input s
+        err      = error (p.error ps)
 
 || filter the regions that are large enough to possibly hold the required shapes, by
 || tallying the shape tile count times the number of times that shape is needed, and

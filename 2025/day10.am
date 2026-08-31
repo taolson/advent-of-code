@@ -5,44 +5,44 @@
 
 %import "adventLib"
 %import <bfs>
-%import <bitSet>
-%import <maybe>
-%import <parser>        (>>=?)/p_bind (>>?)/p_right (<$>?)/p_fmap (<|>?)/p_alt
+%import <bitSet>        as bs
+%import <maybe>                         -(>>=)
+%import <parser>        qualified as p
 
 
 machine ::= Machine bitSet [bitSet] [int]
 
-p_light :: parser int
-p_light = p_any >>=? check
+p_light :: p.parser int
+p_light = p.any p.>>= check
           where
-            check '.' = p_pure 0
-            check '#' = p_pure 1
-            check _   = p_fail
+            check '.' = p.pure 0
+            check '#' = p.pure 1
+            check _   = p.fail
 
-p_indicator :: parser bitSet
-p_indicator = mkInd <$>? p_inBrackets (p_some p_light)
+p_indicator :: p.parser bitSet
+p_indicator = p.inBrackets (p.some p_light) p.<&> mkInd
               where
-                mkInd xs = foldr (\x n -> n * 2 + x) 0 xs |> bs_fromInt
+                mkInd xs = foldr (\x n -> n * 2 + x) 0 xs |> bs.fromInt
 
-p_button :: parser bitSet
-p_button = mkButton <$>? p_inParens p_intlist
+p_button :: p.parser bitSet
+p_button = p.inParens p.intlist p.<&> mkButton
            where
-             mkButton xs = foldl (converse bs_insert) bs_empty xs
+             mkButton xs = foldl (converse bs.insert) bs.empty xs
 
-p_joltage :: parser [int]
-p_joltage = p_inBraces p_intlist
+p_joltage :: p.parser [int]
+p_joltage = p.inBraces p.intlist
 
-p_machine :: parser machine
-p_machine = p_liftA3 Machine (p_spaces >>? p_indicator) (p_spaces >>? p_someSepBy p_spaces p_button) (p_spaces >>? p_joltage)
+p_machine :: p.parser machine
+p_machine = p.liftA3 Machine (p.spaces p.>> p_indicator) (p.spaces p.>> p.someSepBy p.spaces p_button) (p.spaces p.>> p_joltage)
 
 parseMachines :: string -> [machine]
 parseMachines s
-    = case parse (p_some p_machine) s of
-        (mr, ps) -> fromMaybe (error (p_error ps)) mr
+    = case p.parse (p.some p_machine) s of
+        (mr, ps) -> fromMaybe (error (p.error ps)) mr
 
 || toggle bits in a bitSet
 toggle :: bitSet -> bitSet -> bitSet
-toggle a b = ((.^.) $on bs_toInt) a b |> bs_fromInt
+toggle a b = ((.^.) $on bs.toInt) a b |> bs.fromInt
 
 || instead of the standard recursive version of a powerSet, this version
 || uses combinations to return the powerSet sorted by length
@@ -54,7 +54,7 @@ powerSet xs = concatMap (converse combinations xs) [0 .. #xs]
 || all possible button combos, then find the first one that results in the goal
 findMinStart :: machine -> int
 findMinStart (Machine goal buttons _)
-    = powerSet buttons |> find (foldl toggle goal .> bs_null) |> fromMaybef 0 length
+    = powerSet buttons |> find (foldl toggle goal .> bs.null) |> fromMaybef 0 length
 
 || BFS here is too slow. We need to find the solution to a set of linear equations to find the number of
 || button presses of each button that exactly tallys to the joltage requirements. Possibly Gaussian

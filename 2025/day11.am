@@ -3,32 +3,32 @@
 %export day11
 
 %import "adventLib"
-%import <map>
-%import <maybe>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 %import <memo>
-%import <state>
+%import <state>         as st
 
 devId == string
-graph == m_map devId [devId]
+graph == m.map devId [devId]
 
 makeGraph :: string -> graph
 makeGraph
-    = lines .> map words .> foldl ins m_empty
+    = lines .> map words .> foldl ins m.empty
       where
-        ins m (k : vs) = m_insert cmpstring (init k) vs m
+        ins m (k : vs) = m.insert cmpstring (init k) vs m
         ins _ _        = error "parse error"
 
 || count the paths in the graph from start to end, using a memoized lookup
 countPaths :: graph -> devId -> devId -> int
 countPaths g start end
-    = st_evalState (countPaths' start) (cmpstring, m_empty)
+    = st.evalState (countPaths' start) (cmpstring, m.empty)
       where
         countPaths' = memo go
-        go d = st_pure 1,                      if d ==$ end
-             = st_pure 0,                      if isNothing mxs
-             = st_mapM countPaths' xs <&> sum, otherwise
+        go d = st.pure 1,                      if d ==$ end
+             = st.pure 0,                      if isNothing mxs
+             = st.mapM countPaths' xs <&> sum, otherwise
                where
-                 mxs = m_lookup cmpstring d g
+                 mxs = m.lookup cmpstring d g
                  xs  = fromJust mxs
 
 || count the number of paths from start to end that go through visits (in any order)

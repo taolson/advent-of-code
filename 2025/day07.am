@@ -4,8 +4,8 @@
 %export day07
 
 %import "adventLib"
-%import <set>
-%import <maybe>
+%import <maybe>                         -(>>=)
+%import <set>           qualified as s
 
 
 grid     == [[int]]     || column indices of splitters in row

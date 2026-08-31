@@ -5,10 +5,10 @@
 
 %import "adventLib"
 %import <lens>
-%import <map>
-%import <maybe>         (>>=?)/mb_bind (<|>?)/mb_alt
-%import <v2>
-%import <vector>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=)
+%import <v2>                            -(>>=) -foldl -abs
+%import <vector>        as v            -foldl -sortBy
 
 
 || sort two ints from lo to hi
@@ -51,9 +51,9 @@ makeSeg (V2 r1 c1) (V2 r2 c2)
       where
         mkSeg t a (l, h) d = (t, a, l, h, d)
 
-segInfo == (m_map pos (seg, seg), vector seg, vector seg)
+segInfo == (m.map pos (seg, seg), vector seg, vector seg)
 
-cmap :: segInfo -> m_map pos (seg, seg)
+cmap :: segInfo -> m.map pos (seg, seg)
 cmap (cm, _, _) = cm
 
 || read the path, then break into horiz/vert segs, sort each and group on common anchor value, and create vectors
@@ -66,19 +66,19 @@ parseSegs
         mkV2 _      = error "parse error"
 
         mkPath ps
-            = zip2 ps (tl ps ++ [hd ps]) |> mapAccumL go m_empty |> mapFst (m_fmap partHV)
+            = zip2 ps (tl ps ++ [hd ps]) |> mapAccumL go m.empty |> mapFst ((m.<$>) partHV)
               where
                 go m (p1, p2)
                     = (m', s)
                       where
                         s  = makeSeg p1 p2
-                        m' = m_insertWith cmppos (++) p1 [s] m |> m_insertWith cmppos (++) p2 [s]
+                        m' = m.insertWith cmppos (++) p1 [s] m |> m.insertWith cmppos (++) p2 [s]
 
                 partHV [s1, s2] = (s1, s2), if isHoriz s1
                                 = (s2, s1), otherwise
                 partHV _        = unreachable
 
-        sortSegs (m, xs) = (m, hs, vs) where (hs, vs) = sortBy cmpseg xs |> span isHoriz |> mapBoth v_fromList
+        sortSegs (m, xs) = (m, hs, vs) where (hs, vs) = sortBy cmpseg xs |> span isHoriz |> mapBoth v.fromList
 
 || check if segment is entirely inside polygon by checking that the segment extends towards
 || the inside of the polygon from the anchor seg, and that no polygon segments cross over
@@ -107,8 +107,8 @@ inside (cm, hs, vs) (V2 k1 k2)
       checkSegInside hs h2 (makeSeg k2 d1)
       where
         V2 d1 d2 = diagCorners (V2 k1 k2)
-        (h1, v1) = m_lookup cmppos k1 cm |> fromJust
-        (h2, v2) = m_lookup cmppos k2 cm |> fromJust
+        (h1, v1) = m.lookup cmppos k1 cm |> fromJust
+        (h2, v2) = m.lookup cmppos k2 cm |> fromJust
 
 findMaxArea :: (rect -> bool) -> [rect] -> int
 findMaxArea test rs
@@ -119,13 +119,13 @@ findMaxArea test rs
 || 1539238860 is answer
 day09 :: io ()
 day09
-||    = readInput "day09" >>= parseSegs .> go
-    = readFile "day09.txt" >>= parseSegs .> go
+    = readInput "day09" >>= parseSegs .> go
+||    = readFile "day09.txt" >>= parseSegs .> go
       where
         go si
             = output [part1, part2]
               where
-                corners = cmap si |> m_keys
+                corners = cmap si |> m.keys
                 rects   = [V2 a b | a : bs <- tails corners; b <- bs]                
                 part1   = findMaxArea (const True) rects |> showint
                 part2   = findMaxArea (inside si)  rects |> showint

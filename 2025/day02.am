@@ -8,7 +8,7 @@
 %export day02
 
 %import "adventLib"
-%import <maybe>
+%import <maybe>                  -(>>=)
 
 
 prodId    == string
