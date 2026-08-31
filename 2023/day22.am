@@ -6,8 +6,8 @@
 %import <base>
 %import <io>
 %import <lens>
-%import <map>
-%import <state>          (>>=)/st_bind (<&>)/st_rfmap
+%import <map>           qualified as m
+%import <state>         as st           -view -over -set
 
 
 coord == (int, int, int)     || z, x, y
@@ -23,14 +23,14 @@ cmpcoordXY (z1, x1, y1) (z2, x2, y2)
 brick == [coord]
 
 
-heightMap == m_map coord int    || max height for each x, y loc
+heightMap == m.map coord int    || max height for each x, y loc
 stackSt   == (heightMap, int)   || height map, count of # of bricks dropped
 
 st_hm  = lensFst
 st_cnt = lensSnd
 
 initStack :: stackSt
-initStack = (m_empty, 0)
+initStack = (m.empty, 0)
 
 || drop a brick to the top of the stack
 dropBrick :: brick -> state stackSt brick
@@ -46,8 +46,8 @@ dropBrick b (hm, cnt)
         cnt' = cnt,     if dh >= 0
              = cnt + 1, otherwise
 
-        geth m c = m_findWithDefault cmpcoordXY 0 c m
-        seth m c = m_insert cmpcoordXY c (view c_z c) m
+        geth m c = m.findWithDefault cmpcoordXY 0 c m
+        seth m c = m.insert cmpcoordXY c (view c_z c) m
 
 || try to drop the remaining bricks onto the stack without the first, to count how many drop,
 || then return the stackSt with the first dropped and the cnt
@@ -56,11 +56,11 @@ dropWithoutBrick [] st = (0, st)
 dropWithoutBrick (b : bs) st
     = (cnt, st1)
       where
-        st1 = st_execState (dropBrick b) st
-        cnt = view st_cnt $ st_execState (st_mapM_ dropBrick bs) st
+        st1 = st.execState (dropBrick b) st
+        cnt = view st_cnt $ st.execState (st.mapM_ dropBrick bs) st
 
 compact :: [brick] -> [brick]
-compact bs = st_evalState (st_mapM dropBrick bs) initStack
+compact bs = st.evalState (st.mapM dropBrick bs) initStack
 
 || count the number of bricks that can safely be disintigrated without
 || any other bricks in the stack dropping
@@ -68,13 +68,13 @@ canDisintigrate :: [brick] -> int
 canDisintigrate bs
     = #noDrops
       where
-        noDrops = filter (==  0) . st_evalState (st_mapM dropWithoutBrick . tails $ bs) $ initStack
+        noDrops = filter (==  0) . st.evalState (st.mapM dropWithoutBrick . tails $ bs) $ initStack
 
 totalDropped :: [brick] -> int
 totalDropped bs
     = sum drops
       where
-        drops = st_evalState (st_mapM dropWithoutBrick . tails $ bs) $ initStack
+        drops = st.evalState (st.mapM dropWithoutBrick . tails $ bs) $ initStack
         
 
 || read the bricks data from a file and sort in order of ascending brick zLo coord
@@ -99,7 +99,7 @@ day22
     = readBricks "../inputs/day22.txt" >>= go
       where
         go bricks
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 cBricks = compact bricks
                 part1   = (++) "part 1: " . showint . canDisintigrate $ cBricks

@@ -4,12 +4,12 @@
 %export day23
 
 %import <base>
-%import <dequeue>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <dequeue>       as dq
+%import <io>
 %import <lens>
-%import <map>
-%import <maybe>
-%import <set>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <set>           qualified as s
 
 
 loc == (int, int)
@@ -30,14 +30,14 @@ moveDir (r, c) S = (r + 1, c)
 moveDir (r, c) E = (r, c + 1)
 moveDir (r, c) W = (r, c - 1)
 
-maze == (m_map loc char, loc, loc)      || map, start, finish
+maze == (m.map loc char, loc, loc)      || map, start, finish
 
 m_grid   = lensTup3_0
 m_start  = lensTup3_1
 m_finish = lensTup3_2
 
 mazeAt :: maze -> loc -> char
-mazeAt m loc = m_findWithDefault cmploc '#' loc $ view m_grid m
+mazeAt m loc = m.findWithDefault cmploc '#' loc $ view m_grid m
 
 validMove :: maze -> loc -> dir -> bool
 validMove m loc dir = mazeAt m (moveDir loc dir) ~=. '#'
@@ -70,43 +70,43 @@ longestPathSlippery m
 || the maze is mostly unidirectional, only splitting where we have a slope.  But trying all combos at each split runs out of memory
 || idea: this may be a dynamic programming problem, where we need to split the graph up into a sequential paths between slopes,
 || and pick the max from each one, rather than trying to form the tree of all splits and pick the max...
-graph == m_map loc [(loc, int)]       || weighted graph of nodes and the distances to directly-connected nodes
+graph == m.map loc [(loc, int)]       || weighted graph of nodes and the distances to directly-connected nodes
 
 toGraph :: maze -> graph
 toGraph m
-    = uniqueNodes . walk initGraph . dq_singleton $ initPath start S
+    = initPath start S |> dq.singleton |> walk initGraph |> uniqueNodes
       where
-        start       = view m_start m
-        finish      = view m_finish m
-        initGraph   = m_fromList cmploc [(start, []), (finish, [])]       || add start and finish as reachable nodes
-        uniqueNodes = m_fmap . nub . comparing cmploc $ fst
+        start         = view m_start m
+        finish        = view m_finish m
+        initGraph     = m.fromList cmploc [(start, []), (finish, [])]       || add start and finish as reachable nodes
+        uniqueNodes g = g m.<&> nub (comparing cmploc fst)
 
         initPath loc dir
             = (loc, moveDir loc dir, dir, 1)
 
         walk g q
-            = g,          if dq_null q
-            = walk g' q1, if m_member cmploc loc g
+            = g,          if dq.null q
+            = walk g' q1, if m.member cmploc loc g
             = walk g  q1, if _eq cmploc loc start \/ #nextDirs == 0
             = walk g  q2, if #nextDirs == 1             || still on current path without hitting a junction
             = walk g' q3, otherwise                     || hit a new junction; add connection and fork
               where
-                ((start, loc, dir, steps), q1) = fromJust $ dq_viewL q
+                ((start, loc, dir, steps), q1) = fromJust $ dq.viewL q
                 nextDirs  = filter (validMove m loc) $ delete cmpdir (oppositeDir dir) allDirs
                 step dir' = (start, moveDir loc dir', dir', steps + 1)
                 fork dir' = (loc, moveDir loc dir', dir', 1)
-                q2        = foldr dq_addR q1 $ map step nextDirs
-                q3        = foldr dq_addR q1 $ map fork nextDirs
+                q2        = foldr dq.addR q1 $ map step nextDirs
+                q3        = foldr dq.addR q1 $ map fork nextDirs
                 g'        = addPath loc start steps g
 
                 addPath a b n m
                     = ins a [(b, n)] $ ins b [(a, n)] m
                       where
-                        ins = m_insertWith cmploc (++)
+                        ins = m.insertWith cmploc (++)
 
 longestPath :: maze -> int
 longestPath m
-    = fromJust $ go s_empty start
+    = fromJust $ go s.empty start
       where
         start  = view m_start m
         finish = view m_finish m
@@ -116,11 +116,11 @@ longestPath m
             = Just 0,                   if _eq cmploc loc finish
             = mb_max $ map doMove next, otherwise
               where
-                seen'  = s_insert cmploc loc seen
-                next   = filter notSeen $ m_findWithDefault cmploc [] loc g
+                seen'  = s.insert cmploc loc seen
+                next   = filter notSeen $ m.findWithDefault cmploc [] loc g
 
                 notSeen (loc, _)
-                    = ~s_member cmploc loc seen
+                    = ~s.member cmploc loc seen
 
                 mb_max
                     = foldr mb_max2 Nothing
@@ -144,7 +144,7 @@ readMaze fn
                 maxRow     = #rows - 1
                 start      = findPath 0
                 finish     = findPath maxRow
-                m          = m_fromList cmploc [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row]
+                m          = m.fromList cmploc [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row]
                 findPath i = pair i . fromJust . elemIndex (==. '.') $ rows ! i
 
 day23 :: io ()
@@ -152,7 +152,7 @@ day23
     = readMaze "../inputs/day23.txt" >>= go
       where
         go m
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint $ longestPathSlippery m
                 part2 = (++) "part 2: " . showint $ longestPath m

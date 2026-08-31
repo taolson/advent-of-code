@@ -9,13 +9,14 @@
 %export day20
 
 %import <base>
-%import <dequeue>
+%import <dequeue>       as dq
 %import <io>
 %import <lens>
-%import <map>
-%import <maybe>
-%import <state>         (>>=)/st_bind (<&>)/st_rfmap (<<)/st_left (>>)/st_right
-%import <vector>
+%import <map>           qualified as m
+%import <maybe>         as mb           -(>>=) -(<&>) -(>>) -(<<)
+%import <maybe>         qualified as mb
+%import <state>         as st           -view -over -set
+%import <vector>        as v            -(<&>) -length -all
 
 
 pulse ::= Low | High
@@ -52,7 +53,7 @@ mod_id    = lensTup4_1
 mod_type  = lensTup4_2
 mod_dests = lensTup4_3
 
-net == m_map modName module
+net == m.map modName module
 
 
 || parsing and building the net
@@ -60,7 +61,7 @@ net == m_map modName module
 || state for each module is kept in a mutable vector of pulse values, with each module pointing to a single value
 || or contiguous range of values in the pulseSt vector
 
-parseSt == (m_map modName modId, m_map modName [modName], int)
+parseSt == (m.map modName modId, m.map modName [modName], int)
 
 || lookup or generate a unique modId for a name 
 genId :: modName -> state parseSt modId
@@ -70,8 +71,8 @@ genId n st
      where
        (modm, srcm, gen) = st
 
-       mid   = m_lookup cmpmodName n modm
-       modm' = m_insert cmpmodName n gen modm
+       mid   = m.lookup cmpmodName n modm
+       modm' = m.insert cmpmodName n gen modm
        gen'  = gen + 1
        st'   = (modm', srcm, gen')
 
@@ -84,7 +85,7 @@ addSrc :: modName -> modName -> state parseSt ()
 addSrc sn dn (modm, srcm, gen)
     = ((), (modm, srcm', gen))
       where
-        srcm' = m_insertWith cmpmodName (++) dn [sn] srcm
+        srcm' = m.insertWith cmpmodName (++) dn [sn] srcm
 
 || partially parse a mod specification, collecting unique ids for its names
 || and collecting a list of sources for Conjunctions
@@ -99,29 +100,29 @@ parseMod s
         chooseType xs = error "parseMod: bad parse"
 
         go mn c dests
-            = genId mn <&> mkInfo << st_mapM (addSrc mn) dests
+            = genId mn <&> mkInfo << st.mapM (addSrc mn) dests
               where
                 mkInfo mid = (mn, c, mid, dests)
 
 getSrcs :: modName -> state parseSt [modName]
 getSrcs n (modm, srcm, gen)
-    = (fromMaybe [] (m_lookup cmpmodName n srcm), (modm, srcm, gen))
+    = (fromMaybe [] (m.lookup cmpmodName n srcm), (modm, srcm, gen))
 
 mkDstId :: modName -> modName -> state parseSt (modId, int)
 mkDstId n d (modm, srcm, gen)
     = ((mid, idx), (modm, srcm, gen))
       where
-        mid = fromMaybe 0 $ m_lookup cmpmodName d modm
-        idx = fromMaybe 0 $ m_lookup cmpmodName d srcm $mb_bind elemIndex (==$ n)
+        mid = fromMaybe 0 $ m.lookup cmpmodName d modm
+        idx = fromMaybe 0 $ m.lookup cmpmodName d srcm mb.>>= elemIndex (==$ n)
         
 makeMod :: (modName, char, modId, [modName]) -> state parseSt module
 makeMod (n, c, mid, dests)
-    = st_mapM (mkDstId n) dests >>= mkMod
+    = st.mapM (mkDstId n) dests >>= mkMod
       where
         mkMod dsts'
             = go c
               where              
-                go 'b' = st_pure ("broadcaster", mid, Broadcaster, dsts') 
+                go 'b' = st.pure ("broadcaster", mid, Broadcaster, dsts') 
 
                 go '%' = allocPulseStId 1 <&> mkFF
                          where
@@ -166,38 +167,38 @@ rn_over lns f st = ((), over lns f st)
 
 
 send :: pulse -> (modId, pulseStId) -> state rnSt ()
-send p (mid, idx) = rn_over rn_sent (dq_addR p) >> rn_over rn_sigq (dq_addR (mid, (idx, p)))
+send p (mid, idx) = rn_over rn_sent (dq.addR p) >> rn_over rn_sigq (dq.addR (mid, (idx, p)))
 
 exec :: module -> signal -> state rnSt ()
 exec (n, mid, mt, dests) (idx, p)
     = go mt
       where
-        go Broadcaster = st_mapM_ (send p) dests
+        go Broadcaster = st.mapM_ (send p) dests
 
         go (FlipFlop pid)
-            = st_pure (),         if isHigh p
+            = st.pure (),         if isHigh p
             = v_flip >>= doSends, otherwise
               where
-                doSends p = st_mapM_ (send p) dests
+                doSends p = st.mapM_ (send p) dests
 
                 v_flip
                     = rn_view rn_vp >>= f
                       where
                         f vp
-                            = v_read vp pid >>= update
+                            = v.read vp pid >>= update
                               where
-                                update p = st_pure p' << v_write vp pid p' where p' = p_not p
+                                update p = st.pure p' << v.write vp pid p' where p' = p_not p
 
         go (Conjunction pid len)
-            = st_bind2 (rn_view rn_push) doUpdateReads doSends
+            = st.bind2 (rn_view rn_push) doUpdateReads doSends
               where
                 doUpdateReads
                     = rn_view rn_vp >>= f
                       where
-                        f vp = v_write vp (pid + idx) p >> st_mapM (v_read vp) [pid .. pid + len - 1]
+                        f vp = v.write vp (pid + idx) p >> st.mapM (v.read vp) [pid .. pid + len - 1]
 
                 doSends bps ps
-                     = st_mapM_ (send p') dests
+                     = st.mapM_ (send p') dests
                        where
                          p' = Low,  if all isHigh ps
                             = High, otherwise
@@ -206,24 +207,24 @@ pushButton :: state rnSt ()
 pushButton
     = rn_over rn_push (+ 1) >> (getBroadcaster >>= send Low) >> runToIdle
       where
-        getBroadcaster = rn_view rn_net <&> m_lookup cmpmodName "broadcaster" .> fromJust .> view mod_id <&> ($pair 0)
+        getBroadcaster = rn_view rn_net <&> m.lookup cmpmodName "broadcaster" .> fromJust .> view mod_id <&> ($pair 0)
 
         runToIdle
             = rn_view rn_sigq >>= check
               where
                 check q
-                    = st_pure (),                                    if dq_null q
+                    = st.pure (),                                    if dq.null q
                     = rn_set rn_sigq q' >> rn_view rn_vm >>= doExec, otherwise
                       where
-                        ((mid, sig), q') = fromJust $ dq_viewL q
+                        ((mid, sig), q') = fromJust $ dq.viewL q
                         doExec vm        = exec (vm !! mid) sig >> runToIdle
 
 warmUp :: rnSt -> int
 warmUp st
     = #hi * #lo
       where
-        sent = st_evalState (st_mapM_ (const pushButton) [1 .. 1000] >> rn_view rn_sent) st
-        (hi, lo) = partition isHigh . dq_toList $ sent
+        sent = st.evalState (st.mapM_ (const pushButton) [1 .. 1000] >> rn_view rn_sent) st
+        (hi, lo) = partition isHigh . dq.toList $ sent
 
 || part 2: need to find out when a single low-pulse is sent to rx
 || rx is the output of %zh, which is a conj of xc, th, pd, bp
@@ -237,22 +238,22 @@ readNet fn
     = readFile fn <&> lines <&> go
       where
         go specs
-            = (net, vm, (v_unsafeThaw vp), dq_empty, dq_empty, 0)
+            = (net, vm, (v.unsafeThaw vp), dq.empty, dq.empty, 0)
               where
-                initSt = (m_empty, m_empty, 0)
-                (pmods, (modm, srcm, _   )) = st_runState (st_mapM parseMod specs) initSt
-                (mods,  (_,    _,    gen')) = st_runState (st_mapM makeMod pmods) (modm, srcm, 0)
+                initSt = (m.empty, m.empty, 0)
+                (pmods, (modm, srcm, _   )) = st.runState (st.mapM parseMod specs) initSt
+                (mods,  (_,    _,    gen')) = st.runState (st.mapM makeMod pmods) (modm, srcm, 0)
 
-                net  = m_fromList cmpmodName $ zip2 (map (view mod_name) mods) mods
-                vm   = v_fromList mods
-                vp   = v_rep gen' Low
+                net  = m.fromList cmpmodName $ zip2 (map (view mod_name) mods) mods
+                vm   = v.fromList mods
+                vp   = v.rep gen' Low
 
 day20 :: io ()
 day20
     = readNet "../inputs/day20.txt" >>= go
       where
         go st
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . warmUp $ st
                 part2 = ("part 2: " ++) . showint . doPart2 $ st

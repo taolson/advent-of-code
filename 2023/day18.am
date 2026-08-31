@@ -4,8 +4,8 @@
 %export day18
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <v2>
+%import <io>
+%import <v2>            -(>>=) -foldl -abs -div -mod -sum
 
 
 loc == v2 int
@@ -63,20 +63,20 @@ s_start = fst
 s_end   = snd
 
 s_length :: segment -> int
-s_length (s, e) = v2_dist s e
+s_length (s, e) = v2.dist s e
 
 
 || convert the plan into a list of segments
 digTrench :: plan -> [segment]
 digTrench
-    = snd . mapAccumL go (v2_pure 0)
+    = snd . mapAccumL go (v2.pure 0)
       where
-        smul n = v2_fmap (* n)
+        smul n = (v2.<$>) (* n)
 
         go loc (PP dir cnt rgb)
             = (loc', seg)
               where
-                loc'   = v2_add loc $ smul cnt dir
+                loc'   = v2.add loc $ smul cnt dir
                 seg    = (loc, loc')
 
 perimeter :: [segment] -> int
@@ -100,7 +100,7 @@ day18
     = readFile "../inputs/day18.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 segs1     = digTrench . readPlan1 $ input
                 segs2     = digTrench . readPlan2 $ input

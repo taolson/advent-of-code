@@ -4,11 +4,11 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <maybe>
-%import <parser>        (<$>)/p_fmap (<<)/p_left (>>)/p_right (<|>)/p_alt
-%import <set>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
+%import <set>           qualified as s
 
 
 loc    == (int, int)
@@ -34,36 +34,36 @@ isStar :: symbol -> bool
 isStar (Sym '*' lc) = True
 isStar s            = False
 
-symLocs   == s_set loc          || set of locations for all the symbols
-partLocs  == m_map loc [part]   || map from all of the locations adjacent to a part to the list of parts they are adjacent to
+symLocs   == s.set loc          || set of locations for all the symbols
+partLocs  == m.map loc [part]   || map from all of the locations adjacent to a part to the list of parts they are adjacent to
 schematic == ([part], [symbol], partLocs, symLocs)
 
 
 || parse the schematic as a list of components, then put them together
 component ::= Cpart part | Csym symbol
 
-|| get the current line and col location of the parse
-p_getLoc :: parser loc
+|| get the current line and col location of the p.parse
+p_getLoc :: p.parser loc
 p_getLoc (il, ic, cs) = (Just ((I# il), (I# ic)), (il, ic, cs))
 
-p_part :: parser part
+p_part :: p.parser part
 p_part
-    = p_liftA3 mkPart p_getLoc p_posint p_getLoc
+    = p.liftA3 mkPart p_getLoc p.posint p_getLoc
       where
         mkPart (r, c) n (_, c') = Part n (r, c) (c' - c)
 
-p_sym :: parser symbol
+p_sym :: p.parser symbol
 p_sym
-    = p_liftA2 mkSym p_getLoc (p_satisfy isSymbol)
+    = p.liftA2 mkSym p_getLoc (p.satisfy isSymbol)
       where
         isSymbol c = c ~=. '.' & ~digit c & ~isSpace c
         mkSym lc s = Sym s lc
 
-p_noise :: parser [char]
-p_noise = p_many (p_space <|> p_char '.')
+p_noise :: p.parser [char]
+p_noise = p.many (p.space p.<|> p.char '.')
 
-p_component :: parser component
-p_component =  p_noise >> (Csym <$> p_sym <|> Cpart <$> p_part)
+p_component :: p.parser component
+p_component =  p_noise p.>> (Csym p.<$> p_sym p.<|> Cpart p.<$> p_part)
 
 || create the list of adjacent locations for a part
 partAdjacencies :: part -> [loc]
@@ -79,10 +79,10 @@ adjacentToSymbol :: symLocs -> part -> bool
 adjacentToSymbol sm
     = any isSymLoc . partAdjacencies
       where
-        isSymLoc lc = s_member cmploc lc sm
+        isSymLoc lc = s.member cmploc lc sm
 
 adjacentParts :: partLocs -> symbol -> [part]
-adjacentParts pm s = m_findWithDefault cmploc [] (symbolLoc s) pm
+adjacentParts pm s = m.findWithDefault cmploc [] (symbolLoc s) pm
 
 gearRatio :: partLocs -> symbol -> int
 gearRatio pm s
@@ -99,11 +99,11 @@ readSchematic fn
         doParse input
             = fromMaybef err mkSchematic mcs
               where
-                (mcs, ps) = parse (p_some p_component) input
-                err       = error (p_error ps)
+                (mcs, ps) = p.parse (p.some p_component) input
+                err       = error (p.error ps)
 
         mkSchematic
-            = foldl addComponent ([], [], m_empty, s_empty)
+            = foldl addComponent ([], [], m.empty, s.empty)
               where
                 addComponent scm (Cpart p) = addPart p scm
                 addComponent scm (Csym s)  = addSym s scm
@@ -114,16 +114,16 @@ readSchematic fn
                 addPartLocs p pm
                     = foldl ins pm (partAdjacencies p)
                       where
-                        ins m lc = m_insertWith cmploc (++) lc [p] m
+                        ins m lc = m.insertWith cmploc (++) lc [p] m
 
-                addSymLoc s m = s_insert cmploc (symbolLoc s) m
+                addSymLoc s m = s.insert cmploc (symbolLoc s) m
 
 day03 :: io ()
 day03
     = readSchematic "../inputs/day03.txt" >>= go
       where
         go (ps, ss, pm, sm)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . sum . map partNumber . filter (adjacentToSymbol sm) $ ps
                 part2 = ("part 2: " ++) . showint . sum . map (gearRatio pm) . filter isStar $ ss

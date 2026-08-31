@@ -4,11 +4,12 @@
 %export day10
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
-%import <maybe>
-%import <set>
-%import <vector>
+%import <maybe>         as mb           -(>>=) -(<&>)
+%import <maybe>         qualified as mb
+%import <set>           qualified as s
+%import <vector>        as v            -(<&>) -foldl -foldr
 
 
 loc == (int, int)
@@ -64,7 +65,7 @@ g_withOnly :: grid -> path -> grid
 g_withOnly (v, w, h) ies
     = (v' // (map toIndex ies), w, h)
       where
-        v'                  = v_rep (v_length v) Nothing
+        v'                  = v.rep (v.length v) Nothing
         toIndex ((x, y), p) = (y * w + x, Just p)
 
 path == [(loc, pipe)]
@@ -78,14 +79,14 @@ findLoop g start
         (d1, (d2, path)) = fromJust . foldr try Nothing $ [N, E, S, W]
 
         try d k
-            = (step [] start d $mb_bind (Just . pair d)) $mb_alt k
+            = (step [] start d mb.>>= (Just . pair d)) mb.<|> k
               where
                 step pth loc d
                     = Just (d, pth),             if _eq cmploc loc' start
-                    = g_at g loc' $mb_bind next, otherwise
+                    = g_at g loc' mb.>>= next, otherwise
                       where
                         loc'   = move d loc
-                        next p = nextDirFrom d p $mb_bind step pth' loc'
+                        next p = nextDirFrom d p mb.>>= step pth' loc'
                                  where pth' = (loc', p) : pth
 
 || shoelace algorithm for finding the area of a polygon given its vertices
@@ -112,7 +113,7 @@ readGrid fn
                 height   = #rows
                 width    = #hd rows
                 (si, ps) = mapAccumL process 0 . enumerate . concat $ rows
-                g        = (v_fromList ps, width, height)
+                g        = (v.fromList ps, width, height)
                 s        = (si $mod width, si $div width)
 
         process s (i, c)
@@ -128,7 +129,7 @@ day10
     = readGrid "../inputs/day10.txt" >>= go
       where
         go (grid, start)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 loop  = findLoop grid start
                 nloop = #loop        

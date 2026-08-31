@@ -4,8 +4,9 @@
 %export day07
 
 %import <base>
-%import <io>            (>>=)/io_bind
-%import <maybe>
+%import <io>
+%import <maybe>                   as mb -(>>=) -(<&>)
+%import <maybe>         qualified as mb
 
 
 card ::= Card int       || card strength
@@ -54,7 +55,7 @@ readHand
                    = HighCard,     otherwise
 
                 findJokers gps
-                    = fromMaybe (gps, []) $ viewR gps $mb_bind check
+                    = fromMaybe (gps, []) $ viewR gps mb.>>= check
                       where
                         check r = Just r,  if isJoker . hd . snd $ r
                                 = Nothing, otherwise
@@ -87,7 +88,7 @@ day07
     = readFile "../inputs/day07.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 process xlate = showint . totalWinnings . makeHandBids xlate $ input
                 part1         = "part 1: " ++ process id

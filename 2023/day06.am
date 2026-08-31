@@ -4,7 +4,7 @@
 %export day06
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 race == (int, int)      || race time, best distance
@@ -67,8 +67,8 @@ removeKerning fn
 
 day06 :: io ()
 day06
-    = io_sequence_ [part1, part2]
+    = sequence_ [part1, part2]
       where
         input = "../inputs/day06.txt"
-        part1 = readRaces input >>= map waysToWin .> product .> showint .> ("part 1" ++) .> putStrLn
+        part1 = readRaces input >>= map waysToWin .> product .> showint .> ("part 1: " ++) .> putStrLn
         part2 = removeKerning input >>= computeWins .> showint .> ("part 2: " ++) .> putStrLn

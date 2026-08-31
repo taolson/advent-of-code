@@ -4,15 +4,15 @@
 %export day21
 
 %import <base>
-%import <dequeue>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <dequeue>       as dq
+%import <io>
 %import <lens>
-%import <maybe>
-%import <set>
+%import <maybe>                         -(>>=) -(<&>)
+%import <set>           qualified as s
 
 
 loc    == (int, int)
-garden == (s_set loc, loc)      || rocks, size
+garden == (s.set loc, loc)      || rocks, size
 
 || lenses for garden
 g_rocks = lensFst
@@ -28,27 +28,27 @@ expand p (r, c) = filter p [(r + dr, c + dc) | (dr, dc) <- [(-1, 0), (1, 0), (0,
 || find the number of locations reachable from a starting location in the given number of steps
 reachable :: garden -> loc -> int -> int
 reachable (rs, sz) start steps
-    = go q s_empty s_empty
+    = go q s.empty s.empty
       where
-        q = dq_addR (0, start) dq_empty
+        q = dq.addR (0, start) dq.empty
 
         parity = even,            if even steps
                = odd,             otherwise
 
         go q seen reach
-            = s_size reach,       if dq_null q
-            = go q1 seen  reach,  if n > steps \/ s_member cmploc loc seen
+            = s.size reach,       if dq.null q
+            = go q1 seen  reach,  if n > steps \/ s.member cmploc loc seen
             = go q2 seen' reach', otherwise
               where
-                ((n, loc), q1) = fromJust $ dq_viewL q
-                seen'          = s_insert cmploc loc seen
+                ((n, loc), q1) = fromJust $ dq.viewL q
+                seen'          = s.insert cmploc loc seen
                 q2             = foldl insq q1 . map (pair (n + 1)) . expand notRock $ loc
 
-                reach'         = s_insert cmploc loc reach, if parity n
+                reach'         = s.insert cmploc loc reach, if parity n
                                = reach,                     otherwise
 
-                insq q x       = dq_addR x q
-                notRock loc    = ~s_member cmploc (wrapLoc loc sz) rs
+                insq q x       = dq.addR x q
+                notRock loc    = ~s.member cmploc (wrapLoc loc sz) rs
 
 || part 2:  Looking at the actual input, I see that it is set up with S in the very center, with an unblocked
 || straight line to N, S, E, and W edges, and there are no rocks on any of the edges.  So At time N, we simultaneously
@@ -77,7 +77,7 @@ readGarden fn
     = readFile fn <&> lines <&> go
       where
         go rows
-            = ((s_fromList cmploc rocks, size), hd starts)
+            = ((s.fromList cmploc rocks, size), hd starts)
               where
               size = (#rows, # (hd rows))
               rs   = [((r, c), ch) | (r, row) <- enumerate rows; (c, ch) <- enumerate row; ch ~=. '.']
@@ -88,7 +88,7 @@ day21
     = readGarden "../inputs/day21.txt" >>= go
       where
         go (g, st)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . reachable g st $ 64
                 part2 = (++) "part 2: " . showint . reachableInf g st $ 26501365

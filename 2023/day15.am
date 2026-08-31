@@ -4,8 +4,8 @@
 %export day15
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
+%import <io>
+%import <map>           qualified as m
 
 
 label == string
@@ -16,7 +16,7 @@ cmplens :: ordI lens
 cmplens = cmplabel $on fst
 
 box   == [lens]
-boxes == m_map int box
+boxes == m.map int box
 
 hash :: string -> int
 hash
@@ -26,10 +26,10 @@ hash
 
 removeLens :: label -> boxes -> boxes
 removeLens lbl m
-    = m_insert cmpint idx box' m
+    = m.insert cmpint idx box' m
       where
         idx  = hash lbl
-        box  = m_findWithDefault cmpint [] idx m
+        box  = m.findWithDefault cmpint [] idx m
         box' = delete cmplens (lbl, 0) box
 
 replaceLens :: lens -> box -> box
@@ -43,10 +43,10 @@ replaceLens x
 
 insertLens :: lens -> boxes -> boxes
 insertLens (lbl, fl) m
-    = m_insert cmpint idx box' m
+    = m.insert cmpint idx box' m
       where
         idx  = hash lbl
-        box  = m_findWithDefault cmpint [] idx m
+        box  = m.findWithDefault cmpint [] idx m
         box' = replaceLens (lbl, fl) box
 
 process :: boxes -> string -> boxes
@@ -58,11 +58,11 @@ process m cmd
         (op : fl)   = rest
 
 initialize :: [string] -> boxes
-initialize = foldl process m_empty
+initialize = foldl process m.empty
 
 focusingPower :: boxes -> int
 focusingPower
-    = sum . map boxPower . m_toList
+    = sum . map boxPower . m.toList
       where
         boxPower (i, xs) = (i + 1) * sum [(j + 1) * fl | (j, (lbl, fl)) <- enumerate xs]
 
@@ -74,7 +74,7 @@ day15
     = readSequence "../inputs/day15.txt" >>= go
       where
         go sequence
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . sum . map hash $ sequence
                 part2 = ("part 2: " ++) . showint . focusingPower . initialize $ sequence

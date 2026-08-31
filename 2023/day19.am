@@ -5,11 +5,10 @@
 
 %import <base>
 %import <io>
-%import <io> qualified as IO    (>>=)/io_bind (<&>)/io_rfmap
 %import <lens>
-%import <map>
-%import <maybe>
-%import <parser>                (>>=)/p_bind (<&>)/p_rfmap (>>)/p_right (<<)/p_left
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
+%import <parser>        qualified as p
 
 
 interval == (int, int)
@@ -46,65 +45,65 @@ category    ::= X | M | A | S
 destination ::= Rejected | Accepted | Next string
 rule        ::= Rule category char int destination
 workflow    == (string, [rule])
-sys         == (m_map string [rule], [part int])
+sys         == (m.map string [rule], [part int])
 
 
 || parsing 
 
-p_ident :: parser string
-p_ident = p_many p_letter
+p_ident :: p.parser string
+p_ident = p.many p.letter
 
-p_category :: parser category
+p_category :: p.parser category
 p_category
-    = p_any >>= check
+    = p.any p.>>= check
       where
-        check 'x' = p_pure X
-        check 'm' = p_pure M
-        check 'a' = p_pure A
-        check 's' = p_pure S
-        check _   = p_fail
+        check 'x' = p.pure X
+        check 'm' = p.pure M
+        check 'a' = p.pure A
+        check 's' = p.pure S
+        check _   = p.fail
 
-p_cmp :: parser char
+p_cmp :: p.parser char
 p_cmp
-    = p_any >>= check
+    = p.any p.>>= check
       where
-        check '<' = p_pure '<'
-        check '>' = p_pure '>'
-        check _   = p_fail
+        check '<' = p.pure '<'
+        check '>' = p.pure '>'
+        check _   = p.fail
 
-p_cond :: parser (category, char, int)
-p_cond = p_liftA3 triple p_category p_cmp p_int << p_char ':'
+p_cond :: p.parser (category, char, int)
+p_cond = p.liftA3 triple p_category p_cmp p.int p.<< p.char ':'
 
-p_part :: parser (part int)
+p_part :: p.parser (part int)
 p_part
-    = (p_inBraces . p_someSepBy p_comma $ (p_any >> p_char '=' >> p_int)) >>= check
+    = (p.inBraces . p.someSepBy p.comma $ (p.any p.>> p.char '=' p.>> p.int)) p.>>= check
       where
-        check [x, m, a, s] = p_pure $ (x, m, a, s)
-        check _            = p_fail
+        check [x, m, a, s] = p.pure $ (x, m, a, s)
+        check _            = p.fail
 
-p_destination :: parser destination
+p_destination :: p.parser destination
 p_destination
-    = p_ident <&> mkDest
+    = p_ident p.<&> mkDest
       where
         mkDest "A" = Accepted
         mkDest "R" = Rejected
         mkDest s   = Next s
 
-p_rule :: parser rule
+p_rule :: p.parser rule
 p_rule
-    = p_liftA2 mkRule (p_optional p_cond) p_destination
+    = p.liftA2 mkRule (p.optional p_cond) p_destination
       where
         mkRule Nothing              dst = Rule X   'T' 0 dst
         mkRule (Just (cat, cmp, n)) dst = Rule cat cmp n dst
 
-p_workflow :: parser workflow
+p_workflow :: p.parser workflow
 p_workflow
-    = p_liftA2 pair p_ident . p_inBraces . p_someSepBy p_comma $ p_rule
+    = p.liftA2 pair p_ident . p.inBraces . p.someSepBy p.comma $ p_rule
 
-p_sys :: parser sys
-p_sys = p_liftA2 mkSys (p_someSepBy p_spaces p_workflow) (p_spaces >> p_someSepBy p_spaces p_part)
+p_sys :: p.parser sys
+p_sys = p.liftA2 mkSys (p.someSepBy p.spaces p_workflow) (p.spaces p.>> p.someSepBy p.spaces p_part)
         where
-          mkSys wfs parts = (m_fromList cmpstring wfs, parts)
+          mkSys wfs parts = (m.fromList cmpstring wfs, parts)
 
 
 || running
@@ -149,7 +148,7 @@ runSys (wfm, ps)
         runWorkflow s p
             = foldr go Nothing rs
               where
-                rs = fromJust $ m_lookup cmpstring s wfm
+                rs = fromJust $ m.lookup cmpstring s wfm
 
                 go r k
                     = fromMaybef k choose $ runRule r p
@@ -167,7 +166,7 @@ sieveSys (wfm, ps)
         runWorkflow s pg
             = go rs pg
               where
-                rs = fromJust $ m_lookup cmpstring s wfm
+                rs = fromJust $ m.lookup cmpstring s wfm
 
               go [] pg = [pg]     || no more tests -- shouldn't happen
               go (r : rs) pg
@@ -183,20 +182,20 @@ sieveSys (wfm, ps)
 
 readSys :: string -> io sys
 readSys fn
-    = readFile fn IO.<&> go
+    = readFile fn <&> go
       where
         go input
             = fromMaybe err m_sys
               where
-                (m_sys, ps) = parse p_sys $ input
-                err         = error (p_error ps)
+                (m_sys, ps) = p.parse p_sys $ input
+                err         = error (p.error ps)
 
 day19 :: io ()
 day19
-    = readSys "../inputs/day19.txt" IO.>>= go
+    = readSys "../inputs/day19.txt" >>= go
       where
         go sys
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . sum . map rating . runSys $ sys
                 part2 = ("part 2: " ++) . showint . sum . map ncombs . sieveSys $ sys

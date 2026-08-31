@@ -4,7 +4,7 @@
 %export day11
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 %import <lens>
 
 
@@ -52,7 +52,7 @@ day11
     = readGalaxies "../inputs/day11.txt" >>= go
       where
         go gxs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . sum . shortestPaths . expand 2 $ gxs
                 part2 = ("part 2: " ++) . showint . sum . shortestPaths . expand 1_000_000 $ gxs

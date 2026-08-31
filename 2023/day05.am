@@ -4,7 +4,7 @@
 %export day05
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 || handy operators for min and max on ints
@@ -81,7 +81,7 @@ day05
     = readInput "../inputs/day05.txt" >>= go
       where
         go (sds, ims)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 idRange n  = (n, n)
                 process f  = showint . minOfRanges . locationsForSeedRanges ims . f $ sds

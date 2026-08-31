@@ -5,10 +5,10 @@
 
 %import <base>
 %import <io>
-%import <map>
-%import <maybe>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 %import <memo>
-%import <state>         (>>=)/st_bind (<&>)/st_rfmap
+%import <state>         as st
 
 
 spring          == char
@@ -18,9 +18,9 @@ findCombos :: conditionRecord -> memoSt conditionRecord int
 findCombos = memo findCombos'
 
 findCombos' :: conditionRecord -> memoSt conditionRecord int
-findCombos' (s, [])  = st_pure 0, if elem cmpchar '#' s
-                     = st_pure 1, otherwise
-findCombos' ([], _)  = st_pure 0
+findCombos' (s, [])  = st.pure 0, if elem cmpchar '#' s
+                     = st.pure 1, otherwise
+findCombos' ([], _)  = st.pure 0
 
 findCombos' ((s0 : ss), qa)
     = doOpr,              if s0 ==. '.'
@@ -30,19 +30,19 @@ findCombos' ((s0 : ss), qa)
         q0 : qs  = qa
         doOpr    = findCombos (ss, qa)
         doBroken = brokenCase ss q0 qs
-        (<+>)    = st_liftA2 (+)
+        (<+>)    = st.liftA2 (+)
 
         brokenCase srest q qrest
-            = st_pure 0, if q - 1 > #srest      || more broken to match, but not enough springs left: no solution
+            = st.pure 0, if q - 1 > #srest      || more broken to match, but not enough springs left: no solution
             = check,     if q - 1 == #srest     || same number of broken as springs left; check
             = tally,     otherwise              || more springs than broken left, tally up all possible solutions
               where
-                check = st_pure 0, if elem cmpchar '.' srest \/ not (null qrest)        || all remaining must be '#' or '?'
-                      = st_pure 1, otherwise                                            || match
+                check = st.pure 0, if elem cmpchar '.' srest \/ not (null qrest)        || all remaining must be '#' or '?'
+                      = st.pure 1, otherwise                                            || match
 
                 || tally is written as a sum of a list, but the list will only contain 0 or 1 elements;
                 || this list comprehension is used to simplify filtering out the bad cases
-                tally = st_mapM findCombos xs <&> sum
+                tally = st.mapM findCombos xs <&> sum
                         where
                           xs = [(rest, qrest) |
                                 (header, dot : rest) <- [splitAt (q - 1) srest];        || header is the match for (q - 1) broken springs
@@ -51,7 +51,7 @@ findCombos' ((s0 : ss), qa)
 
 processLine1 :: string -> int
 processLine1 str
-    = st_evalState (findCombos (fstr, seqnums)) $ (cmp, m_empty)
+    = st.evalState (findCombos (fstr, seqnums)) $ (cmp, m.empty)
       where
         cmp (cs1, ns1) (cs2, ns2)
             = cmpint (#cs1) (#cs2) $thenCmp cmpint (#ns1) (#ns2)
@@ -61,7 +61,7 @@ processLine1 str
 
 processLine2 :: string -> int
 processLine2 str
-    = st_evalState (findCombos (fullFstr, fullSeqNums)) $ (cmp, m_empty)
+    = st.evalState (findCombos (fullFstr, fullSeqNums)) $ (cmp, m.empty)
       where
         cmp (cs1, ns1) (cs2, ns2)
             = cmpint (#cs1) (#cs2) $thenCmp cmpint (#ns1) (#ns2)
@@ -76,7 +76,7 @@ day12
     = readFile "../inputs/day12.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 process f = showint . sum . map f . lines $ input
                 part1     = "part 1: " ++ process processLine1

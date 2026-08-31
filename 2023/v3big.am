@@ -1,0 +1,51 @@
+|| variant of <v3> which uses the bignum module
+
+%export + <v3>          || re-export all of <v3> that is polymorphic (not v3 int)
+
+%import <lens>
+%import <base>          -signum
+%import <v3>            -abs -neg -add -sub -mul -div -max -min -sum -product -dist -cross
+%import <stdlib>        -foldl -foldr -mod -quot -rem
+%import "bignum"
+
+abs, neg :: v3 bignum -> v3 bignum
+abs a = bn_abs v3.<$> a
+neg a = bn_neg v3.<$> a
+
+add, sub, mul, div :: v3 bignum -> v3 bignum -> v3 bignum
+add a b = liftA2 bn_add a b
+sub a b = liftA2 bn_sub a b
+mul a b = liftA2 bn_mul a b
+div a b = liftA2 bn_div a b
+
+max, min :: v3 bignum -> v3 bignum -> v3 bignum
+max a b = v3.liftA2 (max2 cmp) a b where cmp a b = cmpint (bn_cmp a b) 0
+min a b = v3.liftA2 (min2 cmp) a b where cmp a b = cmpint (bn_cmp a b) 0
+
+sum, product :: v3 bignum -> bignum
+sum     a = v3.foldl bn_add bn_0 a
+product a = v3.foldl bn_mul bn_1 a
+
+|| geometric distance
+dist :: v3 bignum -> v3 bignum -> bignum
+dist a b = bn_sqrt . sum $ mul d d where d = sub a b
+
+|| cross product
+cross :: v3 bignum -> v3 bignum -> v3 bignum
+cross (V3 a b c) (V3 x y z)
+    = V3 d e f
+      where
+        d = (b $bn_mul z) $bn_sub (c $bn_mul y)
+        e = (c $bn_mul x) $bn_sub (a $bn_mul z)
+        f = (a $bn_mul y) $bn_sub (b $bn_mul x)
+
+|| dot product
+dot :: v3 bignum -> v3 bignum -> bignum
+dot a b = sum $ mul a b
+
+|| testing
+any :: (* -> bool) -> v3 * -> bool
+any p
+    = v3.foldr tst False
+      where
+        tst x b = b \/ p x

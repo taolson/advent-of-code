@@ -9,10 +9,11 @@
 %export day24
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
+%import <io>
+%import <maybe>                         -(>>=) -(<&>)
 %import "bignum"
-%import "v3big"
+%import "v3big"         as v3           -(>>=) -(<&>) -sum
+%import "v3big"         qualified as v3
 
 
 position == v3 bignum
@@ -95,22 +96,22 @@ findRockPos sts
         rb     = sts' ! 2
         ta     = intersectionTime rb ra
         tb     = intersectionTime ra rb
-        rockPA = fst a $v3_add (snd a $v3_mul v3_pure ta)
-        rockPB = fst b $v3_add (snd b $v3_mul v3_pure tb)
+        rockPA = fst a $v3.add (snd a $v3.mul v3.pure ta)
+        rockPB = fst b $v3.add (snd b $v3.mul v3.pure tb)
         dt     = bn_sub tb ta
-        dp     = rockPB $v3_sub rockPA
-        rockV  = v3_fmap doublePrec $ dp $v3_div v3_pure dt
-        rockP  = rockPA $v3_sub (rockV $v3_mul v3_pure ta)
+        dp     = rockPB $v3.sub rockPA
+        rockV  = (v3.<$>) doublePrec $ dp $v3.div v3.pure dt
+        rockP  = rockPA $v3.sub (rockV $v3.mul v3.pure ta)
 
         subRef (ap, av) (bp, bv)
-            = (bp $v3_sub ap, bv $v3_sub av)
+            = (bp $v3.sub ap, bv $v3.sub av)
         
         intersectionTime a b
             = numer /. denom
               where
-                planeNorm = fst a $v3_cross (fst a $v3_add snd a)
-                denom     = snd b $v3_dot planeNorm
-                numer     = v3_neg (fst b) $v3_dot planeNorm
+                planeNorm = fst a $v3.cross (fst a $v3.add snd a)
+                denom     = snd b $v3.dot planeNorm
+                numer     = v3.neg (fst b) $v3.dot planeNorm
 
 readStones :: string -> io [stone]
 readStones fn
@@ -131,7 +132,7 @@ day24
     = readStones "../inputs/day24.txt" >>= go
       where
         go stones
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1  = (++) "part 1: " . showint . crossingsBetweenXY (bn "200000000000000") (bn "400000000000000") $ stones
-                part2  = (++) "part 2: " . bn_show . v3_sum . findRockPos $ stones
+                part2  = (++) "part 2: " . bn_show . v3.sum . findRockPos $ stones

@@ -4,8 +4,8 @@
 %export day13
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
+%import <io>
+%import <maybe>         as mb   -(>>=) -(<&>)
 
 
 grid == [string]
@@ -36,7 +36,7 @@ smudged g
 
 findMirror :: (grid -> maybe int) -> grid -> maybe int
 findMirror f g
-    = (mb_fmap (* 100) (f g)) $mb_alt f (transpose g)
+    = ((mb.<$>) (* 100) (f g)) mb.<|> f (transpose g)
 
 readInput :: string -> io [grid]
 readInput fn = readFile fn <&> lines <&> splitWhen null
@@ -46,7 +46,7 @@ day13
     = readInput "../inputs/day13.txt" >>= go
       where
         go grids
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 process f = showint . sum . catMaybes . map (findMirror f) $ grids
                 part1     = "part 1: " ++ process noSmudge

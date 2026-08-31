@@ -4,7 +4,7 @@
 %export day09
 
 %import <base>
-%import <io>            (>>=)/io_bind
+%import <io>
 
 
 sequence == [int]
@@ -31,7 +31,7 @@ day09
     = readFile "../inputs/day09.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 ds    = map (diffs . map intval . split ' ') . lines $ input
                 part1 = ("part 1: " ++) . showint . sum . map predictNext $ ds

@@ -4,9 +4,9 @@
 %export day14
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap (>>)/io_right
-%import <map>
-%import <maybe>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -(<&>)
 
 
 loc      == (int, int)
@@ -56,7 +56,7 @@ load (_, my)
 
 findCycle :: loc -> [rock] -> int
 findCycle limit rocks
-    = go m_empty fps
+    = go m.empty fps
       where
         loads =  map (load limit) . iterate (spinCycle limit) $ rocks
 
@@ -65,9 +65,9 @@ findCycle limit rocks
 
         || find the first cycle matching the fingerprint
         go m ((t', fp) : xs)
-            = fromMaybef (go m' xs) loadAt (m_lookup (cmplist cmpint) fp m)
+            = fromMaybef (go m' xs) loadAt (m.lookup (cmplist cmpint) fp m)
               where
-                m'       = m_insert (cmplist cmpint) fp t' m
+                m'       = m.insert (cmplist cmpint) fp t' m
                 loadAt t = loads ! (t + (1_000_000_000 - t) $mod (t' - t))
          go _ _ = error "no rocks"
 
@@ -87,7 +87,7 @@ day14
     = readInput "../inputs/day14.txt" >>= go
       where
         go (rocks, limit)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = ("part 1: " ++) . showint . load limit . tiltNorth $ rocks
                 part2 = ("part 2: " ++) . showint . findCycle limit $ rocks

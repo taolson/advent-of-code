@@ -5,8 +5,9 @@
 
 %import <base>
 %import <io>
-%import <state>         (>>=)/st_bind (>>)/st_right
-%import <vector>
+%import <state>
+%import <vector>        as v            -length -sortBy
+%import <vector>        qualified as v
 
 
 || find the matches between two lists that have been sorted in ascending order
@@ -41,27 +42,27 @@ cardPoints c
 || expand the card values to the list of indicies of the next n elements
 expandCards :: vector card -> vector [int]
 expandCards cv
-    = v_fmapWithIndex takeN cv
+    = v.fmapWithIndex takeN cv
       where
         takeN i n = [i + 1 .. i + n]
 
 || tally total number of cards by expanding each entry of the expansion
 tallyCards :: vector [int] -> int
 tallyCards ev
-    = v_sum . runSTVector tally $ v_rep ncards 1
+    = v.sum . runSTVector tally $ v.rep ncards 1
       where
-        ncards = v_length ev
+        ncards = v.length ev
 
         tally mv
-            = st_mapM_ iter [0 .. ncards - 1]
+            = mapM_ iter [0 .. ncards - 1]
               where
                 iter i
-                    = v_unsafeRead mv i >>= step
+                    = v.unsafeRead mv i >>= step
                       where
                         step n
-                            = st_mapM_ ins (ev !! i)
+                            = mapM_ ins (ev !! i)
                               where
-                                ins j = v_unsafeModify mv (+ n) j
+                                ins j = v.unsafeModify mv (+ n) j
 
 
 day04 :: io ()
@@ -69,8 +70,8 @@ day04
     = readFile "../inputs/day04.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                cards = v_fromList . map readCard . lines $ input
-                part1 = ("part 1: " ++) . showint . v_sum . v_fmap cardPoints $ cards
+                cards = v.fromList . map readCard . lines $ input
+                part1 = ("part 1: " ++) . showint . v.sum . (v.<$>) cardPoints $ cards
                 part2 = ("part 2: " ++) . showint . tallyCards . expandCards  $ cards

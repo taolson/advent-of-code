@@ -4,9 +4,9 @@
 %export day01
 
 %import <base>
-%import <io>                    (>>=)/io_bind
-%import <maybe>                 (<|>)/mb_alt
-%import <maybe> qualified as mb (>>=)/mb_bind
+%import <io>
+%import <maybe>         as mb           -(>>=)
+%import <maybe>         qualified as mb
 
 
 calibration == (maybe char, maybe char)
@@ -52,7 +52,7 @@ day01
     = readFile "../inputs/day01.txt" >>= go
       where
         go input
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 process f = showint . sum . map calibrationValue . map f . lines $ input
                 part1 = ("part 1: " ++) . process $ extractCalibration

@@ -3,20 +3,20 @@
 %export day08
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
+%import <io>
+%import <map>           qualified as m
 
 
 instruction == char
 node        == string
-network     == m_map node (node, node)
+network     == m.map node (node, node)
 
 step :: network -> instruction -> node -> node
 step net d loc
     = fst n, if d ==. 'L'
     = snd n, otherwise
       where
-        n   = m_findWithDefault cmpstring err loc net
+        n   = m.findWithDefault cmpstring err loc net
         err = error ("step: can't find " ++ loc)
 
 findPeriod :: network -> [instruction] -> node -> int
@@ -38,9 +38,9 @@ readInput fn
         go ([moves] : [net])
             = (moves, readNet net)
               where
-                readNet = map (splitWhen (not . letter)) .> foldl ins m_empty
+                readNet = map (splitWhen (not . letter)) .> foldl ins m.empty
 
-                ins m [k, l, r] = m_insert cmpstring k (l, r) m
+                ins m [k, l, r] = m.insert cmpstring k (l, r) m
                 ins _ _         = error "readInput: parse error"
         go _ = error "parse error"
 
@@ -49,8 +49,8 @@ day08
     = readInput "../inputs/day08.txt" >>= go
       where
         go (moves, net)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
-                starts = filter ((==. 'A') . last) . m_keys $ net
+                starts = filter ((==. 'A') . last) . m.keys $ net
                 part1  = ("part 1: " ++) . showint . findPeriod net moves  $ "AAA"
                 part2  = ("part 2: " ++) . showint . totalPeriod net moves $ starts
