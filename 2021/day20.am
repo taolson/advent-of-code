@@ -1,12 +1,12 @@
 %export day20
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <set>
+%import <io>
+%import <set>           qualified as s
 
 
 pixels    == [[int]]            || a 2-D list of intbers (0 = off, 1 = on)
-algorithm == s_set int          || set of 9-bit intbers (0 .. 511) that result in an "on" pixel
+algorithm == s.set int          || set of 9-bit intbers (0 .. 511) that result in an "on" pixel
 image     == (pixels, bool)     || pixels, inversion flag
 
 i_pixels :: image -> pixels
@@ -31,7 +31,7 @@ i_apply :: algorithm -> image -> image
 i_apply algo (rows, inv)
     = (rows', doInv & ~inv)
       where
-        doInv             = s_member cmpint 0 algo
+        doInv             = s.member cmpint 0 algo
         rows'             = sc_scan doRow (sc_init (repeat 0) rows)
         doRow r1 r2 r3    = go (scanRow 64 r1) (scanRow 8 r2) (scanRow 1 r3)
         scanRow m r       = sc_scan (addPixels m) (sc_init 0 r)
@@ -42,7 +42,7 @@ i_apply algo (rows, inv)
                 idx  = s1 + s2 + s3                     || add up all the pixel weights to form the index
                 idx' = idx,       if ~doInv \/ ~inv
                      = 511 - idx, otherwise
-                p    = 1,         if s_member cmpint idx' algo || look up the index in the algorithm to see if it should be on
+                p    = 1,         if s.member cmpint idx' algo || look up the index in the algorithm to see if it should be on
                      = 0,         otherwise
                 p'   = p,         if ~doInv \/ inv      || do an inversion, if required
                      = 1 - p,     otherwise
@@ -50,7 +50,7 @@ i_apply algo (rows, inv)
 
 readAlgorithm :: string -> algorithm
 readAlgorithm s
-    = foldl (converse (s_insert cmpint)) s_empty [n | (n, c) <- zip2 [0 ..] s; c ==. '#']
+    = foldl (converse (s.insert cmpint)) s.empty [n | (n, c) <- zip2 [0 ..] s; c ==. '#']
 
 readImage :: string -> image
 readImage s
@@ -74,10 +74,9 @@ day20
     = readInput "../inputs/day20.txt" >>= go
       where
         go (algo, image)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum . concat . i_pixels . enhance $ 2
                 part2 = (++) "part 2: " . showint . sum . concat . i_pixels . enhance $ 50
 
                 enhance n = iterate (i_apply algo) image ! n        
-

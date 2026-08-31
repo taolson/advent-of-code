@@ -1,7 +1,7 @@
 %export day07
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 || ternary search for min -- f must be a unimodal function
@@ -22,7 +22,7 @@ day07
     = readIntList "../inputs/day07.txt" >>= go
       where
         go crabs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . minCost . moveCost $ cost1
                 part2 = (++) "part 2: " . showint . minCost . moveCost $ cost2

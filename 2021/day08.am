@@ -1,17 +1,17 @@
 %export day08
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <map>
-%import <set>
+%import <io>
+%import <map>           qualified as m
+%import <set>           qualified as s
 
 segment == char
-pattern == s_set segment
+pattern == s.set segment
 
 || common set operators
-(/-) = s_difference cmpchar
-(/+) = s_union cmpchar
-(/*) = s_intersect cmpchar
+(/-) = s.difference cmpchar
+(/+) = s.union cmpchar
+(/*) = s.intersect cmpchar
 
 || list of (digit value, segment list) pairs
 canonicalSegList :: [(int, [segment])]
@@ -29,8 +29,8 @@ canonicalSegList
       ]
 
 || map from canonical segment list to digit
-canonicalSegsToDigitMap :: m_map [segment] int
-canonicalSegsToDigitMap = (m_fromList cmpstring . map swapPair) canonicalSegList
+canonicalSegsToDigitMap :: m.map [segment] int
+canonicalSegsToDigitMap = (m.fromList cmpstring . map swapPair) canonicalSegList
 
 || solve an entry, returning the list of digits displayed in order
 || strategy: the mapping from displayed segment to canonical segment can be determined
@@ -46,25 +46,25 @@ solve :: entry -> [int]
 solve (pats, digs)
     = map getDigit digs'
       where
-        (p2s, pats1)  = partition ((== 2) . s_size) pats
-        (p3s, pats2)  = partition ((== 3) . s_size) pats1
-        (p4s, pats3)  = partition ((== 4) . s_size) pats2
-        (c235, pats4) = partition ((== 5) . s_size) pats3
-        (c069, pats5) = partition ((== 6) . s_size) pats4
+        (p2s, pats1)  = partition ((== 2) . s.size) pats
+        (p3s, pats2)  = partition ((== 3) . s.size) pats1
+        (p4s, pats3)  = partition ((== 4) . s.size) pats2
+        (c235, pats4) = partition ((== 5) . s.size) pats3
+        (c069, pats5) = partition ((== 6) . s.size) pats4
         p1            = hd p2s
         p7            = hd p3s
         p4            = hd p4s
         p8            = hd pats5
         p235          = foldl (/*) p8 c235                      || intersection of p2, p3, p5
         p069          = foldl (/*) p8 c069                      || intersection of p0, p6, p9
-        sa            = s_first (p7 /- p1)
-        sb            = s_first ((p4 /- p1) /- p235)
-        sc            = s_first (p7 /- p069)
-        sd            = s_first (p4 /* p235)
-        se            = s_first ((p8 /- p069) /- p4)
-        sf            = s_first ((p069 /- p235) /- (p4 /- p1))
-        sg            = s_first ((p235 /- p4) /- p7)
-        segsMap       = m_fromList cmpchar
+        sa            = s.first (p7 /- p1)
+        sb            = s.first ((p4 /- p1) /- p235)
+        sc            = s.first (p7 /- p069)
+        sd            = s.first (p4 /* p235)
+        se            = s.first ((p8 /- p069) /- p4)
+        sf            = s.first ((p069 /- p235) /- (p4 /- p1))
+        sg            = s.first ((p235 /- p4) /- p7)
+        segsMap       = m.fromList cmpchar
                             [ (sa, 'a')
                             , (sb, 'b')
                             , (sc, 'c')
@@ -73,9 +73,9 @@ solve (pats, digs)
                             , (sf, 'f')
                             , (sg, 'g')
                             ]
-        digs'         = map (s_fmap cmpchar trans) digs
-        trans s       = m_findWithDefault cmpchar ' ' s segsMap
-        getDigit segs = m_findWithDefault cmpstring (-1) (s_toList segs) canonicalSegsToDigitMap
+        digs'         = map ((s.<$>) cmpchar trans) digs
+        trans s       = m.findWithDefault cmpchar ' ' s segsMap
+        getDigit segs = m.findWithDefault cmpstring (-1) (s.toList segs) canonicalSegsToDigitMap
 
 
 || parsing
@@ -89,7 +89,7 @@ readInput fn
          readEntry s
              = (ps, ds)
                where
-                 (ps, rs) = words s |> map (s_fromList cmpchar) |> splitAt 10
+                 (ps, rs) = words s |> map (s.fromList cmpchar) |> splitAt 10
                  ds       = drop 1 rs
 
 day08 :: io ()
@@ -97,7 +97,7 @@ day08
     = readInput "../inputs/day08.txt" >>= go
       where
         go entries
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 solved = map solve entries
                 part1  = (++) "part 1: " . showint . length . filter is1478 . concat $ solved
@@ -105,4 +105,4 @@ day08
 
                 is1478 n     = n == 1 \/ n == 4 \/ n == 7 \/ n == 8
                 mkVal        = foldl addDigit 0
-                addDigit s n = s * 10 + n     
+                addDigit s n = s * 10 + n

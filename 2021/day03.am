@@ -1,7 +1,7 @@
 %export day03
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 bit    == num
@@ -47,7 +47,7 @@ day03
     = readBitVecs "../inputs/day03.txt" >>= go
       where
         go bvecs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1
                     = "part 1: " ++ shownum (gamma * epsilon)

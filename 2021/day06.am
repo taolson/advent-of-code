@@ -1,0 +1,45 @@
+%export day06
+
+%import <base>
+%import <io>
+%import <map>           qualified as m
+
+
+intmap == m.map int int
+
+step :: int -> intmap -> intmap
+step day fish
+    = fish3
+      where
+        day0  = day $mod 7
+        gen   = m.findWithDefault cmpint 0 day0 fish
+        f7    = m.findWithDefault cmpint 0 7    fish
+        f8    = m.findWithDefault cmpint 0 8    fish
+        fish1 = m.insertWith cmpint (+) day0 f7 fish
+        fish2 = m.insert cmpint 7 f8 fish1
+        fish3 = m.insert cmpint 8 gen fish2
+
+run :: int -> intmap -> intmap
+run n 
+    = go 0
+      where
+        go day fish
+          = fish,                         if day == n
+          = go (day + 1) (step day fish), otherwise
+
+readInput :: string -> io intmap
+readInput fn
+    = readFile fn <&> readIntList <&> foldl addFish m.empty
+      where
+        readIntList = map intval . split ','
+        addFish m n = m.insertWith cmpint (+) n 1 m
+
+day06 :: io ()
+day06
+    = readInput "../inputs/day06.txt" >>= go
+      where
+        go fish
+            = mapM_ putStrLn [part1, part2]
+              where
+                part1 = (++) "part 1: " . showint . sum . m.elems . run 80  $ fish
+                part2 = (++) "part 2: " . showint . sum . m.elems . run 256 $ fish

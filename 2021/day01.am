@@ -1,7 +1,7 @@
 %export day01
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 deltas :: [int] -> [int]
@@ -22,7 +22,7 @@ day01
     = readDepths "../inputs/day01.txt" >>= go
       where
         go depths
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . incrs $ depths
                 part2 = (++) "part 2: " . showint . incrs . windowSum 3 $ depths

@@ -3,8 +3,8 @@
 %export day05
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <set>
+%import <io>
+%import <set>           qualified as s
 
 
 maxn = max2 cmpint
@@ -94,13 +94,13 @@ intersections (DiagU, xl1, xh1, yl1, yh1) (DiagD, xl2, xh2, yl2, yh2)
 
 intersections s1 s2 = []     || dummy default to remove non-exhaustive pattern warning
 
-tallyIntersections :: [segment] -> s_set point
+tallyIntersections :: [segment] -> s.set point
 tallyIntersections
-    = foldl go s_empty . tails
+    = foldl go s.empty . tails
       where
         go ps []       = ps
         go ps (s : ss) = foldl (go1 s) ps ss
-        go1 s ps s'    = foldl (converse (s_insert cmppoint)) ps (intersections s s')
+        go1 s ps s'    = foldl (converse (s.insert cmppoint)) ps (intersections s s')
 
 readSegments :: string -> io [segment]
 readSegments fn
@@ -119,10 +119,10 @@ day05
     = readSegments "../inputs/day05.txt" >>= go
       where
         go segs
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 hvSegs = filter isHorizVertSeg segs
                 part1  = "part 1: " ++ countIntersections hvSegs
                 part2  = "part 2: " ++ countIntersections segs
 
-                countIntersections = showint . s_size . tallyIntersections
+                countIntersections = showint . s.size . tallyIntersections

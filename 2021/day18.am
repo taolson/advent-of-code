@@ -1,8 +1,8 @@
 %export day18
 
 %import <base>          -split
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <maybe>
+%import <io>
+%import <maybe>         as mb   -(>>=) -(<&>)
 
 
 || tree representation
@@ -25,13 +25,13 @@ reduce' :: flatSn -> flatSn
 reduce' = (fromJust . last . takeWhile isJust . iterate (step . fromJust)) . Just
 
 step :: flatSn -> maybe flatSn
-step sn = explode sn $mb_alt split sn
+step sn = explode sn mb.<|> split sn
 
 explode :: flatSn -> maybe flatSn
 explode [] = Nothing
 explode (         (5, b) : (5, c) : rest) = Just (             (4, 0) : onHead (mapSnd (c +)) rest)
 explode ((d, a) : (5, b) : (5, c) : rest) = Just ((d, a + b) : (4, 0) : onHead (mapSnd (c +)) rest)
-explode (x : rest) = mb_fmap (x :) (explode rest)
+explode (x : rest) = (mb.<$>) (x :) (explode rest)
 
 onHead :: (* -> *) -> [*] -> [*]
 onHead f []       = []
@@ -46,7 +46,7 @@ split ((d, n) : rest)
         floor = n $div 2
         ceil  = floor + n $mod 2
 
-split (x : rest)      = mb_fmap (x :) (split rest)
+split (x : rest)      = (mb.<$>) (x :) (split rest)
 
 flatten :: sn -> flatSn
 flatten
@@ -111,7 +111,7 @@ day18
     = readInput "../inputs/day18.txt" >>= go
       where
         go sns
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . magSn . foldl1 addSn $ sns
                 part2 = (++) "part 2: " . showint . max cmpint . map (magSn . addPair) . allPairs $ sns

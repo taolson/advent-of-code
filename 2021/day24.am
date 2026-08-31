@@ -4,10 +4,10 @@
 %export day24
 
 %import <base>
-%import <io>                    (>>=)/io_bind
-%import <map>
-%import <maybe>
-%import <vector>
+%import <io>
+%import <map>           qualified as m
+%import <maybe>                         -(>>=)
+%import <vector>        as v            -foldl
 
 
 || instruction operand is reg w, x, y, z or literal int
@@ -52,23 +52,23 @@ parseInsn = words .> go
               go ["eql", sa, sb] = Eql (parseOp sa) (parseOp sb)
               go _ = undef
 
-blockInfo == m_map int [insn]
+blockInfo == m.map int [insn]
 
 || each block starts with an Inp insn; collect a list of insns at each
 || insn index of a block
 genBlocks :: [insn] -> blockInfo
 genBlocks
-    = foldl go (0, m_empty) .> snd
+    = foldl go (0, m.empty) .> snd
       where
         go (i, m) ins
-            = (i' + 1, m_insertWith cmpint (converse (++)) i' [ins] m)
+            = (i' + 1, m.insertWith cmpint (converse (++)) i' [ins] m)
               where
                 i' = if' (isInp ins) 0 i
 
 || extract the varying op2 int components from the insns at index i in the blocks
 extractVaryings :: blockInfo -> int -> [int]
 extractVaryings m i
-    = m_findWithDefault cmpint [] i m |> map viewOp2Lit |> catMaybes
+    = m.findWithDefault cmpint [] i m |> map viewOp2Lit |> catMaybes
 
 || The value of z through the 14 blocks forms a LIFO stack of base-26 numbers,
 || which is pushed to when the DIV z I immediate is 1, and popped from when it
@@ -77,7 +77,7 @@ solve :: bool -> [int] -> [int] -> [int] -> int
 solve part1 xs ys zs
     = go [] v vs
       where
-        v  = v_rep (#xs) undef
+        v  = v.rep (#xs) undef
         vs = enumerate $ zip3 xs ys zs
 
         addDigit n d = n * 10 + d
@@ -97,16 +97,16 @@ solve part1 xs ys zs
                 vr2   = vr // [(j, 1), (i, 1 + delta)], if delta > 0
                       = vr // [(j, 1 - delta), (i, 1)], otherwise
 
-        go _ vr _ = v_toList vr |> foldl addDigit 0
+        go _ vr _ = v.toList vr |> foldl addDigit 0
 
 readInsns :: string -> io [insn]
-readInsns fn = readFile fn >>= lines .> map parseInsn .> io_pure
+readInsns fn = readFile fn >>= lines .> map parseInsn .> io.pure
 
 day24 :: io ()
 day24 = readInsns "../inputs/day24.txt" >>= genBlocks .> go
         where
           go blocks
-              = io_mapM_ putStrLn [part1, part2]
+              = mapM_ putStrLn [part1, part2]
                 where
                   xs    = extractVaryings blocks 5
                   ys    = extractVaryings blocks 15

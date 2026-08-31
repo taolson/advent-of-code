@@ -1,10 +1,11 @@
+|| day25a -- added strictness to day25 code to reduce garbage collection due to space leaks
+
 %export day25
 
-%import <maybe>
 %import <base>
+%import <io>
 
 
-point == (num, num)
 grid  == [[char]]
 
 || circular scan right of a list, looking at prev, current, and next elements
@@ -14,9 +15,14 @@ cscan :: (** -> * -> * -> * -> (**, *, *)) -> ** -> [*] -> (**, [*])
 cscan f st (a : b : xs)
     = go [] st a b (xs ++ [a, b])                       || add first two elements to end to allow circular scanning
       where
-        go cs st p c [] = (st, hd cs : reverse (tl cs)) || cs holds reversed elements, except for the first
+        go cs st p c []
+            = hcs $seq tcs $seq (st, hcs : tcs) || cs holds reversed elements, except for the first
+              where
+                hcs = hd cs
+                tcs = reverse (tl cs)
+
         go cs st p c (n : ns)
-            = go (c' : cs) st' c n' ns
+            = c' $seq st' $seq n' $seq go (c' : cs) st' c n' ns
               where
                 (st', c', n') = f st p c n
 cscan f st xs = undef           || dummy pattern to remove non-exhaustive pattern warning
@@ -43,12 +49,11 @@ move (_, g)
                             = (m,    c), otherwise
 
 
-readInput :: string -> grid
-readInput fn = lines (read fn)
+readInput :: string -> io grid
+readInput fn = readFile fn <&> lines
 
-day25 :: string
+day25 :: io ()
 day25
-    = part1
+    = readInput "../inputs/day25.txt" >>= go
       where
-        floor = readInput "../inputs/day25.txt"
-        part1 = "part 1: " ++ (shownum . length . takeWhile fst . iterate move) (True, floor)
+        go floor = putStrLn . (++) "part 1: " . showint . length . takeWhile fst . iterate move $ (True, floor)

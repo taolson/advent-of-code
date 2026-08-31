@@ -1,9 +1,8 @@
 %export day16
 
 %import <base>
-%import <io>                    (<&>)/io_rfmap
-%import <io> qualified as IO    (>>=)/io_bind
-%import <maybe>
+%import <io>
+%import <maybe>                 -(>>=) -(<&>)
 
 bits == [int]   || bits are represented as a list of 0s and 1s
 
@@ -146,10 +145,10 @@ parse fn
 
 day16 :: io ()
 day16
-    = parse "../inputs/day16.txt" IO.>>= go
+    = parse "../inputs/day16.txt" io.>>= go
       where
         go p
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint . sum . versions $ p
                 part2 = (++) "part 2: " . showint . value $ p

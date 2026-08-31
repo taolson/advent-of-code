@@ -1,12 +1,12 @@
 %export day04
 
 %import <base>
-%import <either>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
-%import <set>
+%import <either>        as e            -(>>=) -(<&>)
+%import <io>
+%import <set>           qualified as s
 
 
-rowcol == s_set int
+rowcol == s.set int
 
 || a bingo board is represented as a list of row/col number sets
 board == [rowcol]
@@ -14,7 +14,7 @@ board == [rowcol]
 || make a board from a list of 25 numbers
 makeBoard :: [int] -> board
 makeBoard ns
-    = map (s_fromList cmpint) (rows ++ cols)
+    = map (s.fromList cmpint) (rows ++ cols)
       where
         rows = chunk 5 ns
         cols = transpose rows
@@ -25,11 +25,11 @@ makeBoard ns
 || the board score is the Left side of the either, since it is the exceptional condition
 markBoard :: int -> board -> either int board
 markBoard n b
-    = Left score, if any s_null b'
+    = Left score, if any s.null b'
     = Right b',   otherwise
       where
-        b'    = map (s_delete cmpint n) b
-        score = (n * foldl (s_foldl (+)) 0 b') $div 2    || div 2 because we are tallying remaining twice for row / col
+        b'    = map (s.delete cmpint n) b
+        score = (n * foldl (s.foldl (+)) 0 b') $div 2    || div 2 because we are tallying remaining twice for row / col
 
 || play a round, either stopping at the first bingo or 
 || removing bingo boards until there is only 1 left
@@ -54,7 +54,7 @@ playGame firstBingo bs ns
     = error "no bingo found!", if isRight r
     = s,                       otherwise
       where
-        r      = e_foldM (playRound firstBingo) bs ns
+        r      = e.foldM (playRound firstBingo) bs ns
         Left s = r
 
 readGame :: string -> io ([int], [board])
@@ -70,7 +70,7 @@ day04
     = readGame "../inputs/day04.txt" >>= go
       where
         go (draws, boards)
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 part1 = (++) "part 1: " . showint $ playGame True  boards draws
                 part2 = (++) "part 2: " . showint $ playGame False boards draws

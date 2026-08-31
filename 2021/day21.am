@@ -3,9 +3,9 @@
 %import <base>
 %import <io>
 %import <lens>
-%import <map>
-%import <maybe>
-%import <state>         (>>=)/st_bind
+%import <map>           qualified as m
+%import <maybe>                         -(>>=) -mapM
+%import <state>                         -view -over -set
 
 
 playerSt == (int, int)          || position, score
@@ -58,7 +58,7 @@ maxPair (a, b) = max2 cmpint a b
 
 board == (playerSt, playerSt, bool)     || player positions and scores, and who's turn it is
 
-memo  == m_map board (int, int)         || memoized map from diracSt to the (player1, player2) wins
+memo  == m.map board (int, int)         || memoized map from diracSt to the (player1, player2) wins
 
 || lenses to access board state
 b_p1   = lensTup3_0
@@ -67,16 +67,16 @@ b_turn = lensTup3_2
 
 || list of (roll count, occurrences) for 3 dirac rolls
 diracRolls
-    = m_toList (foldl addRoll m_empty [a+b+c | a,b,c <- [1,2,3]])
+    = m.toList (foldl addRoll m.empty [a+b+c | a,b,c <- [1,2,3]])
       where
-        addRoll m n = m_insertWith cmpint (+) n 1 m
+        addRoll m n = m.insertWith cmpint (+) n 1 m
 
 diracPlay :: board -> state memo (int, int)
 diracPlay bd cache
     = (fromJust mwins, cache),           if isJust mwins
-    = (cwins, m_insert cmpboard bd cwins cache'), otherwise
+    = (cwins, m.insert cmpboard bd cwins cache'), otherwise
       where
-        mwins     = m_lookup cmpboard bd cache
+        mwins     = m.lookup cmpboard bd cache
         turn1     = view b_turn bd
         p         = b_p1, if turn1
                   = b_p2, otherwise
@@ -86,7 +86,7 @@ diracPlay bd cache
         (cwins, cache')
             = (foldl1 addPair wins, cache')
               where
-                (wins, cache') = st_mapM move diracRolls cache
+                (wins, cache') = mapM move diracRolls cache
                 move (r, c) cache
                     = (mulPair wins' c, cache')
                       where
@@ -97,7 +97,7 @@ diracPlay bd cache
 
 day21 :: io ()
 day21
-    = io_mapM_ putStrLn [part1, part2]
+    = mapM_ putStrLn [part1, part2]
       where
         part1  = (++) "part 1: " . showint . gameScore $ play 8 4
-        part2  = (++) "part 2: " . showint . maxPair . fst . diracPlay ((8, 0), (4, 0), True) $ m_empty
+        part2  = (++) "part 2: " . showint . maxPair . fst . diracPlay ((8, 0), (4, 0), True) $ m.empty

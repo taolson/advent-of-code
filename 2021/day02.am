@@ -1,7 +1,7 @@
 %export day02
 
 %import <base>
-%import <io>            (>>=)/io_bind (<&>)/io_rfmap
+%import <io>
 
 
 move == (int, int, int)         || x, aim, y
@@ -31,7 +31,7 @@ day02
     = readCommands "../inputs/day02.txt" >>= go
       where
         go path
-            = io_mapM_ putStrLn [part1, part2]
+            = mapM_ putStrLn [part1, part2]
               where
                 loc   = foldl addMove (0, 0, 0) path
                 part1 = (++) "part 1: " . showint . moveProduct1 $ loc
