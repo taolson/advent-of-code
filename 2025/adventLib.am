@@ -1,7 +1,7 @@
 || advent library
 
 || Advent of Code web site session cookie:
-sessionCookie = "53616c7465645f5f6a30f5179fd3b2b1978d7eb31c72f37705f5b42835b9f37cf0840aab4f31b6291ab080161fa79c6496d47ae205136a174a5135bf00c86694"
+sessionCookie = "put your cookie here"
 
 %export output readInput download  <io> <base>
 
@@ -29,10 +29,12 @@ readInput s
             = error "download failed", if n ~= 0
             = readFile fn,             otherwise
 
+|| if you have a session cookie and want your puzzle input downloaded dynamically, uncomment the
+|| first line and comment the second
 download :: string -> string -> io int
 download s dst
-    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
-||    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io.pure 0
+||    = putStrLn ("downloading " ++ s ++ "...") >> systemCmd (intercalate " " [cmd, src, opts])
+    = putStrLn ("downloading " ++ s ++ "...") >> putStrLn (intercalate " " [cmd, src, opts]) >> io.pure 0
       where
         cmd  = "curl"
         url  = "https://adventofcode.com"
