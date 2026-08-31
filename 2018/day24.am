@@ -163,10 +163,10 @@ p_wordList :: p.parser [string]
 p_wordList = p.someSepBy (p.string ", ") p.word
 
 p_immune :: p.parser quality
-p_immune = p.string "immune to " >> p_wordList p.<&> pair Immune
+p_immune = p.string "immune to " p.>> p_wordList p.<&> pair Immune
 
 p_weak :: p.parser quality
-p_weak = p.string "weak to " >> p_wordList p.<&> pair Weak
+p_weak = p.string "weak to " p.>> p_wordList p.<&> pair Weak
 
 p_qualities :: p.parser [quality]
 p_qualities = p.inParens $ p.someSepBy (p.string "; ") (p_immune p.<|> p_weak)
@@ -175,9 +175,9 @@ p_group :: p.parser group
 p_group = p_liftA6 mkGroup (p.int << p.string " units each with ")
                            (p.int << p.string " hit points ")
                            (p.optional (p_qualities << p.space))
-                           (p.string "with an attack that does " >> p.int << p.space)
+                           (p.string "with an attack that does " p.>> p.int << p.space)
                            p.word
-                           (p.string " damage at initiative " >> p.int << p.spaces)
+                           (p.string " damage at initiative " p.>> p.int << p.spaces)
           where
             mkGroup nu hp mquals dmg at init
                 = (nu, hp, dmg, at, init, concat wk, concat im)
@@ -185,7 +185,7 @@ p_group = p_liftA6 mkGroup (p.int << p.string " units each with ")
                     (wk, im) = fromMaybef ([], []) (mapBoth (map snd) . partition isWeak) mquals
 
 p_army :: p.parser army
-p_army = p.skipUntil p.any (p.char '\n') >> p.some p_group
+p_army = p.skipUntil p.any (p.char '\n') p.>> p.some p_group
 
 p_armies :: p.parser (army, army)
 p_armies = p.liftA2 pair p_army p_army << p.end

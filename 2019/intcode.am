@@ -65,12 +65,12 @@ isWait Wait = True
 isWait _    = False
 
 processorState ::= ProcessorState
-                   runState            || rs
-                   int                 || ip
-                   int                 || rb
-                   program             || mem
-                   [int]               || inp
-                   [int]               || out
+                   runState!           || rs
+                   int!                || ip
+                   int!                || rb
+                   program!            || mem
+                   [int]!              || inp
+                   [int]!              || out
 
 reset :: program -> processorState
 reset program = ProcessorState Run 0 0 program [] []
@@ -222,22 +222,22 @@ unCMrk (CMrk n) = n
 unCMrk _        = error "unCMrk: not a CMrk"
 
 cache ::= Cache
-          (m.map int decodedInst)      || cache
-          int                         || accesses
-          int                         || hits
-          int                         || flushes
+          (m.map int decodedInst)!     || cache
+          int!                         || accesses
+          int!                         || hits
+          int!                         || flushes
 
 cacheInit :: cache
 cacheInit = Cache m.empty 0 0 0
 
 jitState ::= JitState
-             runState     || rs
-             int          || ip
-             int          || rb
-             program      || mem
-             [int]        || inp
-             [int]        || out
-             cache        || cache
+             runState!     || rs
+             int!          || ip
+             int!          || rb
+             program!      || mem
+             [int]!        || inp
+             [int]!        || out
+             cache!        || cache
 
 jitReset :: program -> jitState
 jitReset program = JitState Run 0 0 program [] [] cacheInit
