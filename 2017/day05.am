@@ -12,22 +12,22 @@
 || idx / cnt / n values
 jumpCount :: (int -> int) -> vector int -> int
 jumpCount updater v
-    = go 0 0
+    = go 0 0 ()
       where
         len = v.length v
         mv  = v.thaw v
 
-        go idx cnt
+        go idx cnt s
             = cnt,   if idx < 0 \/ idx >= len
             = doJmp, otherwise
               where
                 doJmp
-                    = case v.unsafeRead mv idx () of
-                        (n, _) -> case updater n of
-                                    n' -> case v.unsafeWrite mv idx n' of
-                                            _ -> case idx + n of
-                                                   idx' -> case cnt + 1 of
-                                                             cnt' -> go idx' cnt'
+                    = case v.unsafeRead mv idx s of (n, s1) ->
+                      case updater n of n' ->
+                      case v.unsafeWrite mv idx n' s1 of (_, s2) ->
+                      case idx + n of idx' ->
+                      case cnt + 1 of cnt' ->
+                      go idx' cnt' s2
 
 towards3 :: int -> int
 towards3 n
